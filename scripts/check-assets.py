@@ -92,14 +92,14 @@ def main() -> int:
     for f in unregistered:
         fail.append(("可追踪", f"assets/images/{f} 未登记进 handoff/assets.md"))
 
-    # ③ 可复现：每个位图有一图一档的 prompt
+    # ③ 可复现：每个位图有一图一档的 prompt。
+    # prompt 目录整个缺失时不能「跳过检查」——有位图就说明每一张都缺档案。
     has_prompts = os.path.isdir(prompts_dir)
     missing_prompt = []
-    if has_prompts:
-        for f in on_disk:
-            stem = os.path.splitext(f)[0]
-            if not os.path.isfile(os.path.join(prompts_dir, stem + ".md")):
-                missing_prompt.append(f)
+    for f in on_disk:
+        stem = os.path.splitext(f)[0]
+        if not has_prompts or not os.path.isfile(os.path.join(prompts_dir, stem + ".md")):
+            missing_prompt.append(f)
     for f in missing_prompt:
         fail.append(("可复现", f"assets/img-prompts/{os.path.splitext(f)[0]}.md 缺失（一图一档）"))
 

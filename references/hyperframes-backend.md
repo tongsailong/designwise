@@ -20,7 +20,7 @@
 ## 项目脚手架
 
 > ⚠️ 安装预警：`hyperframes init` 除了生成项目文件，还会把 **19 个 hyperframes skill 安装到
-> `~/.claude/skills/`**（渲染后端的合成契约文档，纯文档无可执行 hook）。介意的话先跑
+> Claude Code 的 `~/.claude/skills/`（ZCode 下为 `~/.zcode/skills/`）**（渲染后端的合成契约文档，纯文档无可执行 hook）。介意的话先跑
 > `npx hyperframes docs` 看本地文档清单再决定是否 init。
 
 ```bash
@@ -28,7 +28,7 @@ npx -y hyperframes init 项目名 --example blank   # 非交互必须带 --examp
 cd 项目名 && npm install
 ```
 
-生成 index.html / hyperframes.json / meta.json / package.json（pin 了 CLI 版本）+ 项目级 CLAUDE.md。init 会把 19 个 hyperframes skill 装到 `~/.claude/skills/`（本机已装）。合成写法契约读 hyperframes-core skill 的 SKILL.md（init 装到各 runtime 的 skill 目录，Claude Code 默认 `~/.claude/skills/`；无 skill 机制的 runtime 直接读 `npx hyperframes docs` 本地文档替代），本地文档 `npx hyperframes docs <topic>`（data-attributes / gsap / rendering / troubleshooting）。
+生成 index.html / hyperframes.json / meta.json / package.json（pin 了 CLI 版本）+ 项目级 CLAUDE.md。init 会把 19 个 hyperframes skill 装到当前 runtime 的 skill 目录（Claude Code 默认 `~/.claude/skills/`，ZCode 为 `~/.zcode/skills/`；本机 ZCode 侧**未装**，属未验证能力）。合成写法契约读 hyperframes-core skill 的 SKILL.md；无 skill 机制或未安装时直接读 `npx hyperframes docs` 本地文档替代，本地文档 `npx hyperframes docs <topic>`（data-attributes / gsap / rendering / troubleshooting）。
 
 **版本策略**：项目 package.json 会 pin 精确版本（当前实测过的是 0.7.61）。它迭代极快（300+ releases），升级先 `npx hyperframes@latest upgrade --project . --check` 看 delta，跑一遍回归 demo 再动。
 
@@ -40,7 +40,7 @@ cd 项目名 && npm install
 - 视频素材用 `muted`，音轨单独 `<audio>` 元素
 - **只允许确定性逻辑**：禁 `Date.now()` / `Math.random()` / 运行时网络 fetch；随机用种子函数
 - 字体：Google Fonts 会被编译器自动抓取并注入确定性 @font-face（缓存 `~/.cache/hyperframes/fonts/`）；纯系统字体（PingFang SC 等）加一行 `@font-face { font-family:"PingFang SC"; src: local("PingFang SC"); }` 过 lint
-- Three.js 走 `hf-seek` 事件适配器（`~/.claude/skills/hyperframes-animation/adapters/three.md`），根容器必须显式 `data-duration`
+- Three.js 走 `hf-seek` 事件适配器（`<runtime skills dir>/hyperframes-animation/adapters/three.md`；ZCode 下为 `~/.zcode/skills/hyperframes-animation/adapters/three.md`，需先装），根容器必须显式 `data-duration`
 
 ## 老 demo 迁移 · 适配器配方（实测 20-30 分钟/个）
 

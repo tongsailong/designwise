@@ -75,10 +75,30 @@ if [ -z "$TIMELINE" ] || [ ! -f "$TIMELINE" ]; then
 fi
 
 # ── 从 timeline.json 读 totalDuration 和 voiceover 路径 ──
+# 路径与数值只作为数据传给 node（argv），不拼进 JS 源码；totalDuration 必须是
+# 有限正数且落在业务上限内，避免把任意字符串当表达式执行。
 TIMELINE_DIR="$(cd "$(dirname "$TIMELINE")" && pwd)"
-TOTAL_DURATION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$TIMELINE','utf8')).totalDuration)")
-VOICEOVER_REL=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$TIMELINE','utf8')).voiceover || 'voiceover.mp3')")
-VOICEOVER="$TIMELINE_DIR/$VOICEOVER_REL"
+TOTAL_DURATION=$(node -e '
+const fs = require("fs");
+let t;
+try { t = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).totalDuration; }
+catch (e) { console.error("timeline.json 无法解析：" + e.message); process.exit(2); }
+const n = Number(t);
+if (!Number.isFinite(n) || n <= 0 || n > 7200) {
+  console.error("totalDuration 非法（要求 0 < n <= 7200）：" + JSON.stringify(t));
+  process.exit(2);
+}
+process.stdout.write(String(n));
+' "$TIMELINE") || exit 1
+VOICEOVER_REL=$(node -e '
+const fs = require("fs");
+const v = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).voiceover;
+process.stdout.write(typeof v === "string" && v.trim() ? v : "voiceover.mp3");
+' "$TIMELINE") || exit 1
+case "$VOICEOVER_REL" in
+  /*) VOICEOVER="$VOICEOVER_REL" ;;                 # 绝对路径按原样使用
+  *)  VOICEOVER="$TIMELINE_DIR/$VOICEOVER_REL" ;;
+esac
 
 if [ ! -f "$VOICEOVER" ]; then
   echo "✗ voiceover.mp3 不存在: $VOICEOVER" >&2
@@ -86,7 +106,11 @@ if [ ! -f "$VOICEOVER" ]; then
 fi
 
 # 录制时长 = 总时长 + 1s 安全缓冲
-RECORD_DURATION=$(node -e "console.log(Math.ceil($TOTAL_DURATION + 1))")
+RECORD_DURATION=$(node -e '
+const n = Number(process.argv[1]);
+if (!Number.isFinite(n) || n <= 0) process.exit(2);
+process.stdout.write(String(Math.ceil(n + 1)));
+' "$TOTAL_DURATION") || exit 1
 
 HTML_ABS="$(cd "$(dirname "$HTML")" && pwd)/$(basename "$HTML")"
 HTML_DIR="$(dirname "$HTML_ABS")"
@@ -95,6 +119,23 @@ SILENT_MP4="$HTML_DIR/$HTML_BASE.mp4"
 
 if [ -z "$OUT" ]; then
   OUT="$HTML_DIR/$HTML_BASE-narrated.mp4"
+fi
+
+# 中间产物是渲染器按 HTML 基名固定写出的文件。它若已存在，我们无法证明归属，
+# 覆盖或清理都会毁掉用户文件；直接拒绝并让用户先移走。--out 与它同路径同样拒绝。
+if [ -e "$SILENT_MP4" ]; then
+  echo "✗ 中间产物已存在，拒绝覆盖/删除: $SILENT_MP4（请先移走再重跑）" >&2
+  exit 1
+fi
+OUT_DIR="$(dirname "$OUT")"
+if [ ! -d "$OUT_DIR" ]; then
+  echo "✗ 输出目录不存在: $OUT_DIR" >&2
+  exit 1
+fi
+OUT_ABS="$(cd "$OUT_DIR" && pwd)/$(basename "$OUT")"
+if [ "$OUT_ABS" = "$SILENT_MP4" ]; then
+  echo "✗ --out 不能与中间产物同路径: $OUT_ABS" >&2
+  exit 1
 fi
 
 echo "═══ render-narration ═══════════════════"
@@ -141,11 +182,19 @@ MIX_ARGS=("$SILENT_MP4" "--voiceover=$VOICEOVER" "--out=$OUT")
 
 bash "$SCRIPT_DIR/mix-voiceover.sh" "${MIX_ARGS[@]}"
 
-# 清理中间产物
+if [ ! -f "$OUT" ]; then
+  echo "✗ 混音完成但最终输出不存在: $OUT" >&2
+  exit 1
+fi
+
+# 只清理本次创建的中断产物（运行前已确认它不存在）。
 if [ -z "$KEEP_SILENT" ]; then
   rm -f "$SILENT_MP4"
 fi
 
 echo ""
 echo "✓ 完成: $OUT"
-[ -n "$KEEP_SILENT" ] && echo "  (中间产物保留: $SILENT_MP4)"
+if [ -n "$KEEP_SILENT" ]; then
+  echo "  (中间产物保留: $SILENT_MP4)"
+fi
+exit 0

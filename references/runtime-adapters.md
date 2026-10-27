@@ -20,7 +20,8 @@
 | **本地命令执行** | 跑 `scripts/*`（导出 PDF/PPTX/MP4）、`gen_deck_thumbs.mjs` | bash / shell 工具 | 无 shell 时交付 HTML 源 + 导出命令说明，让用户在本地跑；不要假装已导出 |
 | **文件读写** | 写 HTML/JSX/CSS、写 gate 文件（`brand-spec.md` 等） | Write / Edit | 纯对话 runtime 无文件系统时，把文件内容贴进回复，并说明「请自行保存为 X.html」 |
 | **云能力**（可选） | 豆包 TTS 配音、AI 看片评审 | `scripts/cloud/*`，需自备 key + `--yes` 显式确认 | 默认不用。无声/无 AI 评审时走 `scripts/verify-video.sh` 截帧人工核；见 SECURITY.md |
-| **GPT 图像生成**（概念效果图 / 正式图片素材） | GPT 视觉概念生图通路的概念效果图与正式素材（需探索新视觉方向的 App/Web/交互原型任务） | `huashu-gpt-image` 技能自带的 `gen_via_cpa.py`（本机 CPA，OpenAI 兼容 `/v1/images/generations`、`/v1/images/edits`） | OpenAI Images API（自备 key）；再不行 → **明确报告技术限制、暂停生图环节**（可交付完整英文 prompt 供用户在 ChatGPT 出图后交回继续），**不得静默改用 SVG/程序绘图冒充概念图**；判定为「不适用」的任务仍走 HTML/CSS 原生链路，能力一条不减（探测与判定见 `references/gpt-visual-workflow.md` §1 / §2.2.1） |
+| **GPT 图像生成**（概念效果图 / 正式图片素材） | GPT 视觉概念生图通路的概念效果图与正式素材（需探索新视觉方向的 App/Web/交互原型任务） | ZCode 默认 `scripts/zcode_image.py`（本机 CPA，OpenAI 兼容 `/v1/images/generations`、`/v1/images/edits`；也可用 `ZCODE_CPA_BASE_URL` / `ZCODE_CPA_API_KEY` 覆盖；方法论见 `~/.zcode/skills/huashu-gpt-image/`） | 其他 runtime 用自身图像生成能力；再不行 → **明确报告技术限制、暂停生图环节**（可交付完整英文 prompt 供用户在 ChatGPT 出图后交回继续），**不得静默改用 SVG/程序绘图冒充概念图**；判定为「不适用」的任务仍走 HTML/CSS 原生链路，能力一条不减（探测与判定见 `references/gpt-visual-workflow.md` §1 / §2.2.1） |
+| **视觉评审**（Gate 1 / Gate 2） | 基于真实像素比较候选方向 / 判阶段门槛 | ZCode 默认 `scripts/zcode_vision.py`（只收磁盘上的真实图片；CPA Responses `input_image`；也可用 `ZCODE_CPA_BASE_URL` / `ZCODE_CPA_API_KEY` 覆盖）；其他 runtime 用原生视觉或自带评审工具 | 没有等价能力 → **如实报告「未获得有效视觉裁决」，按缺证处理**（Gate 1 交候选图让用户选）；**不得用纯文字 / 代码复核子智能体冒充视觉评审，不得伪造 PASS**；用户明确点名 Copilot 时才走 copilot 正式 REVIEW |
 
 ## 怎么判断「我有没有这个能力」
 
@@ -34,7 +35,7 @@
 
 ## 与「弱 runtime 降级模式」的关系
 
-SKILL.md 的「弱 runtime 降级模式」是**按结果分级的降级策略**（并行→串行、references 按需读、deck 改单文件…），触发条件是「无 subagent / 非 Claude / 小上下文」——那是一组粗略的启发式。
+「弱 runtime 降级模式」（ZCode 迁移后位于 `references/zcode-host.md`）是**按结果分级的降级策略**（并行→串行、references 按需读、deck 改单文件…），触发条件是「无 subagent / 非 Claude / 小上下文」——那是一组粗略的启发式。
 
 这份文档是它的**补充**：降级模式回答「能力不够时砍哪些流程」，本表回答「某个具体能力缺失时，用哪个替代工具顶上」。两者配合使用，**顺序是先用本表找替代，替代也不可行时才按降级模式砍流程**。
 
@@ -43,4 +44,4 @@ SKILL.md 的「弱 runtime 降级模式」是**按结果分级的降级策略**�
 ## 能力映射的自由度边界
 
 - 工具名可以换（`WebSearch` 换成任何检索工具），但**能力不能降级**：三方向门、资产协议、事实验证这三个是硬约束，任何 runtime 都要达成，只是达成手段不同。
-- 举例：Reasonix 环境里，检索走 Exa（`mcp__exa__web_search_exa`）或 `web_fetch`、时效敏感信息走 Chrome 自动化兜底；子代理走 `task` / `fleet`；浏览器验证走内置 browser 工具或 `scripts/verify.py`。**这张具体映射会随平台变化，所以它写在这里当例子，而不是写进能力表当规则。**
+- 举例：Reasonix 环境里，检索走内置 `web_search` 或 `web_fetch`、时效敏感信息走 Chrome 自动化兜底；子代理走 `task` / `fleet`；浏览器验证走内置 browser 工具或 `scripts/verify.py`。**这张具体映射会随平台变化，所以它写在这里当例子，而不是写进能力表当规则。**

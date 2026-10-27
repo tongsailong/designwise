@@ -17,7 +17,8 @@
 
 ```bash
 cd 项目目录 && unset ALL_PROXY   # 脚本内已免疫代理，unset是双保险
-uv run ~/.claude/skills/huashu-design/scripts/cloud/ai-review-video.py \
+# 在 skill 根目录执行（ZCode 下为 ~/.zcode/skills/designwise/）
+uv run scripts/cloud/ai-review-video.py \
   --video 成片.mp4 \
   --context 导演稿.md \      # 强烈建议带上：模型靠它区分「设计意图」和「bug」
   --yes                      # 确认视频段发送火山方舟（或 HUASHU_CLOUD_OK=1）

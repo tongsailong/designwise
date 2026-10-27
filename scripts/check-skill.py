@@ -151,6 +151,17 @@ def check_structure(root: str):
                 for key in ("name:", "description:"):
                     if key not in fm:
                         errors.append(f"SKILL.md frontmatter 缺少 {key} 字段")
+                size = len(text.encode("utf-8"))
+                if size > 100_000:
+                    errors.append(
+                        f"SKILL.md 超过 ZCode 100,000 字节读取上限（当前 {size} 字节）")
+                elif size > 98_000:
+                    warnings.append(
+                        f"SKILL.md 已接近 100,000 字节上限（当前 {size} 字节），新增内容请移到 references/")
+                m = re.search(r"^description:\s*(.*)$", fm, re.M)
+                if m and len(m.group(1)) > 1024:
+                    errors.append(
+                        f"SKILL.md description 超过 1024 字符（当前 {len(m.group(1))}）")
 
     return errors, warnings
 
@@ -206,11 +217,11 @@ def main():
 
     print(f"自检根目录：{root}\n")
 
-    struct_errors, _ = check_structure(root)
+    struct_errors, struct_warnings = check_structure(root)
     ref_errors, ref_warnings, referenced = check_references(root)
     errors = struct_errors + ref_errors
 
-    warnings = list(ref_warnings)
+    warnings = list(struct_warnings) + list(ref_warnings)
     if args.strict:
         warnings += check_orphans(root, referenced)
 

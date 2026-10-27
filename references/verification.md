@@ -55,7 +55,8 @@ open -a "Google Chrome" "/path/to/your/design.html"
 HTML文件里最常见的问题是JS报错导致白屏。用Playwright跑一遍：
 
 ```bash
-python ~/.claude/skills/huashu-design/scripts/verify.py path/to/design.html
+# 在 skill 根目录执行（ZCode 下为 ~/.zcode/skills/designwise/）
+python3 scripts/verify.py path/to/design.html
 ```
 
 这个脚本会：
@@ -76,11 +77,21 @@ python verify.py design.html --viewports 1920x1080,1440x900,768x1024,375x667
 
 ### 4. 交互检查
 
-Tweaks、动画、按钮切换——默认的静态截图看不到。**建议让用户自己开浏览器点一遍**，或者用Playwright录屏：
+Tweaks、动画、按钮切换——默认的静态截图看不到。**建议让用户自己开浏览器点一遍**，或者用 Playwright 录屏（录屏在创建 context 时配置，不是 `page.video.record()`）：
 
 ```python
-page.video.record('interaction.mp4')
+context = browser.new_context(
+    record_video_dir="videos/",
+    record_video_size={"width": 1280, "height": 720},
+)
+page = context.new_page()
+page.goto(url)
+page.click("#toggle")
+assert page.locator("#panel").is_visible()   # 关键动作 + 结果断言
+context.close()  # 关闭 context 后才落盘视频
 ```
+
+录屏只是证据，不等于功能验证：必须有关键动作与结果断言；没有断言的视频不能作为「交互正常」的证明。
 
 ### 5. 幻灯片逐页检查
 

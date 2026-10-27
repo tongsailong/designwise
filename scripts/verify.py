@@ -68,8 +68,12 @@ def verify_html(html_path, viewports=None, slides=0, output_dir=None, show=False
             page.wait_for_timeout(wait)
 
             if slides > 0:
+                # 多 viewport 时文件名必须带尺寸，否则后一个尺寸会覆盖前一个的截图。
+                slide_suffix = (f"-{viewport['width']}x{viewport['height']}"
+                                if len(viewports) > 1 else "")
                 for i in range(slides):
-                    screenshot_path = output_dir / f"{stem}-slide-{str(i + 1).zfill(2)}.png"
+                    screenshot_path = output_dir / \
+                        f"{stem}{slide_suffix}-slide-{str(i + 1).zfill(2)}.png"
                     page.screenshot(path=str(screenshot_path), full_page=False)
                     print(f"  ✓ slide {i+1} → {screenshot_path.name}")
 
