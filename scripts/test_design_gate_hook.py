@@ -192,8 +192,24 @@ class GateHookTests(unittest.TestCase):
             f"if pushd {self.long}; then :; fi; npm run render",
             f"if . {self.long}/defs.sh; then :; fi; npm run render",
             f"if command cd {self.long}; then :; fi; npm run render",
+            f"if env -C {self.long} npm run render -- --duration=60; then :; fi",
+            f"while env --chdir={self.long} npm run render -- --duration=60; do break; done",
+            f"if timeout 10 env -C {self.long} npm run render -- --duration=60; then :; fi",
+            f"if bash -c 'cd {self.long}; npm run render -- --duration=60'; then :; fi",
+            f"if npm -C {self.long} run render -- --duration=60; then :; fi",
         ):
             self.check(cmd, self.gate, 2, "condition state change must fail closed")
+
+    def test_render_in_condition_with_wrappers(self):
+        for cmd in (
+            "if timeout 10 npm run render -- --duration=60; then :; fi",
+            "if nice npm run render -- --duration=60; then :; fi",
+            "if env FOO=1 npm run render -- --duration=60; then :; fi",
+            "if xargs npm run render -- --duration=60; then :; fi",
+        ):
+            self.check(cmd, self.long, 2, "wrapped render in condition")
+        self.check("if timeout 10 npm run render -- --duration=60; then :; fi",
+                   self.gate, 0, "gated wrapper condition render")
 
     def test_malformed_input(self):
         self.assertEqual(self.run_raw("not json"), 2, "invalid JSON must fail closed")

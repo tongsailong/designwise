@@ -19,6 +19,7 @@
 # 覆盖范围：直接渲染入口、npm/node/npx/hyperframes、常见包装器、bash -c、子 shell/
 # 花括号、无条件 cd 连接、明确 true/false 的分支、if/while/until 条件命令、空循环、
 # 未调用函数定义、普通 shell 脚本内容检查；绝对路径 shell/npm/node 也按同一程序识别。
+# 条件/循环里的 cwd/env 变更（含 env -C、npm -C、嵌套 shell -c）按失败关闭处理。
 # 不保证：stdin 动态喂给 shell（... | bash）、远程执行（ssh/docker）、解释器内动态
 # 拼命令、make / npm run build 等间接构建、非字面条件/循环、case、函数调用、
 # workspace/filter/多个 workspace、命令替换/进程替换；这些无法可靠判定时失败关闭。
@@ -1897,15 +1898,21 @@ def _render_subject(tokens) -> bool:
 
 
 def _tokens_state_relevant(tokens, ctx: Ctx) -> bool:
-    """Whether a control block can change cwd/env or call a dangerous function."""
+    """Whether a control block can change cwd/env or call a dependent shell."""
     for i, tok in enumerate(tokens):
         if tok.kind != "word":
             continue
         if tok.value in ctx.functions and ctx.functions[tok.value]:
             return True
+        name = os.path.basename(tok.value).lower()
+        # 包装器可能把 shell/cwd 变更放在命令位置之后（timeout/env/xargs…）。
+        if name in ("bash", "sh", "zsh", "dash"):
+            return True
+        if tok.value in ("-C", "-D", "--chdir") \
+                or tok.value.startswith(("-C", "--chdir=")):
+            return True
         if not _cmd_start(tokens, i):
             continue
-        name = os.path.basename(tok.value).lower()
         if name in STATE_WORDS or name == "command":
             return True
     return False
@@ -1931,7 +1938,7 @@ def _control_risk(tokens, ctx: Ctx) -> bool:
     def check_block(block):
         if _tokens_state_relevant(block, ctx):
             return True
-        return (not gate) and _tokens_relevant(block)
+        return (not gate) and _render_subject(block)
 
     for i, tok in enumerate(tokens):
         if tok.kind != "word" or not _cmd_start(tokens, i):
@@ -1963,7 +1970,7 @@ def _control_risk(tokens, ctx: Ctx) -> bool:
             control_seen = True
     if control_seen and not matched:
         return _tokens_state_relevant(tokens, ctx) or (
-            (not gate) and _tokens_relevant(tokens))
+            (not gate) and _render_subject(tokens))
     return False
 
 
