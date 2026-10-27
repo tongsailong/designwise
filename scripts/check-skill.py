@@ -119,6 +119,9 @@ def git_ignored(root: str, rel: str):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        # 0=ignored, 1=not ignored；其余（128=不是 git 仓库等）无法判定。
+        if r.returncode not in (0, 1):
+            return None
         return r.returncode == 0
     except (OSError, subprocess.SubprocessError):
         return None
