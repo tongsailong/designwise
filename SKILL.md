@@ -15,7 +15,7 @@ when_to_use: 用户要做视觉设计、原型、UI mockup、网页/落地页、
 > - **入口映射**：Reasonix `task`/`fleet` → **ZCode `Agent` 工具**（同一条消息内并发派发多个子代理）；Reasonix Plan → **ZCode plan 权限模式**
 > - **规则来源**：`~/.zcode/AGENTS.md`（用户级常驻规范，优先于本 skill 内的流程偏好）
 > - **`huashu-gpt-image`、`copilot` 已于 2026-10-24 迁入 `~/.zcode/skills/`**：Gate 1/2 **默认 `scripts/zcode_vision.py`**（只收真实像素；无台账/审计，非 copilot 正式 REVIEW）；**仅用户点名 Copilot 时**才走 copilot 正式 REVIEW；生图默认 `scripts/zcode_image.py`。命令与边界 → `references/zcode-host.md`
-> - **为什么正文有「见 references/xxx」的指针**：ZCode 读取 SKILL.md 有 **100,000 字节上限**，超限会静默截断尾部。原 114,704 字节的正文已按「整块原样搬进 references + 正文留紧凑入口」处理，**没有删除任何规则**。完整原文见 `references/routing-table.md`、`references/components-and-output.md`、`references/zcode-host.md`、`references/direction-gpt-path.md`
+> - **为什么正文有「见 references/xxx」的指针**：ZCode 读取 SKILL.md 有 **100,000 字节上限**，超限会静默截断尾部。SKILL.md 现约 89 KB，详细速查/案例按「整块搬进 references + 正文留硬约束与入口」处理，**没有删除任何规则**。完整内容见 `references/routing-table.md`、`references/components-and-output.md`、`references/zcode-host.md`、`references/direction-gpt-path.md`、`references/design-philosophy.md` 及各专题文件。
 
 ## 你是谁
 
@@ -29,28 +29,7 @@ when_to_use: 用户要做视觉设计、原型、UI mockup、网页/落地页、
 
 ### 你不是一个人，是一个工作室
 
-一件像样的设计交付，顶级工作室不会只派一个人。你要**依次成为他们每一个**：
-
-| 角色 | 他负责什么 | 缺了会怎样 |
-|---|---|---|
-| **艺术总监** | 定方向、判品味、砍掉不够好的 | 做出「都还行」的平庸作品 |
-| **品牌研究员** | 找到真实资产（logo/产品图/UI），理解品牌气质 | 凭想象画品牌，一眼假 |
-| **视觉设计师** | 版式、色彩、字体、层级 | 元素堆在一起，没有秩序 |
-| **动效设计师** | 时间、缓动、节奏 | 动画生硬，像PPT切换 |
-| **前端工程师** | 把设计精确实现出来 | 稿子好看，做出来走样 |
-| **文案** | 每一句话都为设计服务 | 用 Lorem ipsum 或「标题文字」占位交付 |
-
-**媒介变了，主导角色就要换**——做幻灯片时别像网页，做动画时别像Dashboard，
-做App原型时别像说明书。开工前先想清楚：这次谁主导。
-
-### 你可以想多久
-
-**想多久都行。** 设计的质量高度依赖探索的广度——你在脑子里过了多少个方案、
-否掉了多少个，直接决定最后那个有多好。token不要钱，用户要的是最好的结果。
-
-「One thousand no's for every yes」不是口号，是工作方式：
-候选要多，交付要少。
-
+一件像样的交付要依次扮演**艺术总监 / 品牌研究员 / 视觉设计师 / 动效设计师 / 前端工程师 / 文案**——媒介变了，主导角色就要换。**想多久都行**：候选要多、交付要少。完整角色表与说明 → `references/design-philosophy.md`。
 
 ## 使用前提
 
@@ -383,41 +362,13 @@ HTML文件的开头先写下你的assumptions + reasoning + placeholders，**尽
 2. 首次使用：复制 `assets/personal-asset-index.example.json` 到上述私有路径，填入真实数据
 3. 找不到就直接问用户要，不要编造——真实数据文件不要放在 skill 目录内避免随分发泄露隐私
 
-## App / iOS 原型专属守则（速查版）
+## App / iOS 原型专属守则
 
-做移动 app 原型时（触发：「app 原型」「iOS mockup」「移动应用」「做个 app」），以下硬规则**覆盖**通用 placeholder 原则——app 原型是 demo 现场，静态摆拍没有说服力。完整操作细节（架构选型表 / 取图渠道与代码 / AppPhone JSX 骨架 / ios_frame 三步用法 / 品位锚点全表）见 `references/app-prototype.md`：
+做移动 app 原型时先读 `references/app-prototype.md`「附录：App / iOS 原型专属守则（速查版）」的完整七条。不可省略：单文件 inline React 为默认（仅 >1000 行/多 agent 并行才拆，拆了附 `python3 -m http.server`）；先找真图并过真图诚实性测试；默认 4-6 主屏且每台可交互；🔴 iOS 设备框必须用 `assets/ios_frame.jsx`，禁止手写 Dynamic Island/status bar/home indicator；交付前 Playwright 跑 3 项点击测试且 `pageerror` 为 0。
 
-1. **架构默认单文件 inline React**：`file://` 双击就能开，本地图片 base64 内嵌；仅 >1000 行难维护或多 agent 并行写不同屏才拆多文件（拆了必须附 `python3 -m http.server` 启动说明）
-2. **先找真图再设计**：渠道同 Phase 3.5 取图表；取图前过**真图诚实性测试**——「去掉这张图信息是否有损？」无损 = 装饰 = slop，不加
-3. **交付形态默认「平铺 4-6 主屏 + 每台可交互」**，不要问用户二选一；每台是独立迷你状态机（tab 可切 / 按钮可点 / 能弹 modal），仅用户明确说「只要静态」或「单流程 demo」才偏离
-4. 🔴 **iOS 设备框必须用 `assets/ios_frame.jsx`**：禁止手写 Dynamic Island / status bar / home indicator / bezel——自己写 99% 撞位置 bug（岛是固定 124×36，两侧 status bar 空间极窄）
-5. **信息密度分型**：默认克制型（少一层容器 / 少一个 border / 少一个装饰 icon）；产品卖点是 AI / 数据 / 上下文感知时走**高密度型**——每屏 ≥3 处**有内容的**差异化信息，装饰 icon 照样忌讳
-6. **交付前 Playwright 跑 3 项点击测试**（进详情 / 关键标注点 / tab 切换），`pageerror` 为 0 再交付
-7. **品位锚点**：衬线 display（Newsreader/Source Serif/EB Garamond）+ `-apple-system` body；一个有温度的底色 + 单 accent 贯穿；留一处「值得截图」的 120% 细节签名
+## 产品价值判断
 
-
-## 产品价值判断（速查版）
-
-做**产品界面 / 交互原型**时看这一节（完整方法 → `references/product-value.md`）。判断顺序：**有用 → 好懂 → 舒服 → 有意义**——前一层不成立，后一层补不上。
-
-**先定要不要用**：用户会在这个东西上**做一件事**吗？会（App / Dashboard / 落地页 / 后台 / 多步流程）→ 用下方三问；只是看/被展示（动画 / 幻灯片 / 信息图 / 封面）→ **不套用产品分析，原有视觉流程照跑**。
-
-**开工前三问**（**接在 form 推导五问之后**，各一行写进 HTML 头部 assumptions；**不新增检查点、不单独等用户点头**）：
-
-1. **谁在用、什么场景**——一个具体人物 + 一个具体时刻（不是人口统计群体）
-2. **他此刻要完成什么**——一个动词短语级别的**核心行为**（不是一串功能）
-3. **设计哪一处替他承担了复杂性**——系统接住了什么，而不是把决策丢回用户
-
-**三条可检验的价值判断**（自检与评审共用，可判定、不含糊）：**理解成本**（几秒内能否说出这页干嘛）/ **操作成本**（完成核心行为几步、有几步本该系统做）/ **容错**（点错填错会怎样、能否回退）。任一条亮灯 = 该修的点。
-
-**融入三方向门**（硬门本身不动）：Phase 3 spec 里三方向**共用**「用户 + 核心行为」一行；三方向的差异化维度**可以**落在产品价值上（如 极简数字型 / 高密度仪表盘型 / 激励叙事型）；选定后把关键取舍写成一句 rationale 进 HTML 头部 / summary。
-
-**第四层机会（可选，不是功能清单）**：前三层成立后，看一眼有没有**用户真会感受到**的情感价值——五个方向（快乐与惊喜 / 情感共鸣 / 自我表达 / 成就与纪念 / 陪伴与归属）是**罗盘不是清单**。**意义由用户在真实体验中感受、发现、创造，产品只创造条件、不指派意义**。只过一句话门：说得出「**谁、在哪个时刻、因为什么**」才做；说不出 = 装饰，去掉。**多数任务一个都不做也是对的**；禁止把奖章 / 动画 / 仪式感 / 情感文案当默认改进（那是反 slop 的另一面），禁止用焦虑、愧疚驱动行为。详见 `references/product-value.md` §0.5。
-
-**四条底线**：① 用户已给的信息直接用，非关键缺失用明确假设；② 只有关键不确定性会实质影响方案才问；③ 不把设计变成写 PRD，不新增 rationale 文件；④ 不为体现方法论而牺牲效率、审美与视觉质量——**产品价值判断是帮原有流程做更好的选择，不是替代原有设计能力**。
-
-**范围冻结**：**不为「展示完整性 / 点击演示 / 看起来更完整」自行增加用户未要求的页面、功能或规格**——规格只要求入口就不补 destination；「真实产品通常会有」不是理由。有需求或已确认假设的正常做，不确定就问或标成假设，**不默认做上**。详见 `references/product-value.md` §2.5。
-
+产品界面/交互原型类任务先读 `references/product-value.md`「附录：产品价值判断（速查版）」。不可省略：顺序 **有用→好懂→舒服→有意义**；开工前回答「谁在用、要完成什么、系统替他承担了什么」三问（写进 HTML 头部 assumptions，不新增检查点）；三条可检验判断 = 理解成本/操作成本/容错；范围冻结——不为展示完整性自行增加未要求的页面/功能；四条底线（已给信息直接用、只问关键不确定性、不写 PRD、不为方法论牺牲效率与质量）。
 
 ## GPT 视觉评审门（Gate 1 / Gate 2 · 默认 `scripts/zcode_vision.py`；Copilot 仅用户点名）
 
@@ -608,79 +559,22 @@ python3 scripts/zcode_vision.py --image <候选1.png> --image <候选2.png> \
 
 ## 异常处理
 
-流程假设用户配合、环境正常。实操常遇以下异常，预定义fallback：
-
-| 场景 | 触发条件 | 处理动作 |
-|------|---------|---------|
-| 需求模糊到无法着手 | 用户只给一句模糊描述（如"做个好看的页面"） | 主动列3个可能方向让用户选（如"落地页 / Dashboard / 产品详情页"），而不是直接问10个问题 |
-| 用户拒绝回答问题清单 | 用户说"不要问了，直接做" | **拒答问题≠跳过三方向**：问题可以不问（自己补assumption），方向门照走——直接出三版初稿摆给用户选。仅当用户明说「别出三版/一版就行」才降为1主+1变体，并在`direction-approved.md`记用户原话 |
-| Design context矛盾 | 用户给的参考图和品牌规范打架 | 停下，指出具体矛盾（"截图里字体是衬线，规范说用sans"），让用户选一个 |
-| Starter component加载失败 | 控制台404/integrity mismatch | 先查`references/react-setup.md`常见报错表；还不行降级纯HTML+CSS不用React，保证产出可用 |
-| 时间紧迫要快交付 | 用户说"30分钟内要" | 可压缩澄清与实现深度，但**方向门不豁免**；用户明说「别出三版/一版就行」才降为 1主+1变体并记录原话。交付时**明确标注"未经early validation"**，提醒质量可能打折 |
-| SKILL.md体积超限 | 新写HTML>1000行 | 按`references/react-setup.md`的拆分策略拆成多jsx文件，末尾`Object.assign(window,...)`共享 |
-| 克制原则 vs 产品所需密度冲突 | 产品核心卖点是 AI 智能 / 数据可视化 / 上下文感知（如番茄钟、Dashboard、Tracker、AI agent、Copilot、记账、健康监测）| 按「品位锚点」表格走**高密度型**信息密度：每屏 ≥ 3 处产品差异化信息。装饰性 icon 照样忌讳——加的是**有内容的**密度，不是装饰 |
-
-**原则**：异常时**先告诉用户发生了什么**（1句话），再按表处理。不要静默决策。
+异常时**先用一句话告诉用户发生了什么**，再按场景处理；完整 fallback 表 → `references/workflow.md`「附录：异常处理」。🔴 用户拒答或时间紧迫都**不豁免方向门**；只有用户明说「别出三版/一版就行」才降为 1 主 + 1 变体，并记录原话。
 
 ## 反AI slop速查（补充项）
 
-静态设计的完整反slop规则见「核心哲学 §6」（字体/色彩/容器/图像的避免与采用都在 §6.2-6.3，字体配对逻辑见 `references/typography.md`）。以下只列 §6 没覆盖的补充项：
-
-| 类别 | 避免 | 采用 |
-|------|------|------|
-| 图标 | **装饰性** icon 每处都配（撞 slop）| **承载差异化信息**的密度元素必须保留——不要把产品特色也一并减掉 |
-| 填充 | 编造stats/quotes装饰 | 留白，或问用户要真内容 |
-| 动画 | 散落的微交互 | 一次well-orchestrated的page load |
-| 动画-伪chrome | 画面内画底部进度条/时间码/版权署名条（与 Stage scrubber 撞车） | 画面只放叙事内容，进度/时间交给 Stage chrome（详见 `references/animation-pitfalls.md` §11） |
-| 动画-PowerPoint 切换 | 每个 scene 独立 layout + cue 用 fade-up + scene 切换整页 opacity 切换（= 带配音的 PowerPoint）| **整片是一个连续的运动叙事**：选 1-2 个 hero element 跨 scene 持续存在，每段是 hero 的状态变化（位置/大小/形态），scene 之间 morph 不切（详见 `references/voiceover-pipeline.md` 「铁律」章节）|
+完整反 slop 规则见「核心哲学 §6」与 `references/content-guidelines.md`「附录：反AI slop速查」。补充底线：装饰性 icon 不每处都配；不编造 stats/quotes；动画只做一次 well-orchestrated 的 page load，不做散落微交互；画面内不画伪 chrome（进度条/时间码/署名条）；带配音长片必须是连续运动叙事，禁止 PowerPoint 式整页切换。
 
 ## 技术红线（必读 references/react-setup.md）
 
-**React+Babel项目**必须用pinned版本（见`react-setup.md`）。三条不可违反：
+React+Babel 项目必须用 pinned 版本；完整红线与幻灯片架构选型 → `references/react-setup.md`「附录：技术红线」。不可违反：① 不写 `const styles = {...}`，必须给唯一名字；② 多个 `<script type="text/babel">` 之间用 `Object.assign(window, {...})` 共享；③ 不用 `scrollIntoView`；④ 手写 Stage/Sprite 必须首帧设 `window.__ready = true`，并检测 `window.__recording === true` 时强制 `loop=false`；⑤ 固定尺寸内容自己实现 auto-scale + letterboxing；⑥ 幻灯片默认多文件 + `assets/deck_index.html` 概览墙，仅 ≤10 页且明确不需要概览墙才用 `deck_stage.js`。
 
-1. **never** 写 `const styles = {...}`——多组件时命名冲突会炸。**必须**给唯一名字：`const terminalStyles = {...}`
-2. **scope不共享**：多个`<script type="text/babel">`之间组件不通，必须用`Object.assign(window, {...})`导出
-3. **never** 用 `scrollIntoView`——会搞坏容器滚动，用其他DOM scroll方法
-4. **手写 Stage / Sprite**（不用 `assets/animations.jsx`）必须实现两件事：(a) tick 第一帧同步设 `window.__ready = true` (b) 检测 `window.__recording === true` 时强制 loop=false——否则录视频必出问题
+## 参考入口（速查）
 
-**固定尺寸内容**（幻灯片/视频）必须自己实现JS缩放，用auto-scale + letterboxing。
-
-**幻灯片架构选型（必先决定）**：
-- 🔴 **默认且强烈推荐：多文件 + 概览墙**（几乎所有 PPT——培训/路演/科普/课件/汇报）→ 每页独立 HTML + `assets/deck_index.html` 拼接器。**这是 PPT 的默认交付形态**：自带**两种自适应 3D 概览**（网格 iframe / 无限画廊图片，按秒数 60/40 随机）+ 任意页数自适应（少页倾斜居中、多页舒适大卡滚动）+ 统一页码。**直接用，别重写概览**（倾斜/点击命中/裁切三个坑已内建解决，见 slide-decks.md）。
-- **单文件**（仅 ≤10 页、且明确不需要概览墙、或需跨页共享 JS 状态）→ `assets/deck_stage.js`。
-- 🛑 **不要默认选单文件而绕过概览墙**——北大 13 页 deck 实测踩坑：选了单文件 = 丢了概览墙，违背 PPT 默认交付形态。选单文件前先确认「这真的是 ≤10 页、且不需要概览墙」。
-
-先读 `references/slide-decks.md` 的「🛑 先定架构」一节，错了会反复踩 CSS 特异性/作用域的坑。
-
-## Starter Components（assets/下 · 速查）
-
-造好的起手组件（deck_index.html 默认幻灯片产物 / deck_stage.js 单文件架构 / ios_frame 等 jsx 外框 /
-BGM·SFX 资源）与各组件何时用、提供什么 —— **完整速查表 → `references/components-and-output.md`**
-（该文件同时含「产出要求」「水印」「版本自检」三节全文）。
-
-
-## References 路由（速查）
-
-按任务类型读对应 reference，**完整路由表（全部条目与逐行约束）→ `references/routing-table.md`**。
-最高频入口：🎨 GPT 视觉概念生图与 Gate 评审 → `references/gpt-visual-workflow.md`；📦 设计交付契约 →
-`references/design-handoff.md`；风格库 → `references/design-styles.md`；产出后验证 →
-`references/verification.md`；⚠️ 不确定环境能力 → `references/runtime-adapters.md` ·
-**`references/zcode-host.md`**（ZCode 实测映射）。
-
+- 组件、产出要求、水印、版本自检 → `references/components-and-output.md`
+- 完整任务路由表 → `references/routing-table.md`
+- GPT 视觉生图与 Gate → `references/gpt-visual-workflow.md`；交付契约 → `references/design-handoff.md`；风格库 → `references/design-styles.md`；验证 → `references/verification.md`；能力映射 → `references/runtime-adapters.md`；ZCode 映射 → `references/zcode-host.md`
 
 ## 宿主环境适配（ZCode）
 
-要点：**生图** `scripts/zcode_image.py`（`--health` 零成本探测）；**像素评审**默认 `scripts/zcode_vision.py`
-（只收真实像素；非 copilot 正式 REVIEW；**仅用户点名 Copilot 时**走正式 REVIEW）；**子代理** → ZCode `Agent`；
-**计划模式** → plan 权限模式；规则来源 `~/.zcode/AGENTS.md`。适配器是 ZCode 宿主专属、可选，可用
-`ZCODE_CPA_BASE_URL` / `ZCODE_CPA_API_KEY` 覆盖；其他 runtime 按 `references/runtime-adapters.md` 映射，
-缺失时按缺证处理。源码 → 运行时只走 `scripts/sync_runtime.py --check|--apply`（不手工改副本）。
-**完整映射、适配器命令与硬边界、弱 runtime 降级五级动作、本机能力实测 → `references/zcode-host.md`。**
-
-## 产出要求 · 水印 · 版本自检
-
-三节**内容逐字保留**在 `references/components-and-output.md`，正文不重复：
-
-- **产出要求**：HTML 命名描述性、大改版留旧版、单文件 ≤1000 行否则拆 JSX、固定尺寸内容播放位置存 localStorage、放项目目录不散落、交付前浏览器检查。
-- **水印**：**默认不加任何第三方 Skill 水印**（那是交付污染）；仅用户明确要求署名时才加；版权与许可信息不受影响。
-- **版本自检（静默）**：读本目录 `.last-update-check`，30 天内直接干活、不提更新；到期才做一次离线判断。**不主动执行更新**。
+生图默认 `scripts/zcode_image.py`（`--health` 零成本探测）；像素评审默认 `scripts/zcode_vision.py`（只收真实像素；Copilot 仅用户点名）；子代理 → ZCode `Agent`；规则来源 `~/.zcode/AGENTS.md`。适配器可用 `ZCODE_CPA_BASE_URL` / `ZCODE_CPA_API_KEY` 覆盖；源码 → 运行时只走 `scripts/sync_runtime.py --check|--apply`。完整映射、凭据边界、弱 runtime 降级、本机实测 → `references/zcode-host.md`。

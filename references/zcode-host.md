@@ -199,9 +199,9 @@ python3 scripts/zcode_vision.py --image a.png --image b.png --prompt "<评审要
 **同步**：只使用 `scripts/sync_runtime.py`（`--check` / `--apply`），不手工改副本。
 ZCode 适配文件本身也在仓库中，因此整树单向同步是安全的。
 
-### 因 100 KB 上限搬到 references 的四块内容
+### 为 100 KB 上限移入 references 的内容
 
-这四块**已随源码提交**，并由 `scripts/sync_runtime.py` 一起同步到运行时，不再只存在于副本：
+下列内容**已随源码提交**，并由 `scripts/sync_runtime.py` 一起同步到运行时：
 
 | 搬到哪 | 原文来自 SKILL.md 的哪一节 | 是否逐字 |
 |---|---|---|
@@ -209,6 +209,11 @@ ZCode 适配文件本身也在仓库中，因此整树单向同步是安全的�
 | `references/components-and-output.md` | `## Starter Components` + `## 产出要求` + `## 水印` + `## 版本自检` | 逐字 |
 | `references/zcode-host.md`（本文件） | `## 跨 Agent 环境适配说明` + `## 弱 runtime 降级模式` | 逐字 + 追加 ZCode 映射 |
 | `references/direction-gpt-path.md` | Phase 3.7 起的逐条 GPT 通路硬规则 | 规则保留，措辞按 ZCode 通道更新 |
+
+2026-10-27 体积收口又把以下速查/细节**逐字移入**对应 references（SKILL.md 现约 89 KB）：
+App/iOS → `app-prototype.md`；产品价值 → `product-value.md`；异常处理 → `workflow.md`；
+反 slop 速查 → `content-guidelines.md`；技术红线 → `react-setup.md`；工作室/探索心态 →
+`design-philosophy.md`。入口保留硬约束摘要与指针。
 
 另外，SKILL.md 里 Step 1 的 GPT 通路大段（约 3.3 KB）与 Phase 3.6 的重复描述做了**压缩**（转为指针 +
 关键约束重申），**规则本身没有删除**——完整版都在 `references/gpt-visual-workflow.md` 与

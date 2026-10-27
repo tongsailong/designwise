@@ -278,3 +278,26 @@ HTML里按顺序加载：
 ```
 
 **每个文件末尾**都要`Object.assign(window, {...})`导出要共享的东西。
+
+
+---
+
+## 附录：技术红线
+
+> 2026-10-27 从 SKILL.md 移入，内容逐字保留；入口见 SKILL.md 对应小节。
+
+**React+Babel项目**必须用pinned版本（见`react-setup.md`）。三条不可违反：
+
+1. **never** 写 `const styles = {...}`——多组件时命名冲突会炸。**必须**给唯一名字：`const terminalStyles = {...}`
+2. **scope不共享**：多个`<script type="text/babel">`之间组件不通，必须用`Object.assign(window, {...})`导出
+3. **never** 用 `scrollIntoView`——会搞坏容器滚动，用其他DOM scroll方法
+4. **手写 Stage / Sprite**（不用 `assets/animations.jsx`）必须实现两件事：(a) tick 第一帧同步设 `window.__ready = true` (b) 检测 `window.__recording === true` 时强制 loop=false——否则录视频必出问题
+
+**固定尺寸内容**（幻灯片/视频）必须自己实现JS缩放，用auto-scale + letterboxing。
+
+**幻灯片架构选型（必先决定）**：
+- 🔴 **默认且强烈推荐：多文件 + 概览墙**（几乎所有 PPT——培训/路演/科普/课件/汇报）→ 每页独立 HTML + `assets/deck_index.html` 拼接器。**这是 PPT 的默认交付形态**：自带**两种自适应 3D 概览**（网格 iframe / 无限画廊图片，按秒数 60/40 随机）+ 任意页数自适应（少页倾斜居中、多页舒适大卡滚动）+ 统一页码。**直接用，别重写概览**（倾斜/点击命中/裁切三个坑已内建解决，见 slide-decks.md）。
+- **单文件**（仅 ≤10 页、且明确不需要概览墙、或需跨页共享 JS 状态）→ `assets/deck_stage.js`。
+- 🛑 **不要默认选单文件而绕过概览墙**——北大 13 页 deck 实测踩坑：选了单文件 = 丢了概览墙，违背 PPT 默认交付形态。选单文件前先确认「这真的是 ≤10 页、且不需要概览墙」。
+
+先读 `references/slide-decks.md` 的「🛑 先定架构」一节，错了会反复踩 CSS 特异性/作用域的坑。

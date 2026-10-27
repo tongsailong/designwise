@@ -266,3 +266,20 @@ p {
 - 用紫色渐变？→ 换一个有根据的配色
 
 **当你觉得"加一下会更好看"的时候——那通常是AI slop的征兆**。先做最简的版本，只在用户要求时加。
+
+
+---
+
+## 附录：反AI slop速查（补充项）
+
+> 2026-10-27 从 SKILL.md 移入，内容逐字保留；入口见 SKILL.md 对应小节。
+
+静态设计的完整反slop规则见「核心哲学 §6」（字体/色彩/容器/图像的避免与采用都在 §6.2-6.3，字体配对逻辑见 `references/typography.md`）。以下只列 §6 没覆盖的补充项：
+
+| 类别 | 避免 | 采用 |
+|------|------|------|
+| 图标 | **装饰性** icon 每处都配（撞 slop）| **承载差异化信息**的密度元素必须保留——不要把产品特色也一并减掉 |
+| 填充 | 编造stats/quotes装饰 | 留白，或问用户要真内容 |
+| 动画 | 散落的微交互 | 一次well-orchestrated的page load |
+| 动画-伪chrome | 画面内画底部进度条/时间码/版权署名条（与 Stage scrubber 撞车） | 画面只放叙事内容，进度/时间交给 Stage chrome（详见 `references/animation-pitfalls.md` §11） |
+| 动画-PowerPoint 切换 | 每个 scene 独立 layout + cue 用 fade-up + scene 切换整页 opacity 切换（= 带配音的 PowerPoint）| **整片是一个连续的运动叙事**：选 1-2 个 hero element 跨 scene 持续存在，每段是 hero 的状态变化（位置/大小/形态），scene 之间 morph 不切（详见 `references/voiceover-pipeline.md` 「铁律」章节）|
