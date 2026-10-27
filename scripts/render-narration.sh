@@ -140,6 +140,10 @@ if [ -d "$OUT" ]; then
   echo "✗ --out 指向目录，拒绝覆盖: $OUT" >&2
   exit 1
 fi
+if [ -L "$OUT" ]; then
+  echo "✗ --out 不能是符号链接（避免写入/删除链接目标）: $OUT" >&2
+  exit 1
+fi
 
 # --out 不得覆盖任何输入（HTML / timeline / 人声 / BGM）或本次中间产物。
 # 归一化目录后再比较（含符号链接目录），再用 -ef 兜住符号链接/硬链接文件。

@@ -86,9 +86,17 @@ def main() -> int:
 
     fail = []
 
-    # ① 可引用：清单里的路径都存在
+    # ① 可引用：清单里的路径都存在，且不得越出项目目录
+    root_real = os.path.realpath(root)
     for rel in referenced:
-        if not os.path.isfile(os.path.join(root, rel)):
+        target = os.path.realpath(os.path.join(root, rel))
+        try:
+            inside = os.path.commonpath([root_real, target]) == root_real
+        except ValueError:
+            inside = False
+        if not inside:
+            fail.append(("可引用", f"清单引用了项目外路径：{rel}"))
+        elif not os.path.isfile(target):
             fail.append(("可引用", f"清单引用了不存在的文件：{rel}"))
 
     # ② 可追踪：磁盘上的位图都被清单登记（用相对路径，避免同名文件互相遮蔽）

@@ -38,9 +38,11 @@ python3 scripts/sync_runtime.py --to ~/.zcode/skills/designwise --apply
 python3 scripts/sync_runtime.py --to ~/.zcode/skills/designwise --apply --prune
 ```
 
-脚本排除 `.env`、`.git`、`node_modules`、`.reasonix`、`design-demos`、`__pycache__` 与字节码；
-写入使用临时文件 + 原子替换。**ZCode 宿主适配（frontmatter、100 KB 拆分、适配器、路径改写）
-本身已进仓库**，所以同步不再需要手工合并，也不会冲掉适配。
+脚本排除 `.env` / `.env.*`（保留 `.env.example`）、`assets/personal-asset-index.json`、`.git`、
+`node_modules`、`.reasonix`、`design-demos`、`__pycache__` 与字节码；写入使用临时文件 + 原子替换。
+目标必须含 `SKILL.md` 的 `name: designwise`；首次安装到空目录时加 `--force`。
+**ZCode 宿主适配（frontmatter、100 KB 拆分、适配器、路径改写）本身已进仓库**，所以同步不再需要
+手工合并，也不会冲掉适配。
 
 **纪律**：**改副本 = 下次同步被覆盖**。若在副本上做了紧急修改，先把它搬回源码仓库（`git diff` 核对）
 再走单向同步，**不做双向合并**。漂移是静默的，只有 `--check` 能看见。
@@ -160,7 +162,9 @@ python3 scripts/zcode_vision.py --image a.png --image b.png --prompt "<评审要
   **禁止用文字描述冒充视觉评审**——这是原 skill「不得把搜索图片/文字提示词冒充真图」规则的 ZCode 落地。
   copilot 正式 REVIEW 路径（用户点名时）同样只收真实像素（`bridge_evidence.py` 只落元数据，`call_gpt.py` 校验 sha256+魔数后内联）。
 - `zcode_image.py` 拿不到 `b64_json` 或以非图片字节返回 → 非零退出，**不写占位文件**。
-- 两者凭据只从 `~/.zcode/v2/provider_config.json` 读取，**不打印、不落盘、不进 prompt**；
+- 两者凭据优先读 `ZCODE_CPA_BASE_URL` + `ZCODE_CPA_API_KEY`（两者都设置时，无需本机配置文件）；
+  否则读 `~/.zcode/v2/provider_config.json`（可用 `ZCODE_PROVIDER_CONFIG` 改路径）。
+  **不打印、不落盘、不进 prompt**；
   迁移后的 copilot 凭据解析链为：环境变量 `CUSTOM_127_API_KEY` → Reasonix `.env`（同机兼容）→ 同一份 provider 配置。
 
 ### 本机能力现状（2026-10-24 实测）

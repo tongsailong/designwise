@@ -43,9 +43,22 @@ class SyncRuntimeTests(unittest.TestCase):
     def run_sync(self, *args):
         return subprocess.run(
             [sys.executable, os.path.join(self.src, "scripts", "sync_runtime.py"),
-             "--to", self.dst] + list(args),
+             "--to", self.dst, "--force"] + list(args),
             text=True, capture_output=True, timeout=30,
         )
+
+    def test_unrelated_target_is_refused_without_force(self):
+        r = subprocess.run(
+            [sys.executable, os.path.join(self.src, "scripts", "sync_runtime.py"),
+             "--to", self.dst, "--check"],
+            text=True, capture_output=True, timeout=30)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("不像 DesignWise skill", r.stdout)
+
+    def test_prune_without_apply_is_rejected(self):
+        r = self.run_sync("--prune")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("--prune 只能与 --apply", r.stdout)
 
     def test_check_reports_missing_then_apply_copies(self):
         r = self.run_sync("--check")

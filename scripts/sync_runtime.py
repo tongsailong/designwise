@@ -9,14 +9,17 @@
     python3 scripts/sync_runtime.py --to ~/.zcode/skills/designwise --check
     python3 scripts/sync_runtime.py --to ~/.zcode/skills/designwise --apply
     python3 scripts/sync_runtime.py --to ~/.zcode/skills/designwise --apply --prune
+    python3 scripts/sync_runtime.py --to /new/empty/dir --apply --force   # 首次安装
 
 退出码：0 = 一致或写入成功；1 = 检测到漂移/写入失败；2 = 参数或目标目录错误。
-不读取、不写入 .env；不触碰 .git / node_modules / design-demos / __pycache__。
+不读取、不写入 .env / .env.*；不触碰 .git / node_modules / design-demos / __pycache__。
+目标必须含 SKILL.md 的 `name: designwise`（首次安装到空目录时用 --force 跳过该检查）。
 """
 
 import argparse
 import hashlib
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -100,7 +103,13 @@ def main():
     mode.add_argument("--apply", action="store_true", help="写入缺失/不同的文件")
     ap.add_argument("--prune", action="store_true",
                     help="配合 --apply：删除目标里源码不存在的文件（危险，默认关闭）")
+    ap.add_argument("--force", action="store_true",
+                    help="目标缺少 SKILL.md / name: designwise 时仍允许写入（首次安装用）")
     args = ap.parse_args()
+
+    if args.prune and not args.apply:
+        print("❌ --prune 只能与 --apply 一起使用")
+        return 2
 
     source = os.path.abspath(SOURCE)
     target = os.path.abspath(os.path.expanduser(args.to))
@@ -117,6 +126,21 @@ def main():
     if source_real == target_real or common in (source_real, target_real):
         print("❌ 源码目录与目标目录相同或互为祖先/后代，拒绝同步")
         return 2
+    # 非 --force 时要求目标确实是 DesignWise skill，避免 --to /tmp --prune 误删。
+    if not args.force:
+        skill_md = os.path.join(target, "SKILL.md")
+        looks_like_skill = False
+        if os.path.isfile(skill_md):
+            try:
+                with open(skill_md, encoding="utf-8", errors="replace") as fh:
+                    looks_like_skill = re.search(
+                        r"(?m)^name:\s*designwise\s*$", fh.read(4096)) is not None
+            except OSError:
+                looks_like_skill = False
+        if not looks_like_skill:
+            print("❌ 目标不像 DesignWise skill（缺 SKILL.md 或 name: designwise）；"
+                  "确认目标后用 --force")
+            return 2
 
     src, missing, different, extra = compare(source, target)
     print(f"源码：{source}（{len(src)} 个可同步文件）")

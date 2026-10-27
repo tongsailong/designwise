@@ -184,6 +184,16 @@ class GateHookTests(unittest.TestCase):
                    self.gate, 0, "gated condition render is allowed")
         self.check("while npm run render; do break; done",
                    self.gate, 0, "gated while condition render is allowed")
+        # 条件里的状态变更必须失败关闭，即使 cwd 已有 Gate：真实 bash 会先 cd
+        # 到无 Gate 目录，再执行后面的渲染。
+        for cmd in (
+            f"if cd {self.long}; then :; fi; npm run render",
+            f"while cd {self.long}; do break; done; npm run render",
+            f"if pushd {self.long}; then :; fi; npm run render",
+            f"if . {self.long}/defs.sh; then :; fi; npm run render",
+            f"if command cd {self.long}; then :; fi; npm run render",
+        ):
+            self.check(cmd, self.gate, 2, "condition state change must fail closed")
 
     def test_malformed_input(self):
         self.assertEqual(self.run_raw("not json"), 2, "invalid JSON must fail closed")
@@ -458,7 +468,7 @@ class GateHookTests(unittest.TestCase):
     def test_until_and_quoted_for_semantics(self):
         self.check(
             f"until false; do cd {self.long}; break; done; npm run render",
-            self.gate, 2, "until false executes its body", reason="direction-approved.md")
+            self.gate, 2, "until false executes its body", reason="控制流")
         self.check(
             f"until true; do cd {self.long}; break; done; npm run render",
             self.gate, 0, "until true is a zero-iteration loop")
@@ -469,7 +479,7 @@ class GateHookTests(unittest.TestCase):
         ):
             self.check(loop, self.gate, 2,
                        "quoted empty word is still one iteration",
-                       reason="direction-approved.md")
+                       reason="控制流")
         self.check(f"for i in; do cd {self.long}; done; npm run render",
                    self.gate, 0, "truly empty for list is zero iterations")
 

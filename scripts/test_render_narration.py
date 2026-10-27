@@ -169,6 +169,15 @@ class NarrationScriptTests(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("不能覆盖输入或中间文件", r.stderr)
 
+    def test_symlink_output_is_refused(self):
+        path, timeline = self.project("symlink_file_out")
+        link = os.path.join(path, "out-link.mp4")
+        os.symlink(os.path.join(path, "demo.mp4"), link)  # 悬空链接
+        r = self.run_script(os.path.join(path, "demo.html"), f"--timeline={timeline}",
+                            f"--out={link}")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("不能是符号链接", r.stderr)
+
     def test_missing_output_dir_exits_1(self):
         path, timeline = self.project("missing_outdir")
         r = self.run_script(os.path.join(path, "demo.html"), f"--timeline={timeline}",

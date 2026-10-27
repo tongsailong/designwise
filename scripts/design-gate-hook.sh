@@ -1896,23 +1896,43 @@ def _render_subject(tokens) -> bool:
     return False
 
 
+def _tokens_state_relevant(tokens, ctx: Ctx) -> bool:
+    """Whether a control block can change cwd/env or call a dangerous function."""
+    for i, tok in enumerate(tokens):
+        if tok.kind != "word":
+            continue
+        if tok.value in ctx.functions and ctx.functions[tok.value]:
+            return True
+        if not _cmd_start(tokens, i):
+            continue
+        name = os.path.basename(tok.value).lower()
+        if name in STATE_WORDS or name == "command":
+            return True
+    return False
+
+
 def _control_risk(tokens, ctx: Ctx) -> bool:
     """Whether unparsed control flow may affect a render or context.
 
-    A control block that only contains text (e.g. `if [ -d x ]; then echo; fi;
-    npm run render`) does not change cwd/env; allow it.  A block containing
-    cd/export/render, or a dangerous function call, fails closed.  If the
-    command cannot reach a render at all, control flow is irrelevant and must
-    not block ordinary read-only composites.
+    State-changing control flow (cd/export/source/eval/functions/...) always
+    fails closed: a condition can change cwd before a later render, and the
+    condition command is not otherwise evaluated by the parser.  A block that
+    only contains text or a render command does not change context; it is
+    allowed when a Gate is already confirmed, and otherwise fails closed.
+    If the command cannot reach a render at all, control flow is irrelevant
+    and must not block ordinary read-only composites.
     """
     if not _render_subject(tokens):
         return False
-    # 已确认 Gate 时，控制流里的渲染不再因“无法求值”被阻断；具体渲染仍由
-    # 主流程按最终 cwd 再查 Gate（分支改 cwd 会 taint 并被阻断）。
-    if _gate_ok(ctx.cwd):
-        return False
+    gate = _gate_ok(ctx.cwd)
     control_seen = False
     matched = False
+
+    def check_block(block):
+        if _tokens_state_relevant(block, ctx):
+            return True
+        return (not gate) and _tokens_relevant(block)
+
     for i, tok in enumerate(tokens):
         if tok.kind != "word" or not _cmd_start(tokens, i):
             continue
@@ -1925,28 +1945,25 @@ def _control_risk(tokens, ctx: Ctx) -> bool:
             then_i, _else_i, fi_i = _if_parts(tokens, i)
             if then_i is not None and fi_i is not None:
                 control_seen = matched = True
-                if _tokens_relevant(tokens[i:fi_i + 1]):
+                if check_block(tokens[i:fi_i + 1]):
                     return True
         elif tok.value in ("while", "until", "for"):
             do_i, done_i = _loop_parts(tokens, i)
             if do_i is not None and done_i is not None:
                 control_seen = matched = True
-                if _tokens_relevant(tokens[i:done_i + 1]):
+                if check_block(tokens[i:done_i + 1]):
                     return True
         elif tok.value == "case":
             esac_i = _case_parts(tokens, i)
             if esac_i is not None:
                 control_seen = matched = True
-                if _tokens_relevant(tokens[i:esac_i + 1]):
+                if check_block(tokens[i:esac_i + 1]):
                     return True
         elif tok.value == "function":
             control_seen = True
-    if control_seen and any(t.kind == "word" and t.value in STATE_WORDS
-                            and _cmd_start(tokens, i)
-                            for i, t in enumerate(tokens)):
-        return True
     if control_seen and not matched:
-        return _tokens_relevant(tokens)
+        return _tokens_state_relevant(tokens, ctx) or (
+            (not gate) and _tokens_relevant(tokens))
     return False
 
 

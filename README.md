@@ -357,18 +357,26 @@ python3 scripts/check-skill.py            # 结构 + 引用完整性
 python3 scripts/check-skill.py --strict   # 额外检查孤儿文档
 ```
 
-### 维护者：源码基线与运行时副本
+### 维护者：源码仓库与运行时副本
 
-本仓库（git 工作区）是**唯一源码基线**；agent 的 skills 目录（如 `~/.reasonix/skills/designwise`）是**只读运行时副本**。改动只在基线做，然后**单向**同步出去：
+本仓库（git 工作区）是**唯一源码**；agent 的 skills 目录是**运行时副本**，只由
+`scripts/sync_runtime.py` 单向写入。不要手工改副本：
 
 ```bash
-rsync -a --delete --exclude '.git' --exclude 'node_modules' --exclude '.reasonix' --exclude 'design-demos' \
-  ./ ~/.reasonix/skills/designwise/
-diff -rq . ~/.reasonix/skills/designwise --exclude=node_modules --exclude=.git --exclude=.reasonix --exclude=design-demos
-# diff 无输出 = 一致；有输出 = 副本被直接改过，先搬回基线再重同步（不做双向合并）
+# 默认只检查；有漂移时退出码 1
+python3 scripts/sync_runtime.py --to ~/.zcode/skills/designwise --check
+
+# 确认后写入缺失/不同的文件；默认不删除目标多出的文件
+python3 scripts/sync_runtime.py --to ~/.zcode/skills/designwise --apply
+
+# 只有明确要删除副本多余文件时才加 --prune（危险）
+python3 scripts/sync_runtime.py --to ~/.zcode/skills/designwise --apply --prune
 ```
 
-详见 `SKILL.md`「源码基线 vs 运行时副本」。
+脚本自动排除 `.env` / `.env.*`（保留 `.env.example`）、`assets/personal-asset-index.json`、
+`.git`、`node_modules`、`design-demos`、`__pycache__`，并拒绝源码/目标互为祖先或后代。
+目标必须含 `SKILL.md` 的 `name: designwise`；首次安装到空目录时加 `--force`。
+若在副本上做了紧急修改，先搬回源码仓库再同步，不做双向合并。详见 `references/zcode-host.md`。
 
 ---
 

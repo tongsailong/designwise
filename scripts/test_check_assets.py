@@ -54,6 +54,20 @@ class CheckAssetsTests(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("清单引用了不存在的文件", r.stdout)
 
+    def test_reference_outside_project_is_rejected(self):
+        import tempfile
+        fd, outside = tempfile.mkstemp(prefix="outside_", suffix=".png",
+                                       dir=os.path.dirname(self.root))
+        os.close(fd)
+        try:
+            self.write("handoff/assets.md",
+                       f"| assets/images/a/../../../../{os.path.basename(outside)} |\n")
+            r = self.run_check()
+            self.assertEqual(r.returncode, 1, r.stdout)
+            self.assertIn("项目外路径", r.stdout)
+        finally:
+            os.remove(outside)
+
     def test_unregistered_image_fails(self):
         self.image()
         self.write("handoff/assets.md", "no images here\n")

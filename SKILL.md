@@ -434,7 +434,7 @@ HTML文件的开头先写下你的assumptions + reasoning + placeholders，**尽
 
 🔴 **视觉评审只走两个既有入口**：默认 `scripts/zcode_vision.py --image … --prompt "…"`（图片组装与调用在适配器内完成）；**仅用户点名 Copilot** 时才走 `bridge_evidence.py` → `call_gpt.py --mode REVIEW`。不另写一次性调用脚本，不改动适配器。
 
-🔴 **与代码复核分开**：Gate 1/2 只做视觉判断；代码/变更独立复核按 `~/.zcode/AGENTS.md` §6 由原生子智能体的独立上下文承担；该复核无视觉能力，不得冒充 Gate 1/2。
+🔴 **与代码复核分开**：Gate 1/2 只做视觉判断；代码/变更独立复核按**当前 runtime 的复核规则**（ZCode 下为 `~/.zcode/AGENTS.md` §6）由独立上下文承担；该复核无视觉能力，不得冒充 Gate 1/2。
 
 **生图 ≠ 评审（两个能力不许混淆）**：GPT **生图**负责「**产生 / 探索**视觉方向」（`scripts/zcode_image.py`，规则见 `references/gpt-visual-workflow.md` §2.2~§2.3）；**视觉评审**负责「**看图、比较、判断**」（`scripts/zcode_vision.py`，即原 `copilot` 的 Gate 1/2 位置）。正式产品图片素材仍按需用 GPT 生图，**但不等于**必须再走一轮完整设计探索。
 
