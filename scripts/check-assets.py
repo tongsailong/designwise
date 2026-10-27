@@ -32,12 +32,17 @@ PATH_RE = re.compile(r"assets/images/[A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:png|jpe?g|
 
 
 def list_images(images_dir: str):
+    """Return bitmap paths relative to images_dir, recursively."""
     if not os.path.isdir(images_dir):
         return []
-    return sorted(
-        f for f in os.listdir(images_dir)
-        if os.path.splitext(f)[1].lower() in IMAGE_EXT
-    )
+    found = []
+    for dirpath, dirnames, filenames in os.walk(images_dir):
+        dirnames.sort()
+        for name in sorted(filenames):
+            if os.path.splitext(name)[1].lower() in IMAGE_EXT:
+                rel = os.path.relpath(os.path.join(dirpath, name), images_dir)
+                found.append(rel.replace(os.sep, "/"))
+    return found
 
 
 def main() -> int:
@@ -86,9 +91,9 @@ def main() -> int:
         if not os.path.isfile(os.path.join(root, rel)):
             fail.append(("可引用", f"清单引用了不存在的文件：{rel}"))
 
-    # ② 可追踪：磁盘上的位图都被清单登记
-    ref_names = {os.path.basename(r) for r in referenced}
-    unregistered = [f for f in on_disk if f not in ref_names]
+    # ② 可追踪：磁盘上的位图都被清单登记（用相对路径，避免同名文件互相遮蔽）
+    ref_paths = set(referenced)
+    unregistered = [f for f in on_disk if f"assets/images/{f}" not in ref_paths]
     for f in unregistered:
         fail.append(("可追踪", f"assets/images/{f} 未登记进 handoff/assets.md"))
 
@@ -97,19 +102,20 @@ def main() -> int:
     has_prompts = os.path.isdir(prompts_dir)
     missing_prompt = []
     for f in on_disk:
-        stem = os.path.splitext(f)[0]
-        if not has_prompts or not os.path.isfile(os.path.join(prompts_dir, stem + ".md")):
-            missing_prompt.append(f)
-    for f in missing_prompt:
-        fail.append(("可复现", f"assets/img-prompts/{os.path.splitext(f)[0]}.md 缺失（一图一档）"))
+        prompt_rel = os.path.splitext(f)[0] + ".md"
+        if not has_prompts or not os.path.isfile(os.path.join(prompts_dir, prompt_rel)):
+            missing_prompt.append(prompt_rel)
+    for rel in missing_prompt:
+        fail.append(("可复现", f"assets/img-prompts/{rel} 缺失（一图一档）"))
 
     if args.md:
         print("| 素材文件 | 已登记清单 | 有 prompt 档案 |")
         print("|---|---|---|")
         for f in on_disk:
-            stem = os.path.splitext(f)[0]
-            reg = "✅" if f in ref_names else "❌"
-            pr = "✅" if has_prompts and os.path.isfile(os.path.join(prompts_dir, stem + ".md")) else "❌"
+            prompt_rel = os.path.splitext(f)[0] + ".md"
+            reg = "✅" if f"assets/images/{f}" in ref_paths else "❌"
+            pr = "✅" if has_prompts and os.path.isfile(
+                os.path.join(prompts_dir, prompt_rel)) else "❌"
             print(f"| assets/images/{f} | {reg} | {pr} |")
         print()
 

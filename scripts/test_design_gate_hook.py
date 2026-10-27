@@ -165,6 +165,26 @@ class GateHookTests(unittest.TestCase):
         self.check(f'if [ -d x ]; then cd "{self.gate}"; fi; npm run render',
                    self.long, 2, "nonliteral branch cd blocks")
 
+    def test_render_in_condition_position(self):
+        """条件/循环条件里的命令也是命令位置，不能被当成 if 的参数丢掉。"""
+        self.check("if npm run render -- --duration=60; then :; fi",
+                   self.long, 2, "if condition render")
+        self.check(f"if {self.node} scripts/render-video.js out.html --duration=60; then :; fi",
+                   self.long, 2, "if condition node render")
+        self.check("while npm run render; do break; done",
+                   self.long, 2, "while condition render")
+        self.check("until npm run render; do break; done",
+                   self.long, 2, "until condition render")
+        self.check("if ! npm run render; then :; fi",
+                   self.long, 2, "negated if condition render")
+        self.check("if npm run render -- --duration=30; then :; fi",
+                   self.long, 2,
+                   "control-flow condition is fail-closed even for a short render")
+        self.check("if npm run render -- --duration=60; then :; fi",
+                   self.gate, 0, "gated condition render is allowed")
+        self.check("while npm run render; do break; done",
+                   self.gate, 0, "gated while condition render is allowed")
+
     def test_malformed_input(self):
         self.assertEqual(self.run_raw("not json"), 2, "invalid JSON must fail closed")
         self.assertEqual(self.run_raw(json.dumps({"cwd": self.long})), 0,
@@ -438,7 +458,7 @@ class GateHookTests(unittest.TestCase):
     def test_until_and_quoted_for_semantics(self):
         self.check(
             f"until false; do cd {self.long}; break; done; npm run render",
-            self.gate, 2, "until false executes its body", reason="控制流")
+            self.gate, 2, "until false executes its body", reason="direction-approved.md")
         self.check(
             f"until true; do cd {self.long}; break; done; npm run render",
             self.gate, 0, "until true is a zero-iteration loop")
@@ -448,7 +468,8 @@ class GateHookTests(unittest.TestCase):
             f'for i in "$X"; do cd {self.long}; break; done; npm run render',
         ):
             self.check(loop, self.gate, 2,
-                       "quoted empty word is still one iteration", reason="控制流")
+                       "quoted empty word is still one iteration",
+                       reason="direction-approved.md")
         self.check(f"for i in; do cd {self.long}; done; npm run render",
                    self.gate, 0, "truly empty for list is zero iterations")
 

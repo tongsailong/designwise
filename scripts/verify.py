@@ -26,6 +26,11 @@ def parse_viewport(s):
     return {'width': int(w), 'height': int(h)}
 
 
+def exit_status(page_errors, console_errors):
+    """0 only when there are no page errors and no console errors."""
+    return 0 if not page_errors and not console_errors else 1
+
+
 def verify_html(html_path, viewports=None, slides=0, output_dir=None, show=False, wait=2000):
     try:
         from playwright.sync_api import sync_playwright
@@ -51,7 +56,15 @@ def verify_html(html_path, viewports=None, slides=0, output_dir=None, show=False
         viewports = [{'width': 1440, 'height': 900}]
 
     console_errors = []
+    console_warnings = []
     page_errors = []
+
+    def on_console(msg):
+        text = f"[{msg.type}] {msg.text}"
+        if msg.type == "error":
+            console_errors.append(text)
+        elif msg.type == "warning":
+            console_warnings.append(text)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=not show)
@@ -60,7 +73,7 @@ def verify_html(html_path, viewports=None, slides=0, output_dir=None, show=False
             context = browser.new_context(viewport=viewport, device_scale_factor=2)
             page = context.new_page()
 
-            page.on("console", lambda msg: console_errors.append(f"[{msg.type}] {msg.text}") if msg.type in ("error", "warning") else None)
+            page.on("console", on_console)
             page.on("pageerror", lambda err: page_errors.append(str(err)))
 
             print(f"\n→ 打开 {file_url} @ {viewport['width']}x{viewport['height']}")
@@ -110,17 +123,24 @@ def verify_html(html_path, viewports=None, slides=0, output_dir=None, show=False
         print("\n✅ 无JavaScript错误")
 
     if console_errors:
-        print(f"\n⚠️  Console Errors/Warnings ({len(console_errors)}):")
+        print(f"\n❌ Console Errors ({len(console_errors)}):")
         for e in console_errors[:20]:
             print(f"  - {e}")
         if len(console_errors) > 20:
             print(f"  ... 还有{len(console_errors) - 20}条")
     else:
-        print("✅ Console干净")
+        print("✅ Console 无 error")
+
+    if console_warnings:
+        print(f"\n⚠️  Console Warnings ({len(console_warnings)}):")
+        for e in console_warnings[:20]:
+            print(f"  - {e}")
+        if len(console_warnings) > 20:
+            print(f"  ... 还有{len(console_warnings) - 20}条")
 
     print(f"\n📸 截图保存至: {output_dir}")
 
-    return 0 if not page_errors else 1
+    return exit_status(page_errors, console_errors)
 
 
 def main():

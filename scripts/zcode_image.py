@@ -401,6 +401,13 @@ def main():
             if not final_kind or not image_complete(final_raw, final_kind):
                 raise FitError("最终文件不是完整受支持图片")
             pending[-1] = (out, tmp, note, final_kind)
+        # 预检全部目标：目录/不可写父目录必须在任何替换之前失败。
+        for out, _tmp, _note, _kind in pending:
+            if os.path.isdir(out):
+                raise ImageOutputError(f"输出路径是目录，拒绝覆盖：{out}")
+            out_dir = os.path.dirname(os.path.abspath(out)) or "."
+            if not os.access(out_dir, os.W_OK):
+                raise ImageOutputError(f"输出目录不可写：{out_dir}")
     except (ImageOutputError, FitError, OSError) as exc:
         for _, tmp, _, _ in pending:
             try:
@@ -410,9 +417,24 @@ def main():
         print(f"❌ {exc}（未写入或覆盖任何输出）")
         return 1
 
-    replaced = []
+    backups = []   # (out, backup) for files that existed before this run
+    replaced = []  # outputs successfully replaced
     try:
         for out, tmp, note, final_kind in pending:
+            if os.path.exists(out):
+                out_dir = os.path.dirname(os.path.abspath(out)) or "."
+                fd, backup = tempfile.mkstemp(prefix=".zcode-backup-", dir=out_dir)
+                os.close(fd)
+                os.remove(backup)
+                try:
+                    os.replace(out, backup)
+                except OSError:
+                    try:
+                        os.remove(backup)
+                    except OSError:
+                        pass
+                    raise
+                backups.append((out, backup))
             os.replace(tmp, out)
             replaced.append(out)
             print(f"✅ {out} · {final_kind} · {os.path.getsize(out)} B · "
@@ -420,13 +442,31 @@ def main():
             if note:
                 print(f"   {note}")
     except OSError as exc:
+        # 中途失败：删除已替换的新文件，恢复原有文件，再清理剩余临时文件。
+        for out in replaced:
+            try:
+                os.remove(out)
+            except OSError:
+                pass
+        for out, backup in backups:
+            try:
+                os.replace(backup, out)
+            except OSError:
+                pass
         for _, tmp, _, _ in pending:
             if os.path.exists(tmp):
-                os.remove(tmp)
-        print(f"❌ 写入输出失败（{type(exc).__name__}）：{exc}")
-        if replaced:
-            print("   已写入：" + "、".join(replaced))
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+        print(f"❌ 写入输出失败（{type(exc).__name__}）：{exc}（已尝试回滚）")
         return 1
+
+    for _, backup in backups:
+        try:
+            os.remove(backup)
+        except OSError:
+            pass
     return 0
 
 

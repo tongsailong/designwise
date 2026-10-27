@@ -23,8 +23,10 @@ import tempfile
 
 SOURCE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXCLUDE_DIRS = {".git", "node_modules", ".reasonix", "design-demos",
-                "__pycache__", ".pytest_cache", ".mypy_cache"}
-EXCLUDE_FILES = {".env", ".last-update-check", ".DS_Store"}
+                "__pycache__", ".pytest_cache", ".mypy_cache", ".vscode", ".idea"}
+EXCLUDE_FILES = {".last-update-check", ".DS_Store",
+                 "assets/personal-asset-index.json"}
+EXCLUDE_PREFIXES = (".sync-", ".video-tmp-", ".seek-tmp-")
 EXCLUDE_SUFFIXES = (".pyc", ".pyo", ".swp", ".tmp")
 
 
@@ -40,8 +42,17 @@ def skip_dir(name):
     return name in EXCLUDE_DIRS
 
 
-def skip_file(name):
-    return name in EXCLUDE_FILES or name.endswith(EXCLUDE_SUFFIXES)
+def skip_file(rel):
+    name = os.path.basename(rel)
+    if rel in EXCLUDE_FILES:
+        return True
+    if name == ".env.example":
+        return False          # 模板可以同步
+    if name == ".env" or name.startswith(".env."):
+        return True           # .env / .env.local / .env.* 都可能含密钥
+    if name.startswith(EXCLUDE_PREFIXES):
+        return True
+    return name.endswith(EXCLUDE_SUFFIXES)
 
 
 def manifest(root):
@@ -50,10 +61,10 @@ def manifest(root):
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if not skip_dir(d))
         for name in sorted(filenames):
-            if skip_file(name):
-                continue
             path = os.path.join(dirpath, name)
             rel = os.path.relpath(path, root).replace(os.sep, "/")
+            if skip_file(rel):
+                continue
             result[rel] = sha256(path)
     return result
 
@@ -96,8 +107,15 @@ def main():
     if not os.path.isdir(target):
         print(f"❌ 目标不是目录：{target}")
         return 2
-    if os.path.realpath(source) == os.path.realpath(target):
-        print("❌ 源码目录与目标目录相同，拒绝同步")
+    source_real = os.path.realpath(source)
+    target_real = os.path.realpath(target)
+    try:
+        common = os.path.commonpath([source_real, target_real])
+    except ValueError:
+        common = ""
+    # 拒绝相同目录，以及互为祖先/后代（否则 --prune 可能删掉源码或仓库）。
+    if source_real == target_real or common in (source_real, target_real):
+        print("❌ 源码目录与目标目录相同或互为祖先/后代，拒绝同步")
         return 2
 
     src, missing, different, extra = compare(source, target)

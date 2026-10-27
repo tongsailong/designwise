@@ -17,8 +17,8 @@
 # 本 hook 不会被 skill 自动安装；只有用户手动配进 settings.json 后才生效。
 #
 # 覆盖范围：直接渲染入口、npm/node/npx/hyperframes、常见包装器、bash -c、子 shell/
-# 花括号、无条件 cd 连接、明确 true/false 的分支、空循环、未调用函数定义、普通
-# shell 脚本内容检查；绝对路径 shell/npm/node 也按同一程序识别。
+# 花括号、无条件 cd 连接、明确 true/false 的分支、if/while/until 条件命令、空循环、
+# 未调用函数定义、普通 shell 脚本内容检查；绝对路径 shell/npm/node 也按同一程序识别。
 # 不保证：stdin 动态喂给 shell（... | bash）、远程执行（ssh/docker）、解释器内动态
 # 拼命令、make / npm run build 等间接构建、非字面条件/循环、case、函数调用、
 # workspace/filter/多个 workspace、命令替换/进程替换；这些无法可靠判定时失败关闭。
@@ -1611,7 +1611,8 @@ def _cmd_start(tokens, idx: int) -> bool:
     if prev.kind == "op" and prev.value in (";", "&&", "||", "|", "&",
                                             "(", "{", "}"):
         return True
-    return prev.kind == "word" and prev.value in ("then", "do", "else")
+    return prev.kind == "word" and prev.value in (
+        "then", "do", "else", "if", "elif", "while", "until", "!")
 
 
 def _tokens_renderish(tokens) -> bool:
@@ -1619,11 +1620,11 @@ def _tokens_renderish(tokens) -> bool:
     for tok in tokens:
         if tok.kind != "word":
             continue
-        v = tok.value.lower()
-        if v in STATE_WORDS or v in {"npm", "pnpm", "yarn", "node", "npx",
-                                     "bash", "sh", "zsh", "dash", "hyperframes"}:
+        name = os.path.basename(tok.value).lower()
+        if name in STATE_WORDS or name in {"npm", "pnpm", "yarn", "node", "npx",
+                                           "bash", "sh", "zsh", "dash", "hyperframes"}:
             return True
-        if "render" in v or "hyperframes" in v or "npm" in v or "node" in v:
+        if "render" in name or "hyperframes" in name or "npm" in name or "node" in name:
             return True
     return False
 
@@ -1632,11 +1633,11 @@ def _tokens_relevant(tokens) -> bool:
     for i, tok in enumerate(tokens):
         if tok.kind != "word" or tok.quoted or not _cmd_start(tokens, i):
             continue
-        v = tok.value.lower()
-        if v in STATE_WORDS or v in {"npm", "pnpm", "yarn", "node", "npx",
-                                     "bash", "sh", "zsh", "dash", "hyperframes"}:
+        name = os.path.basename(tok.value).lower()
+        if name in STATE_WORDS or name in {"npm", "pnpm", "yarn", "node", "npx",
+                                           "bash", "sh", "zsh", "dash", "hyperframes"}:
             return True
-        if "render" in v or "hyperframes" in v:
+        if "render" in name or "hyperframes" in name:
             return True
     return False
 
@@ -1905,6 +1906,10 @@ def _control_risk(tokens, ctx: Ctx) -> bool:
     not block ordinary read-only composites.
     """
     if not _render_subject(tokens):
+        return False
+    # 已确认 Gate 时，控制流里的渲染不再因“无法求值”被阻断；具体渲染仍由
+    # 主流程按最终 cwd 再查 Gate（分支改 cwd 会 taint 并被阻断）。
+    if _gate_ok(ctx.cwd):
         return False
     control_seen = False
     matched = False

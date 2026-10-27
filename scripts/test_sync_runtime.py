@@ -28,6 +28,9 @@ class SyncRuntimeTests(unittest.TestCase):
         self.write(self.src, "SKILL.md", "source\n")
         self.write(self.src, "references/a.md", "ref\n")
         self.write(self.src, ".env", "SECRET=1\n")
+        self.write(self.src, ".env.local", "LOCAL_SECRET=1\n")
+        self.write(self.src, ".env.example", "PLACEHOLDER=1\n")
+        self.write(self.src, "assets/personal-asset-index.json", '{"real":"data"}\n')
         self.write(self.src, "design-demos/x.html", "ignored\n")
         self.write(self.src, "scripts/__pycache__/x.pyc", "ignored\n")
 
@@ -55,6 +58,13 @@ class SyncRuntimeTests(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(self.dst, "references/a.md")))
         self.assertFalse(os.path.exists(os.path.join(self.dst, ".env")),
                          ".env 必须排除")
+        self.assertFalse(os.path.exists(os.path.join(self.dst, ".env.local")),
+                         ".env.local 必须排除")
+        self.assertFalse(os.path.exists(
+            os.path.join(self.dst, "assets/personal-asset-index.json")),
+            "个人素材索引必须排除")
+        self.assertTrue(os.path.exists(os.path.join(self.dst, ".env.example")),
+                        ".env.example 模板应同步")
         self.assertFalse(os.path.exists(os.path.join(self.dst, "design-demos")),
                          "design-demos 必须排除")
 
@@ -99,6 +109,26 @@ class SyncRuntimeTests(unittest.TestCase):
              "--to", self.src, "--check"],
             text=True, capture_output=True, timeout=30)
         self.assertEqual(r.returncode, 2)
+
+    def test_ancestor_and_descendant_targets_are_refused(self):
+        for target in (self.tmp.name, os.path.join(self.src, "scripts")):
+            r = subprocess.run(
+                [sys.executable, os.path.join(self.src, "scripts", "sync_runtime.py"),
+                 "--to", target, "--check"],
+                text=True, capture_output=True, timeout=30)
+            self.assertEqual(r.returncode, 2, target)
+            self.assertIn("互为祖先/后代", r.stdout)
+
+    def test_prune_does_not_delete_excluded_runtime_secrets(self):
+        self.run_sync("--apply")
+        self.write(self.dst, ".env.local", "RUNTIME_SECRET=1\n")
+        self.write(self.dst, "assets/personal-asset-index.json", '{"real":"data"}\n')
+        self.assertEqual(self.run_sync("--check").returncode, 0,
+                         "--check 不应把排除文件算作漂移")
+        self.assertEqual(self.run_sync("--apply", "--prune").returncode, 0)
+        self.assertTrue(os.path.exists(os.path.join(self.dst, ".env.local")))
+        self.assertTrue(os.path.exists(
+            os.path.join(self.dst, "assets/personal-asset-index.json")))
 
 
 if __name__ == "__main__":

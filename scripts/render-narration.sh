@@ -83,6 +83,10 @@ const fs = require("fs");
 let t;
 try { t = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).totalDuration; }
 catch (e) { console.error("timeline.json 无法解析：" + e.message); process.exit(2); }
+if (!(typeof t === "number" || typeof t === "string") || String(t).trim() === "") {
+  console.error("totalDuration 类型非法（要求数字或数字字符串）：" + JSON.stringify(t));
+  process.exit(2);
+}
 const n = Number(t);
 if (!Number.isFinite(n) || n <= 0 || n > 7200) {
   console.error("totalDuration 非法（要求 0 < n <= 7200）：" + JSON.stringify(t));
@@ -132,11 +136,34 @@ if [ ! -d "$OUT_DIR" ]; then
   echo "✗ 输出目录不存在: $OUT_DIR" >&2
   exit 1
 fi
-OUT_ABS="$(cd "$OUT_DIR" && pwd)/$(basename "$OUT")"
-if [ "$OUT_ABS" = "$SILENT_MP4" ]; then
-  echo "✗ --out 不能与中间产物同路径: $OUT_ABS" >&2
+if [ -d "$OUT" ]; then
+  echo "✗ --out 指向目录，拒绝覆盖: $OUT" >&2
   exit 1
 fi
+
+# --out 不得覆盖任何输入（HTML / timeline / 人声 / BGM）或本次中间产物。
+# 归一化目录后再比较（含符号链接目录），再用 -ef 兜住符号链接/硬链接文件。
+resolve_path() {
+  local p="$1" d b
+  d="$(dirname "$p")"
+  b="$(basename "$p")"
+  if [ -d "$d" ]; then
+    (cd "$d" && printf '%s/%s\n' "$(pwd -P)" "$b")
+  else
+    printf '%s\n' "$p"
+  fi
+}
+INPUTS=("$HTML_ABS" "$TIMELINE" "$VOICEOVER" "$SILENT_MP4")
+[ -n "$BGM" ] && INPUTS+=("$BGM")
+OUT_REAL="$(resolve_path "$OUT")"
+for input in "${INPUTS[@]}"; do
+  input_real="$(resolve_path "$input")"
+  if [ "$OUT_REAL" = "$input_real" ] \
+      || { [ -e "$OUT" ] && [ -e "$input" ] && [ "$OUT" -ef "$input" ]; }; then
+    echo "✗ --out 不能覆盖输入或中间文件: $OUT_REAL" >&2
+    exit 1
+  fi
+done
 
 echo "═══ render-narration ═══════════════════"
 echo "  HTML:        $HTML_ABS"

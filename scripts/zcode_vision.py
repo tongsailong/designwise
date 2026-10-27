@@ -199,8 +199,10 @@ def health():
     if not ids:
         print("❌ 接口可达但模型列表为空")
         return 2
-    print("✅ 评审接口可用（未发起评审，零成本）")
+    print("✅ provider 可达（未发起评审，零成本检查）")
     print("   可用模型：" + "、".join(ids))
+    if DEFAULT_MODEL not in ids:
+        print(f"   ⚠️ 默认模型 {DEFAULT_MODEL} 不在列表；请用 --model 指定实际可用模型")
     return 0
 
 

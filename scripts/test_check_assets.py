@@ -99,6 +99,30 @@ class CheckAssetsTests(unittest.TestCase):
         r = self.run_check()
         self.assertEqual(r.returncode, 0, r.stdout)
 
+    def test_nested_image_with_nested_prompt_passes(self):
+        self.image("assets/images/icons/foo.png")
+        self.write("handoff/assets.md", "| assets/images/icons/foo.png |\n")
+        self.write("assets/img-prompts/icons/foo.md", "prompt\n")
+        r = self.run_check()
+        self.assertEqual(r.returncode, 0, r.stdout)
+
+    def test_nested_image_without_nested_prompt_fails(self):
+        self.image("assets/images/icons/foo.png")
+        self.write("handoff/assets.md", "| assets/images/icons/foo.png |\n")
+        r = self.run_check()
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("img-prompts/icons/foo.md", r.stdout)
+
+    def test_nested_and_flat_same_name_are_not_confused(self):
+        self.image("assets/images/foo.png")
+        self.image("assets/images/icons/foo.png")
+        self.write("handoff/assets.md", "| assets/images/icons/foo.png |\n")
+        self.write("assets/img-prompts/foo.md", "prompt\n")
+        r = self.run_check()
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("assets/images/foo.png 未登记", r.stdout)
+        self.assertIn("img-prompts/icons/foo.md", r.stdout)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

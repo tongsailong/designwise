@@ -99,6 +99,21 @@ class ImageBatchTests(unittest.TestCase):
         self.assertFalse([n for n in os.listdir(self.root)
                           if n.startswith(".zcode-image-")], "临时文件必须清理")
 
+    def test_directory_target_is_preflighted_before_any_replace(self):
+        first = os.path.join(self.root, "out-1.png")
+        with open(first, "wb") as fh:
+            fh.write(b"OLD-CONTENT")
+        os.makedirs(os.path.join(self.root, "out-2.png"))
+        code, out, _ = self._run(
+            {"data": [{"b64_json": b64(PNG)}, {"b64_json": b64(PNG)}]}, "--n", "2")
+        self.assertEqual(code, 1, out)
+        self.assertIn("输出路径是目录", out)
+        with open(first, "rb") as fh:
+            self.assertEqual(fh.read(), b"OLD-CONTENT", "预检失败不得替换第一个文件")
+        self.assertTrue(os.path.isdir(os.path.join(self.root, "out-2.png")))
+        self.assertFalse([n for n in os.listdir(self.root)
+                          if n.startswith((".zcode-image-", ".zcode-backup-"))])
+
     def test_short_batch_fails_closed(self):
         code, out, _ = self._run({"data": [{"b64_json": b64(PNG)}]}, "--n", "2")
         self.assertEqual(code, 1, out)

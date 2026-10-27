@@ -107,6 +107,18 @@ class NarrationScriptTests(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("totalDuration 非法", r.stderr)
 
+    def test_boolean_and_array_duration_exit_1(self):
+        for name, value in (("bool_duration", True), ("array_duration", [10])):
+            path, timeline = self.project(name, duration=value)
+            r = self.run_script(os.path.join(path, "demo.html"), f"--timeline={timeline}")
+            self.assertEqual(r.returncode, 1, name)
+            self.assertIn("totalDuration 类型非法", r.stderr)
+
+    def test_numeric_string_duration_is_accepted(self):
+        path, timeline = self.project("string_duration", duration="10")
+        r = self.run_script(os.path.join(path, "demo.html"), f"--timeline={timeline}")
+        self.assertEqual(r.returncode, 0, r.stderr)
+
     def test_missing_voiceover_exits_1(self):
         path, timeline = self.project("no_voice", voiceover=False)
         r = self.run_script(os.path.join(path, "demo.html"), f"--timeline={timeline}")
@@ -129,7 +141,33 @@ class NarrationScriptTests(unittest.TestCase):
         r = self.run_script(os.path.join(path, "demo.html"), f"--timeline={timeline}",
                             f"--out={os.path.join(path, 'demo.mp4')}")
         self.assertEqual(r.returncode, 1)
-        self.assertIn("不能与中间产物同路径", r.stderr)
+        self.assertIn("不能覆盖输入或中间文件", r.stderr)
+
+    def test_out_cannot_overwrite_inputs(self):
+        path, timeline = self.project("overwrite_inputs")
+        for target in (os.path.join(path, "voiceover.mp3"),
+                       os.path.join(path, "demo.html"),
+                       timeline):
+            r = self.run_script(os.path.join(path, "demo.html"),
+                                f"--timeline={timeline}", f"--out={target}")
+            self.assertEqual(r.returncode, 1, target)
+            self.assertIn("不能覆盖输入或中间文件", r.stderr)
+        bgm = os.path.join(path, "bgm.mp3")
+        with open(bgm, "wb") as fh:
+            fh.write(b"fake bgm")
+        r = self.run_script(os.path.join(path, "demo.html"),
+                            f"--timeline={timeline}", f"--bgm={bgm}", f"--out={bgm}")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("不能覆盖输入或中间文件", r.stderr)
+
+    def test_symlinked_output_dir_cannot_bypass_protection(self):
+        path, timeline = self.project("symlink_out")
+        link = os.path.join(self.root, "link_to_symlink_out")
+        os.symlink(path, link)
+        r = self.run_script(os.path.join(path, "demo.html"), f"--timeline={timeline}",
+                            f"--out={os.path.join(link, 'demo.mp4')}")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("不能覆盖输入或中间文件", r.stderr)
 
     def test_missing_output_dir_exits_1(self):
         path, timeline = self.project("missing_outdir")
