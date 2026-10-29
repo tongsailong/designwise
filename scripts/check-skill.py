@@ -71,6 +71,8 @@ REQUIRED_SCRIPTS = [
     "scripts/narrate-pipeline.mjs",
     "scripts/render-narration.sh",
     "scripts/design-gate-hook.sh",
+    "scripts/design-gate-check.js",
+    "scripts/check-ui.mjs",
 ]
 
 # ── 引用扫描 ──────────────────────────────────────────────────────────────

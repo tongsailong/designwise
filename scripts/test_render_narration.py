@@ -216,6 +216,36 @@ class NarrationScriptTests(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue(os.path.isfile(out))
 
+    def test_long_timeline_blocks_at_render_entry(self):
+        """真实 render-video.js 入口：60s timeline 无 Gate 必须在录制前退出。
+
+        这里用真实脚本（不替换 render-video.js），验证 gate 校验发生在
+        playwright 依赖加载与录制之前，且不产生任何视频产物。
+        """
+        logdir = tempfile.mkdtemp(prefix="narration_gate_log_")
+        try:
+            path = os.path.join(self.root, "gate_proj")
+            os.makedirs(path, exist_ok=True)
+            with open(os.path.join(path, "demo.html"), "w", encoding="utf-8") as fh:
+                fh.write("<html></html>")
+            with open(os.path.join(path, "voiceover.mp3"), "wb") as fh:
+                fh.write(b"fake")
+            timeline = os.path.join(path, "timeline.json")
+            with open(timeline, "w", encoding="utf-8") as fh:
+                json.dump({"totalDuration": 60}, fh)
+            env = dict(os.environ, DESIGN_GATE_LOG_DIR=logdir)
+            r = subprocess.run(
+                ["bash", SCRIPT, os.path.join(path, "demo.html"), f"--timeline={timeline}"],
+                cwd=self.root, text=True, capture_output=True, timeout=120, env=env)
+            self.assertEqual(r.returncode, 2, r.stderr)
+            self.assertIn("direction-approved.md", r.stderr)
+            self.assertNotIn("playwright", r.stderr,
+                             "Gate must block before render dependencies load")
+            self.assertFalse(os.path.exists(os.path.join(path, "demo.mp4")))
+            self.assertFalse(os.path.exists(os.path.join(path, "demo-narrated.mp4")))
+        finally:
+            shutil.rmtree(logdir, ignore_errors=True)
+
     def test_paths_with_spaces_and_quotes(self):
         path, timeline = self.project("proj with space", timeline_name="timeline'quote.json")
         r = self.run_script(os.path.join(path, "demo.html"), f"--timeline={timeline}")

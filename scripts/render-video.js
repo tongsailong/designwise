@@ -37,7 +37,6 @@
  * Output: next to the HTML file, same basename with .mp4 suffix.
  */
 
-const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 const { spawnSync } = require('child_process');
@@ -70,6 +69,26 @@ const BASENAME = path.basename(HTML_FILE, path.extname(HTML_FILE));
 const DIR      = path.dirname(HTML_ABS);
 const TMP_DIR  = path.join(DIR, '.video-tmp-' + Date.now() + '-' + process.pid);
 const MP4_OUT  = path.join(DIR, BASENAME + '.mp4');
+
+// 长片渲染入口校验：不依赖 PreToolUse Hook，因此 npm run / make / Python 子进程 /
+// bash -c 等任何启动路径都会在录制开始前走到同一处校验。
+let gateOk = true;
+try {
+  gateOk = require('./design-gate-check.js').enforce({
+    duration: DURATION,
+    entry: 'render-video.js',
+    startDirs: [DIR, process.cwd()],
+  });
+} catch (err) {
+  const skip = process.env.SKIP_DESIGN_GATE === '1';
+  console.warn(`⚠️  design-gate 入口校验不可用（${err.message}）；`
+    + (skip ? '已显式 SKIP_DESIGN_GATE=1，继续渲染。' : '按失败关闭处理。'));
+  gateOk = skip;
+}
+if (!gateOk) process.exit(2);
+
+// Gate 校验之后再加载渲染依赖：缺依赖时不会掩盖 Gate 阻断，也让入口校验可离线测试。
+const { chromium } = require('playwright');
 
 // CSS to hide "chrome" elements during recording.
 // Covers class-name conventions seen across skill-built animations,
