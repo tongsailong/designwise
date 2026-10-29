@@ -22,9 +22,11 @@ getBoundingClientRect。flex、居中、自动换行浏览器都已经算成绝�
     python3 pptx_from_rendered.py deck.html -o deck.pptx \\
         --template 客户模板.pptx --layout "内页" --skip-class logo
 
+退出码：0 正常（含「没有丢字」）；1 文本完整性校验失败（页数不一致或存在非预期缺字）。
+
 依赖：playwright（含 chromium）、python-pptx、Pillow
 """
-import argparse, asyncio, json, os, re, sys
+import argparse, asyncio, json, os, re, sys, tempfile
 
 from PIL import Image, ImageDraw
 from pptx import Presentation
@@ -41,49 +43,136 @@ EMU_PER_PT = 12700
 # ─────────────────────────────────────────────────────────────
 
 JS = r"""
-(selector) => {
+({selector, skipClass}) => {
   const INLINE = ['em','b','i','strong','span','small','br','sup','sub','a','code','mark'];
   const px = v => parseFloat(v) || 0;
+  // 元素自己的 opacity（opacity 不继承，祖先链要由调用方累乘传进来）
+  const opOf = (cs) => { const o = parseFloat(cs.opacity); return Number.isFinite(o) ? o : 1; };
 
-  // 把一段节点拆成 runs（每段连续同样式的文字一个 run）。
+  // CSS capitalize 用的是 Unicode titlecase（ǳ→ǲ），与 toUpperCase（ǳ→Ǳ）不同。
+  // 手写映射表会长期失准，所以让浏览器自己算：探针挂在 body 下的离屏宿主里，
+  // 不能用隐藏量具容器（那里的 innerText 拿不到转换结果）。
+  let probeHost = null;
+  const titlecase = (ch, lang) => {
+    if (!probeHost) {
+      probeHost = document.createElement('div');
+      probeHost.style.cssText =
+        'position:fixed;left:-100000px;top:0;visibility:visible;pointer-events:none';
+      document.body.appendChild(probeHost);
+    }
+    const box = document.createElement('div');
+    box.style.textTransform = 'capitalize';
+    if (lang) box.lang = lang;
+    box.textContent = ch;
+    probeHost.appendChild(box);
+    const rendered = box.innerText;
+    box.remove();
+    return rendered || ch.toUpperCase();   // 取不到就退回大写，绝不让字符变空
+  };
+
+  // 词首位置只对确实需要 capitalize 的文本计算。Intl.Segmenter 对非法语言标签会抛
+  // RangeError（例如 lang="en_US"），所以构造失败时先退回默认 locale，再退回空白分词。
+  let segmenter = null, segmenterLang = null, segmenterBroken = false;
+  const wordStarts = (text) => {
+    const lang = document.documentElement.lang || null;
+    if (!segmenterBroken && (segmenter === null || segmenterLang !== lang)) {
+      try {
+        segmenter = new Intl.Segmenter(lang || undefined, {granularity: 'word'});
+      } catch (e) {
+        try { segmenter = new Intl.Segmenter(undefined, {granularity: 'word'}); }
+        catch (e2) { segmenter = null; segmenterBroken = true; }
+      }
+      segmenterLang = lang;
+    }
+    const starts = new Set();
+    if (segmenter) {
+      for (const part of segmenter.segment(text)) if (part.isWordLike) starts.add(part.index);
+      return starts;
+    }
+    let offset = 0;
+    for (const ch of text) {
+      if (offset === 0 || /\s/.test(text[offset - 1])) starts.add(offset);
+      offset += ch.length;
+    }
+    return starts;
+  };
+
+  // 把一组**原始**节点拆成 runs（每段连续同样式的文字一个 run）。
+  //
+  // 直接读原始节点，不做克隆：克隆到临时量具容器里会让 display:none /
+  // visibility:hidden 的子元素重新进入导出（量具自身也是隐藏的，没法用计算样式判断），
+  // 也会改变 `p > span`、`:first-child` 这类选择器的计算值。
   //
   // ⚠️ 必须在这里做 HTML 的空白折叠。源码里的换行和缩进会变成真实的文本节点，
   // 浏览器按 white-space:normal 折叠掉（连续空白→一个空格，行首行尾丢弃），
   // 但 PPTX 没有这套规则——原样搬过去，那个 \n 在 PowerPoint 里就是一个真换行，
   // 会把后面的内容整段推到下一行去压住别的元素。
-  const runsOf = (root) => {
+  const runsOf = (rootNodes, op) => {
     const out = [];
-    let atLineStart = true, pendingSpace = false;
-    const push = (node, styleEl) => {
-      let t = node.textContent;
-      if (!t) return;
-      t = t.replace(/\s+/g, ' ');
-      if (t === ' ') { if (!atLineStart) pendingSpace = true; return; }
-      if (atLineStart) t = t.replace(/^ /, '');
-      if (pendingSpace && !t.startsWith(' ')) t = ' ' + t;
-      pendingSpace = false;
-      if (!t) return;
-      atLineStart = false;
-      const cs = getComputedStyle(styleEl);
-      out.push({
-        t, fs: px(cs.fontSize), fw: cs.fontWeight, color: cs.color,
-        ls: cs.letterSpacing === 'normal' ? 0 : px(cs.letterSpacing),
-        italic: cs.fontStyle === 'italic',
-        under: cs.textDecorationLine.includes('underline'),
-      });
+    const flush = (items) => {
+      if (!items.length) return;
+      const chars = [];
+      for (const {text, styleEl, parentOp} of items) {
+        const cs = getComputedStyle(styleEl);
+        for (const ch of text.replace(/\s+/g, ' ')) {
+          if (ch === ' ' && (!chars.length || chars[chars.length - 1].ch === ' ')) continue;
+          chars.push({ch, cs, op: parentOp, lang: styleEl.closest('[lang]')?.lang || document.documentElement.lang});
+        }
+      }
+      while (chars[0]?.ch === ' ') chars.shift();
+      while (chars[chars.length - 1]?.ch === ' ') chars.pop();
+      if (!chars.length) return;
+
+      const text = chars.map(c => c.ch).join('');
+      let needStarts = false;
+      for (const item of chars) { if (item.cs.textTransform === 'capitalize') { needStarts = true; break; } }
+      const starts = needStarts ? wordStarts(text) : null;
+
+      let offset = 0;
+      let run = null;
+      const emit = () => { if (run?.t) out.push(run); run = null; };
+      for (const item of chars) {
+        const tt = item.cs.textTransform;
+        let rendered = item.ch;
+        if (tt === 'uppercase') rendered = item.ch.toUpperCase();
+        else if (tt === 'lowercase') rendered = item.ch.toLowerCase();
+        else if (tt === 'capitalize' && starts && starts.has(offset)) rendered = titlecase(item.ch, item.lang);
+        const style = {
+          fs: px(item.cs.fontSize), fw: item.cs.fontWeight, color: item.cs.color,
+          ls: item.cs.letterSpacing === 'normal' ? 0 : px(item.cs.letterSpacing),
+          italic: item.cs.fontStyle === 'italic', under: item.cs.textDecorationLine.includes('underline'),
+          op: item.op,
+        };
+        const same = run && Object.keys(style).every(k => run[k] === style[k]);
+        if (!same) { emit(); run = {...style, t: ''}; }
+        run.t += rendered;
+        offset += item.ch.length;
+      }
+      emit();
     };
-    const walk = (node, styleEl) => {
-      for (const n of node.childNodes) {
-        if (n.nodeType === 3) push(n, styleEl);
-        else if (n.tagName && n.tagName.toLowerCase() === 'br') {
-          out.push({br: true}); atLineStart = true; pendingSpace = false;
-        } else if (n.nodeType === 1) walk(n, n);
+
+    // 视觉上的隐藏（display:none / visibility:hidden）在这里整棵排除；opacity:0 也排除。
+    // 检查的是原始节点，所以不会受量具容器自身 visibility 的影响。
+    const collectList = (list, parentOp, items) => {
+      for (const n of list) {
+        if (n.nodeType === 3) {
+          items.push({text: n.textContent, styleEl: n.parentElement, parentOp});
+        } else if (n.nodeType === 1) {
+          if (skipClass && n.classList && n.classList.contains(skipClass)) continue;
+          if (n.tagName.toLowerCase() === 'br') {
+            flush(items); items.length = 0; out.push({br: true});
+            continue;
+          }
+          const cs = getComputedStyle(n);
+          const nextOp = parentOp * opOf(cs);
+          if (cs.display === 'none' || cs.visibility === 'hidden' || nextOp === 0) continue;
+          collectList(n.childNodes, nextOp, items);
+        }
       }
     };
-    walk(root, root);
-    for (let i = out.length - 1; i >= 0 && !out[i].br; i--) {
-      if (out[i].t) { out[i].t = out[i].t.replace(/ $/, ''); break; }
-    }
+    const items = [];
+    collectList(rootNodes, op, items);
+    flush(items);
     return out.filter(r => r.br || r.t);
   };
 
@@ -108,27 +197,61 @@ JS = r"""
   };
 
   const pages = [...document.querySelectorAll(selector)];
-  return pages.map((pg) => {
+  const result = pages.map((pg) => {
     const pb = pg.getBoundingClientRect();
     const out = [];
-    let svgSeq = 0;
+    const tagSeq = {};                 // svg 与 canvas 各自计数：截图按标签分别取 nth
 
-    const walk = (el) => {
+    // 一组相邻节点 → 一个文本框。
+    // own=true 表示这段是「块级子元素之间的裸文字」：位置必须用文字自己的包围盒，
+    // 套容器的 x/w 会盖到旁边的 svg/图标上，也不能沿用容器的居中语义。
+    const emitText = (el, cs, base, g, op, own) => {
+      const nodes = g.filter(n => n.nodeType !== 3 || n.textContent.trim());
+      if (!nodes.length) return;
+      const {bb, lines} = measure(nodes);
+      if (!bb.height) return;
+      // 直接读原始节点；隐藏子树与 opacity:0 在 runsOf 内部按原始 DOM 排除。
+      const rs = runsOf(nodes, op);
+      if (!rs.length) return;
+      const fsMax = Math.max(px(cs.fontSize), ...rs.filter(r => !r.br).map(r => r.fs));
+      out.push({
+        tag: base.tag, cls: base.cls, kind: 'text',
+        // x/w 用容器的：居中的段落要靠容器宽度维持居中语义，
+        // 用段落自己收缩后的宽度会在换字体后左右飘。
+        x: own ? bb.left - pb.left : base.x, w: own ? bb.width : base.w,
+        y: bb.top - pb.top, h: bb.height,
+        fs: px(cs.fontSize), fsMax, fw: cs.fontWeight, color: cs.color,
+        ls: cs.letterSpacing === 'normal' ? 0 : px(cs.letterSpacing),
+        ta: own ? 'left' : cs.textAlign,
+        lhEff: bb.height / lines, lines,
+        wrap: lines > 1,
+        runs: rs, op,
+      });
+    };
+
+    const walk = (el, parentOp = 1) => {
+      // --skip-class 在 DOM 遍历阶段整棵跳过：HTML 与 SVG 都走 classList，
+      // 只跳过该类元素本身（含子树），与参考文本的排除口径一致。
+      if (skipClass && el.classList && el.classList.contains(skipClass)) return;
       const cs = getComputedStyle(el);
       const r = el.getBoundingClientRect();
       const tag = el.tagName.toLowerCase();
-      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return;
+      // op：祖先链 opacity 的累乘。CSS 的 opacity 作用到整棵子树，PPTX 的填充/透明度
+      // 却是逐个对象设的——不累乘，淡出层和半透明文字全部导出成不透明。
+      const op = parentOp * opOf(cs);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || op === 0) return;
 
       const cls = (typeof el.className === 'string' ? el.className : '');
       const base = {tag, cls, x: r.left - pb.left, y: r.top - pb.top, w: r.width, h: r.height};
 
       if (tag === 'img') {
-        out.push({...base, kind: 'img', src: el.getAttribute('src'),
+        out.push({...base, kind: 'img', src: el.getAttribute('src'), op,
                   radius: px(cs.borderRadius), shadow: cs.boxShadow});
         return;
       }
       if (tag === 'svg' || tag === 'canvas') {
-        out.push({...base, kind: 'svg', seq: svgSeq++, tagName: tag});
+        const seq = tagSeq[tag] = (tagSeq[tag] ?? -1) + 1;
+        out.push({...base, kind: 'svg', seq, tagName: tag, op});
         return;
       }
 
@@ -139,7 +262,7 @@ JS = r"""
       const painted = (bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent');
       const bdw = px(cs.borderTopWidth);
       if (painted || bdw > 0) {          // 背景/描边先出矩形，画在文字之下
-        out.push({...base, kind: 'shape', bg, bdw, bdc: cs.borderTopColor,
+        out.push({...base, kind: 'shape', bg, bdw, bdc: cs.borderTopColor, op,
                   radius: px(cs.borderRadius), shadow: cs.boxShadow, rot: 0});
       }
 
@@ -154,33 +277,7 @@ JS = r"""
           if (n.nodeType === 1 && n.tagName.toLowerCase() === 'br') groups.push([]);
           else groups[groups.length - 1].push(n);
         }
-        for (const g of groups) {
-          const nodes = g.filter(n => n.nodeType !== 3 || n.textContent.trim());
-          if (!nodes.length) continue;
-          const {bb, lines} = measure(nodes);
-          if (!bb.height) continue;
-          const tmp = document.createElement('div');
-          for (const n of g) tmp.appendChild(n.cloneNode(true));
-          tmp.style.cssText = 'position:absolute;visibility:hidden';
-          el.appendChild(tmp);
-          const rs = runsOf(tmp);
-          tmp.remove();
-          if (!rs.length) continue;
-          const fsMax = Math.max(px(cs.fontSize), ...rs.filter(r => !r.br).map(r => r.fs));
-          out.push({
-            tag, cls, kind: 'text',
-            // x/w 用容器的：居中的段落要靠容器宽度维持居中语义，
-            // 用段落自己收缩后的宽度会在换字体后左右飘。
-            x: base.x, w: base.w,
-            y: bb.top - pb.top, h: bb.height,
-            fs: px(cs.fontSize), fsMax, fw: cs.fontWeight, color: cs.color,
-            ls: cs.letterSpacing === 'normal' ? 0 : px(cs.letterSpacing),
-            ta: cs.textAlign,
-            lhEff: bb.height / lines, lines,
-            wrap: lines > 1,
-            runs: rs,
-          });
-        }
+        for (const g of groups) emitText(el, cs, base, g, op, false);
 
         // 行内的纯装饰色块（压在字上的删除线、高亮条）不能跟着文字被吞掉，
         // 单独出形状，且要画在文字之上。
@@ -199,22 +296,63 @@ JS = r"""
             out.push({tag: c.tagName.toLowerCase(), cls: '', kind: 'shape',
                       x: cr.left - pb.left, y: cr.top - pb.top, w: cr.width, h: cr.height,
                       bg: cbg, bdw: px(ccs.borderTopWidth), bdc: ccs.borderTopColor,
-                      radius: px(ccs.borderRadius), shadow: ccs.boxShadow, rot});
+                      radius: px(ccs.borderRadius), shadow: ccs.boxShadow, rot,
+                      op: op * opOf(ccs)});
           }
         }
         return;
       }
-      for (const c of el.children) walk(c);
+      // 混合内容：既有块级/替换子元素（svg、div…）又有裸文字。el.children 看不到文本节点，
+      // 只递归 children 会让这些裸文字被静默丢掉（导出后凭空少字）。
+      // 连续文本节点攒成一组，交给同一个 emitText 出框。
+      let run = [];
+      const flush = () => { if (run.length) emitText(el, cs, base, run, op, true); run = []; };
+      for (const n of el.childNodes) {
+        if (n.nodeType === 3) run.push(n);
+        else if (n.nodeType === 1) { flush(); walk(n, op); }
+      }
+      flush();
     };
 
-    for (const c of pg.children) walk(c);
-    return {w: pb.width, h: pb.height, els: out};
+    // 页面容器之上的祖先（wrapper）也有 opacity：CSS 的 opacity 作用于整棵子树，
+    // 所以初始值要把 pg 到 documentElement 的 opacity 全部乘进来，且只乘一次。
+    const ancestorOpacity = (el) => {
+      let o = 1;
+      for (let n = el; n; n = n.parentElement) o *= opOf(getComputedStyle(n));
+      return o;
+    };
+    for (const c of pg.children) walk(c, ancestorOpacity(pg));
+    // 独立的浏览器参考文本：把导出器不会产出的对象临时隐藏（svg/canvas 截图、显式跳过、
+    // display:none / visibility:hidden / opacity:0 子树），保证参考范围与导出范围一致。
+    const hidden = [];
+    for (const el of pg.querySelectorAll('*')) {
+      const tagName = el.tagName.toLowerCase();
+      let excluded = tagName === 'svg' || tagName === 'canvas';
+      if (!excluded && skipClass && el.classList && el.classList.contains(skipClass)) excluded = true;
+      if (!excluded) {
+        let opacity = 1;
+        for (let node = el; node; node = node.parentElement) {
+          const cs = getComputedStyle(node);
+          if (cs.display === 'none' || cs.visibility === 'hidden') { excluded = true; break; }
+          opacity *= opOf(cs);
+          if (opacity === 0) { excluded = true; break; }
+        }
+      }
+      if (excluded) hidden.push(el);
+    }
+    const prior = hidden.map((el) => el.style.display);
+    hidden.forEach((el) => { el.style.display = 'none'; });
+    const ref = pg.innerText;
+    hidden.forEach((el, i) => { el.style.display = prior[i]; });
+    return {w: pb.width, h: pb.height, els: out, ref};
   });
+  if (probeHost) probeHost.remove();   // 不能把探针留在页面上，后面的 SVG 截图会用原页面
+  return result;
 }
 """
 
 
-async def render(html, selector, asset_dir, scale):
+async def render(html, selector, asset_dir, scale, skip_class=None):
     from playwright.async_api import async_playwright
     os.makedirs(asset_dir, exist_ok=True)
     async with async_playwright() as p:
@@ -223,7 +361,7 @@ async def render(html, selector, asset_dir, scale):
                                device_scale_factor=scale)
         await pg.goto("file://" + os.path.abspath(html))
         await pg.wait_for_timeout(2500)
-        pages = await pg.evaluate(JS, selector)
+        pages = await pg.evaluate(JS, {"selector": selector, "skipClass": skip_class})
         for pi, page in enumerate(pages):          # SVG / canvas 单独截成 PNG
             for e in page["els"]:
                 if e["kind"] == "svg":
@@ -273,6 +411,7 @@ class Builder:
         f.underline = r.get("under", False)
         f.name = self.cfg.font_latin           # 只设了 latin，中文要另外指定
         col, alpha = parse_color(r["color"])
+        alpha *= r.get("op", 1)              # 祖先链累乘的 CSS opacity
         if col:
             f.color.rgb = col
         rPr = run._r.get_or_add_rPr()
@@ -341,7 +480,9 @@ class Builder:
             MSO_SHAPE.ROUNDED_RECTANGLE if rounded else MSO_SHAPE.RECTANGLE,
             Pt(e["x"] * k), Pt(e["y"] * k), Pt(e["w"] * k), Pt(e["h"] * k))
         shp.shadow.inherit = False
+        opacity = e.get("op", 1)              # 祖先链累乘的 CSS opacity
         col, alpha = parse_color(e.get("bg"))
+        alpha *= opacity
         if col and alpha > 0:
             shp.fill.solid()
             shp.fill.fore_color.rgb = col
@@ -352,8 +493,21 @@ class Builder:
             shp.fill.background()
 
         bcol, balpha = parse_color(e.get("bdc"))
+        balpha *= opacity
         if e.get("bdw", 0) > 0 and bcol and balpha > 0:
             shp.line.color.rgb = bcol
+            if balpha < 1:
+                # python-pptx 没有描边透明度的公开 API，只能取 a:ln 元素；
+                # 私有方法缺失时明确报告并保持不透明，不静默吞掉。
+                try:
+                    ln = shp.line._get_or_add_ln()
+                except AttributeError:
+                    ln = shp._element.spPr.find(qn("a:ln"))
+                solid = ln.find(qn("a:solidFill")) if ln is not None else None
+                if solid is not None and solid.find(qn("a:srgbClr")) is not None:
+                    _alpha(solid.find(qn("a:srgbClr")), balpha)
+                else:
+                    print("   ⚠️ 无法给描边写透明度（python-pptx 结构变化），该描边按不透明导出")
             shp.line.width = Pt(e["bdw"] * k)
         else:
             shp.line.fill.background()
@@ -395,6 +549,17 @@ class Builder:
             path = self.round_corners(path, e["radius"], e["w"])
         pic = slide.shapes.add_picture(path, Pt(e["x"] * k), Pt(e["y"] * k),
                                        Pt(e["w"] * k), Pt(e["h"] * k))
+        opacity = e.get("op", 1)
+        # 截图型图片（svg/canvas）的 CSS 透明度已经在截图时烤进 PNG alpha，
+        # 再写 alphaModFix 会二次相乘；只有真实 <img> 需要写 OOXML 透明度。
+        if e.get("kind") == "img" and opacity < 1:
+            blip = pic._element.blipFill.blip
+            effect = blip.makeelement(qn("a:alphaModFix"), {"amt": str(int(opacity * 100000))})
+            ext = blip.find(qn("a:extLst"))
+            if ext is not None:
+                ext.addprevious(effect)
+            else:
+                blip.append(effect)
         # box-shadow: rgba(...) 0 0 0 Npx 在视觉稿里通常是硬描边，翻译成图片边框
         m = re.match(r"rgba?\(([^)]+)\)\s+0px\s+0px\s+0px\s+([\d.]+)px", e.get("shadow") or "")
         if m:
@@ -449,12 +614,127 @@ class Builder:
                         n_img += 1
 
         prs.save(cfg.out)
-        mb = os.path.getsize(cfg.out) / 1024 / 1024
-        print(f"✅ {len(prs.slides)} 页 → {os.path.basename(cfg.out)}（{mb:.1f}MB）")
-        print(f"   文本框 {n_text} · 形状 {n_shape} · 图片 {n_img}"
-              + (f" · 清掉版式遮罩 {killed}" if killed else ""))
-        print(f"   画布 {prs.slide_width/914400:.3f}×{prs.slide_height/914400:.3f} inch"
-              f"（缩放 {self.k:.4f}）")
+        return {"slides": len(prs.slides), "text": n_text, "shape": n_shape, "img": n_img,
+                "killed": killed, "mb": os.path.getsize(cfg.out) / 1024 / 1024,
+                "w": prs.slide_width / 914400, "h": prs.slide_height / 914400, "k": self.k}
+
+
+# ─────────────────────────────────────────────────────────────
+# 二点五、丢字校验（对照源 = 浏览器渲染后的 innerText）
+# ─────────────────────────────────────────────────────────────
+
+def _norm(t):
+    return re.sub(r"\s+", " ", t or "").strip()
+
+
+_DIFF_TOKEN_MAX = 64      # 单个 token 的上限，避免中文长段把一次比较放大成整段比较
+
+
+def _tokens(t):
+    """归一化文本 → token 序列；超长 token 切块，保证差异定位的成本与词数同阶。"""
+    out = []
+    for tok in t.split(" "):
+        while len(tok) > _DIFF_TOKEN_MAX:
+            out.append(tok[:_DIFF_TOKEN_MAX])
+            tok = tok[_DIFF_TOKEN_MAX:]
+        if tok:
+            out.append(tok)
+    return out
+
+
+def _page_diff(want, got, window=12):
+    """一页的差异：完全一致时 O(n) 返回；有差异才做有界的 token 级对齐。
+
+    返回 (missing, extra)：missing 是参考文本里有、PPTX 里没有的片段；
+    extra 是 PPTX 里有、参考文本里没有的片段（重复、意外增加、顺序错乱都会产生）。
+    """
+    if want == got:
+        return [], []
+    wt, gt = _tokens(want), _tokens(got)
+    missing, extra = [], []
+
+    def find(seq, token, start, stop):
+        for k in range(start, min(stop, len(seq))):
+            if seq[k] == token:
+                return k
+        return -1
+
+    i = j = 0
+    while i < len(wt) and j < len(gt):
+        if wt[i] == gt[j]:
+            i += 1; j += 1
+            continue
+        # 小窗口内重新对齐：哪一侧的锚点更近就先记哪一侧的差异
+        del_at = find(gt, wt[i], j, j + window)      # wt[i] 出现在后面 → 中间是多余
+        ins_at = find(wt, gt[j], i, i + window)      # gt[j] 出现在后面 → 中间是缺失
+        if del_at != -1 and (ins_at == -1 or del_at - j <= ins_at - i):
+            extra.append(" ".join(gt[j:del_at]))
+            j = del_at
+        elif ins_at != -1:
+            missing.append(" ".join(wt[i:ins_at]))
+            i = ins_at
+        else:
+            missing.append(wt[i])
+            extra.append(gt[j])
+            i += 1; j += 1
+    if i < len(wt):
+        missing.append(" ".join(wt[i:]))
+    if j < len(gt):
+        extra.append(" ".join(gt[j:]))
+    missing = [m for m in missing if m]
+    extra = [e for e in extra if e]
+    if not missing and not extra:
+        # want != got，但 token 化恰好把 64 字符块边界上的分隔符抹平了。
+        # 完整文本不相等就绝不能判通过。
+        return [want], [got]
+    return missing, extra
+
+
+def verify_text(refs, pptx_path):
+    """逐页比对浏览器渲染文本与 PPTX 文本框：缺失、多余/重复、页数都要报。
+
+    比较口径：空白归一化（连续空白→单空格、去首尾），大小写敏感。
+    """
+    prs = Presentation(pptx_path)
+    page_count = None
+    if len(refs) != len(prs.slides):
+        page_count = {"reference": len(refs), "pptx": len(prs.slides)}
+    missing, extra, reordered = [], [], []
+    for ref, slide in zip(refs, prs.slides):
+        want = _norm(ref)
+        got = _norm(" ".join(sh.text_frame.text for sh in slide.shapes if sh.has_text_frame))
+        m, e = _page_diff(want, got)
+        missing.append(m)
+        extra.append(e)
+        # 同一页同时出现缺失和新增，通常就是文字顺序变了（也可能是一段被另一段替换）
+        reordered.append(bool(m and e and len(" ".join(m)) >= 4 and len(" ".join(e)) >= 4))
+    return {"missing": missing, "extra": extra, "reordered": reordered, "page_count": page_count}
+
+
+def report_missing(result):
+    missing, extra = result["missing"], result["extra"]
+    count_error = result["page_count"]
+    n_missing = sum(len(m) for m in missing)
+    n_extra = sum(len(e) for e in extra)
+    failed = bool(count_error or n_missing or n_extra)
+    if count_error:
+        print(f"❌ 验收失败：参考页数 {count_error['reference']}，PPTX 页数 {count_error['pptx']}")
+    if n_missing:
+        print(f"❌ 验收失败：{n_missing} 处参考文本未出现在 PPTX（空白已归一化，区分大小写）")
+        for pi, segs in enumerate(missing):
+            for sg in segs:
+                print(f"   第 {pi+1} 页缺：{sg[:60]}{'…' if len(sg) > 60 else ''}")
+    if n_extra:
+        print(f"❌ 验收失败：{n_extra} 处 PPTX 文本不在参考文本中（重复/意外增加/顺序错乱）")
+        for pi, segs in enumerate(extra):
+            for sg in segs:
+                print(f"   第 {pi+1} 页多：{sg[:60]}{'…' if len(sg) > 60 else ''}")
+    if any(result.get("reordered") or []):
+        pages = [str(i + 1) for i, r in enumerate(result.get("reordered") or []) if r]
+        print(f"   第 {'、'.join(pages)} 页同时存在缺失与新增，请优先核对文字顺序")
+    if not failed:
+        print("🔍 文本完整性校验通过：没有丢字")
+    return 1 if failed else 0
 
 
 # ─────────────────────────────────────────────────────────────
@@ -520,7 +800,7 @@ def main():
     if cfg.layout and not cfg.template:
         sys.exit("❌ --layout 需要配合 --template 使用")
 
-    pages = asyncio.run(render(cfg.html, cfg.selector, cfg.asset_dir, cfg.scale))
+    pages = asyncio.run(render(cfg.html, cfg.selector, cfg.asset_dir, cfg.scale, cfg.skip_class))
     if not pages:
         sys.exit(f"❌ 选择器 '{cfg.selector}' 一页都没匹配到")
     if cfg.dump_json:
@@ -531,8 +811,31 @@ def main():
         for e in p["els"]:
             kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
     print(f"📐 量到 {len(pages)} 页　{kinds}")
-    Builder(cfg).run(pages)
+    # 先写目标目录下的临时文件，校验通过后才原子替换到正式路径：
+    # 失败时既不留下"看起来成功"的产物，也不会覆盖已有的有效文件。
+    publish = cfg.out
+    fd, tmp_out = tempfile.mkstemp(prefix=".pptx-tmp-", suffix=".pptx",
+                                   dir=os.path.dirname(publish) or ".")
+    os.close(fd)
+    try:
+        cfg.out = tmp_out
+        stats = Builder(cfg).run(pages)
+        status = report_missing(verify_text([p["ref"] for p in pages], tmp_out))
+        if status:
+            print(f"   未发布：{os.path.basename(publish)} 保持原状")
+            return status
+        os.replace(tmp_out, publish)      # 同一目录内原子替换
+        tmp_out = None
+    finally:
+        if tmp_out and os.path.exists(tmp_out):
+            os.remove(tmp_out)
+
+    print(f"✅ {stats['slides']} 页 → {os.path.basename(publish)}（{stats['mb']:.1f}MB）")
+    print(f"   文本框 {stats['text']} · 形状 {stats['shape']} · 图片 {stats['img']}"
+          + (f" · 清掉版式遮罩 {stats['killed']}" if stats["killed"] else ""))
+    print(f"   画布 {stats['w']:.3f}×{stats['h']:.3f} inch（缩放 {stats['k']:.4f}）")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
