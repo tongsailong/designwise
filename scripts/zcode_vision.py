@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""zcode_vision.py — DesignWise Gate 1 / Gate 2 默认视觉评审入口
+"""zcode_vision.py — DesignWise 的外部 GPT 视觉评审入口（需用户明确授权）
 
-它是什么：本 skill 的 Gate 1 / Gate 2 视觉评审**默认入口**。它直连 ZCode 自己的 CPA 代理
-（Responses API 的 `input_image`），把「把真实图片像素送进评审」收窄成一条命令。
-它**只接受磁盘上的真实图片**，**可以使用 GPT 模型**（默认 `gpt-6-astra-high`）。
-但它**不是 Copilot Skill 的正式 REVIEW**：不写台账、不写审计、不受轮次限制。
-只有用户明确点名 Copilot、或明确要求使用 `copilot` Skill / Copilot 正式 REVIEW 时，
-才走 `~/.zcode/skills/copilot/` 的正式 REVIEW 通道。
+它是什么：直连 ZCode 自己的 CPA 代理（Responses API 的 `input_image`），把「把真实图片像素
+送进评审」收窄成一条命令。它**只接受磁盘上的真实图片**，**可以使用 GPT 模型**
+（默认 `gpt-6-astra-high`）。它**不是 Copilot Skill 的正式 REVIEW**（不写台账/审计/轮次限制），
+但**同样是外部 GPT 裁决**：只有用户**明确授权 GPT 评审通道**（点名 GPT / GPT 视觉评审 /
+Copilot / 正式 REVIEW）时才可调用，且调用方必须传 `--confirm-gpt-review`。
+未授权时用 DesignWise 原生视觉自检（主模型直接读真实图片），不得用它绕过 Copilot 的启用限制。
 
 硬约束：只接受磁盘上的真实图片文件。传路径不存在的、传纯文字、传 base64 字符串、
 传「请想象一张图」的提示词——一律拒绝并且非零退出。**不拿文字冒充视觉评审。**
@@ -14,12 +14,12 @@
 一律按失败处理，不把截断文本当成评审结论。失败时如实报告「未获得有效视觉裁决」，
 按缺证处理，不伪造 PASS、不静默切换到 Copilot、不自动无限重试。
 
-用法：
-    python3 scripts/zcode_vision.py --image shot.png --prompt "评估这个界面的视觉层级"
-    python3 scripts/zcode_vision.py --image a.png --image b.png --prompt "比较两个方向，给推荐+依据+风险"
-    python3 scripts/zcode_vision.py --health
+用法（仅在用户明确授权 GPT 评审通道后）：
+    python3 scripts/zcode_vision.py --confirm-gpt-review --image shot.png --prompt "评估这个界面的视觉层级"
+    python3 scripts/zcode_vision.py --confirm-gpt-review --image a.png --image b.png --prompt "比较两个方向，给推荐+依据+风险"
+    python3 scripts/zcode_vision.py --health          # 零成本探测，不需要授权标志
 
-退出码：0 = 拿到评审结论；2 = 无法送图/无视觉模型；1 = 调用失败。
+退出码：0 = 拿到评审结论；2 = 未授权 / 无法送图 / 无视觉模型；1 = 调用失败。
 凭据只从 ZCode provider 配置或 ZCODE_CPA_BASE_URL / ZCODE_CPA_API_KEY 读取，
 不打印、不落盘。
 """
@@ -213,10 +213,17 @@ def main():
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--health", action="store_true")
     ap.add_argument("--timeout", type=int, default=240)
+    ap.add_argument("--confirm-gpt-review", action="store_true",
+                    help="确认用户已明确授权 GPT 评审通道；未授权调用会被拒绝")
     a = ap.parse_args()
 
     if a.health:
         return health()
+    if not a.confirm_gpt_review:
+        print("拒绝：外部 GPT 视觉评审需要用户明确授权（点名 GPT / GPT 视觉评审 / "
+              "Copilot / 正式 REVIEW）。未授权时请用 DesignWise 原生视觉自检；"
+              "授权后由调用方传 --confirm-gpt-review。")
+        return 2
     if not a.image:
         print("拒绝：至少需要一张 --image。文字或提示词不能替代真实视觉评审。")
         return 2

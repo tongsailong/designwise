@@ -111,7 +111,8 @@ class ResponseValidationTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()) as out, \
                     contextlib.redirect_stderr(io.StringIO()):
                 old = sys.argv
-                sys.argv = ["zcode_vision.py", "--image", path, "--prompt", "评审"]
+                sys.argv = ["zcode_vision.py", "--confirm-gpt-review",
+                            "--image", path, "--prompt", "评审"]
                 try:
                     code = zcode_vision.main()
                 finally:
@@ -209,13 +210,35 @@ class ConfigTests(unittest.TestCase):
                 contextlib.redirect_stdout(io.StringIO()), \
                 contextlib.redirect_stderr(io.StringIO()):
             old = sys.argv
+            sys.argv = ["zcode_vision.py", "--confirm-gpt-review",
+                        "--image", "/nonexistent.png", "--prompt", "评审"]
+            try:
+                code = zcode_vision.main()
+            finally:
+                sys.argv = old
+        self.assertEqual(code, 2, "无 provider 配置必须按文档返回 2")
+
+    def test_main_refuses_without_explicit_authorization(self):
+        """未传 --confirm-gpt-review 时必须在任何网络/配置动作前拒绝。"""
+        calls = []
+
+        def must_not_call(*args, **kwargs):
+            calls.append(args)
+            raise AssertionError("未授权时不得读取 provider 或发起请求")
+
+        with unittest.mock.patch.object(zcode_vision, "load_endpoint", must_not_call), \
+                contextlib.redirect_stdout(io.StringIO()) as out, \
+                contextlib.redirect_stderr(io.StringIO()):
+            old = sys.argv
             sys.argv = ["zcode_vision.py", "--image", "/nonexistent.png",
                         "--prompt", "评审"]
             try:
                 code = zcode_vision.main()
             finally:
                 sys.argv = old
-        self.assertEqual(code, 2, "无 provider 配置必须按文档返回 2")
+        self.assertEqual(code, 2)
+        self.assertEqual(calls, [])
+        self.assertIn("需要用户明确授权", out.getvalue())
 
 
 if __name__ == "__main__":
