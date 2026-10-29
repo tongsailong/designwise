@@ -37,6 +37,8 @@ class GateHookTests(unittest.TestCase):
     def setUpClass(cls):
         cls.hook_sha = hook_sha(HOOK)
         cls.root = tempfile.mkdtemp(prefix="design_gate_hook_test_")
+        # 阻断观测日志重定向到临时目录：测试不得污染 ~/.zcode/hooks/design-gate/logs/
+        cls.logdir = tempfile.mkdtemp(prefix="design_gate_hook_log_")
         cls.fixtures = {}
 
         def mk(name, duration="60", gate=False):
@@ -86,15 +88,17 @@ class GateHookTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(cls.root, ignore_errors=True)
+        shutil.rmtree(cls.logdir, ignore_errors=True)
 
     def run_hook(self, command, cwd):
         payload = {"cwd": cwd, "tool_input": {"command": command}}
         return self.run_raw(json.dumps(payload))
 
     def run_raw(self, raw):
+        env = dict(os.environ, DESIGN_GATE_LOG_DIR=self.logdir)
         proc = subprocess.run(
             ["bash", HOOK], input=raw, text=True,
-            capture_output=True, timeout=20,
+            capture_output=True, timeout=20, env=env,
         )
         self.last_stderr = proc.stderr
         return proc.returncode
@@ -689,6 +693,250 @@ class GateHookTests(unittest.TestCase):
                    None, 2, "missing cwd with explicit long")
         self.check(f"{self.node} scripts/render-video.js out.html --duration=30",
                    None, 0, "missing cwd with explicit short")
+
+
+    # ---- 2026-10-27 audit: FP fixes, dependency degradation, block log ----
+    def run_env(self, command, cwd, extra_env):
+        payload = json.dumps({"cwd": cwd, "tool_input": {"command": command}})
+        proc = subprocess.run(
+            ["/bin/bash", HOOK], input=payload, text=True,
+            capture_output=True, timeout=20, env=extra_env,
+        )
+        self.last_stderr = proc.stderr
+        return proc.returncode
+
+    def test_20261027_fixed_false_positives(self):
+        self.check("X=$(echo hi); node script.js", self.long, 0,
+                   "unrelated substitution before node")
+        self.check("X=$(echo hi); npm run build", self.long, 0,
+                   "unrelated substitution before npm build")
+        self.check("NODE_PATH=$(npm root -g) node script.js", self.long, 0,
+                   "assignment substitution only sets an env value")
+        self.check('node "$SCRIPT"', self.long, 0,
+                   "unresolved node path without a long duration")
+        self.check("bash design-gate-hook.sh --help", self.long, 0,
+                   "gate helper invocation without a resolvable path")
+        self.check(f"{HOOK} --help", self.long, 0,
+                   "gate script invoked directly for help")
+        self.check(f"bash {self.text_script}", self.long, 0,
+                   "script whose text mentions render but does not render")
+        big = os.path.join(self.root, "big_benign.sh")
+        with open(big, "w", encoding="utf-8") as fh:
+            fh.write("#!/bin/bash\n")
+            fh.write("echo benign\n" * 120000)  # ~1.5 MB，超过内容识别上限
+        self.check(f"bash {big}", self.long, 0,
+                   "oversized benign script is not blocked for its size")
+
+    def test_20261029_ordinary_tooling_false_positives(self):
+        """真实误拦回归：循环里的截图/采集/测试与带变量的安装脚本必须放行。"""
+        shot_loop = (
+            "while read -r n r; do\n"
+            "  npx playwright screenshot --viewport-size=460,960 "
+            "\"file:///tmp/$n\" \"$r\" >/dev/null 2>&1\n"
+            "done <<'EOF'\n01 home\n02 mine\nEOF"
+        )
+        self.check(shot_loop, self.long, 0,
+                   "playwright screenshots inside a read loop")
+        self.check(
+            "for f in a b; do node scripts/check-ui.mjs --url "
+            "\"file:///tmp/$f.html\"; done",
+            self.long, 0, "check-ui inside a for loop")
+        self.check(
+            "APK=$(ls -t app/build/outputs/apk/debug/*.apk | head -1); "
+            "bash ~/.zcode/skills/app-testing/runtime/mi6-verify/"
+            "adb-auto-install.sh \"$APK\"",
+            self.long, 0, "APK install helper with a dynamic argument")
+        self.check("while true; do npm test; break; done", self.long, 0,
+                   "test runner inside a while loop")
+        self.check("for f in *.png; do echo \"$f\"; done", self.long, 0,
+                   "plain file loop")
+        # 正面对照：同一形态里确实出现渲染入口时仍必须阻断。
+        self.check(
+            "for d in a b; do (cd \"$d\" && node scripts/render-video.js "
+            "out.html --duration=60); done",
+            self.long, 2, "render entry inside a loop still blocks")
+        self.check(
+            "while true; do npx hyperframes render --duration=60; break; done",
+            self.long, 2, "hyperframes render inside a loop still blocks")
+
+    def test_20261027_heredoc_data_with_embedded_marker(self):
+        command = (
+            "python3 - <<'PY'\n"
+            "import re\n"
+            "m = re.search(r\"x <<'PY'\\nbody\\nPY\\n\", s)\n"
+            "PY\n"
+            "echo done\n"
+        )
+        self.check(command, self.long, 0,
+                   "heredoc data containing a heredoc marker is still data")
+        # 同一行更早出现的 bash 不能把后面 python3 的数据块当成 shell 脚本
+        command2 = (
+            "bash -n design-gate-hook.sh && python3 - <<'PY'\n"
+            "print('npm run render')\n"
+            "PY\n"
+        )
+        self.check(command2, self.long, 0,
+                   "earlier bash -n does not make a python heredoc executable")
+
+    def test_20261027_missing_python_degrades(self):
+        env = dict(os.environ, PATH="/nonexistent-design-gate-path")
+        for command in ("ls -la", "npm run build",
+                        "npm run render -- --duration=60"):
+            rc = self.run_env(command, self.long, env)
+            self.assertEqual(rc, 0, f"degraded hook must not block: {command!r}")
+            self.assertIn("缺少 python3", self.last_stderr,
+                          f"degradation must be announced: {command!r}")
+
+    def test_20261027_block_log_is_metadata_only(self):
+        logdir = tempfile.mkdtemp(prefix="design_gate_log_")
+        try:
+            env = dict(os.environ, DESIGN_GATE_LOG_DIR=logdir)
+            rc = self.run_env(
+                "node scripts/render-video.js out.html --duration=60",
+                self.long, env)
+            self.assertEqual(rc, 2)
+            files = sorted(f for f in os.listdir(logdir) if f.startswith("blocks-"))
+            self.assertEqual(len(files), 1, files)
+            with open(os.path.join(logdir, files[0]), encoding="utf-8") as fh:
+                records = fh.read().splitlines()
+            self.assertEqual(len(records), 1)
+            rec = json.loads(records[0])
+            self.assertEqual(rec["kind"], "long_render_no_gate")
+            self.assertEqual(rec["source"], "hook")
+            self.assertEqual(rec["duration"], 60)
+            self.assertNotIn("render-video", json.dumps(rec),
+                             "block log must not contain command text")
+            # 放行的命令不写日志
+            rc2 = self.run_env("npm run build", self.long, env)
+            self.assertEqual(rc2, 0)
+            with open(os.path.join(logdir, files[0]), encoding="utf-8") as fh:
+                again = fh.read().splitlines()
+            self.assertEqual(len(again), 1, "allowed commands must not be logged")
+        finally:
+            shutil.rmtree(logdir, ignore_errors=True)
+
+    def test_20261027_documented_hook_gaps(self):
+        # 这些启动路径命令层无法识别，由渲染入口内建校验兜底；测试记录缺口本身。
+        for command in ("make render",
+                        "printf 'npm run render -- --duration=60\\n' | bash",
+                        "python3 -c 'import subprocess; subprocess.run([\"npm\",\"run\",\"render\"])'"):
+            self.check(command, self.long, 0,
+                       "known command-layer gap (entry guard covers our renderers)")
+
+
+GUARD = os.path.join(HERE, "design-gate-check.js")
+NODE_BIN = shutil.which("node") or "node"
+RENDER_ENTRIES = ("render-video.js", "render-video-seek.js")
+
+
+class EntryGuardTests(unittest.TestCase):
+    """入口层 design-gate-check.js 与两个渲染入口的离线校验（不执行渲染）。"""
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp(prefix="entry_guard_test_")
+        self.logdir = tempfile.mkdtemp(prefix="entry_guard_log_")
+        # 阻断日志统一重定向，禁止测试写入 ~/.zcode/hooks/design-gate/logs/
+        self.env_base = dict(os.environ, DESIGN_GATE_LOG_DIR=self.logdir)
+
+    def tearDown(self):
+        shutil.rmtree(self.root, ignore_errors=True)
+        shutil.rmtree(self.logdir, ignore_errors=True)
+
+    def project(self, name="proj", gate=False):
+        path = os.path.join(self.root, name)
+        os.makedirs(path, exist_ok=True)
+        if gate:
+            with open(os.path.join(path, "direction-approved.md"), "w", encoding="utf-8") as fh:
+                fh.write("approved\n")
+        return path
+
+    def run_guard(self, duration, cwd, html=None, env=None):
+        args = [NODE_BIN, GUARD, f"--duration={duration}", "--entry=test-entry"]
+        if html:
+            args.append(f"--html={html}")
+        return subprocess.run(args, cwd=cwd, capture_output=True, text=True, timeout=30,
+                              env=env or self.env_base)
+
+    def log_lines(self):
+        out = []
+        for name in sorted(os.listdir(self.logdir)):
+            with open(os.path.join(self.logdir, name), encoding="utf-8") as fh:
+                out.extend(fh.read().splitlines())
+        return out
+
+    def test_threshold_and_gate(self):
+        long_dir = self.project("long")
+        gated = self.project("gated", gate=True)
+        self.assertEqual(self.run_guard(30, long_dir).returncode, 0, "30s is short")
+        self.assertEqual(self.run_guard(44.9, long_dir).returncode, 0, "44.9s is short")
+        blocked = self.run_guard(45, long_dir)
+        self.assertEqual(blocked.returncode, 2, "45s without gate must block")
+        self.assertIn("direction-approved.md", blocked.stderr)
+        self.assertEqual(self.run_guard(60, gated).returncode, 0, "gate present")
+
+    def test_gate_search_depth(self):
+        gated = self.project("gated", gate=True)
+        deep = os.path.join(gated, "a", "b")
+        os.makedirs(deep)
+        self.assertEqual(self.run_guard(60, deep).returncode, 0,
+                         "gate two levels up is found")
+        too_deep = os.path.join(gated, "a", "b", "c")
+        os.makedirs(too_deep)
+        self.assertEqual(self.run_guard(60, too_deep).returncode, 2,
+                         "gate three levels up is outside the searched range")
+
+    def test_html_directory_is_a_start_point(self):
+        gated = self.project("gated", gate=True)
+        sub = os.path.join(gated, "pages")
+        os.makedirs(sub)
+        html = os.path.join(sub, "demo.html")
+        open(html, "w", encoding="utf-8").close()
+        # cwd 在外层无 Gate 目录，但 HTML 所在目录的上两级有 Gate
+        outside = self.project("outside")
+        self.assertEqual(self.run_guard(60, outside, html=html).returncode, 0,
+                         "gate found via the html path")
+
+    def test_skip_env_is_honored(self):
+        long_dir = self.project("long2")
+        env = dict(self.env_base, SKIP_DESIGN_GATE="1")
+        self.assertEqual(self.run_guard(60, long_dir, env=env).returncode, 0,
+                         "documented SKIP_DESIGN_GATE=1 escape hatch")
+
+    def test_block_log_metadata_only(self):
+        long_dir = self.project("long3")
+        env = self.env_base
+        self.assertEqual(self.run_guard(60, long_dir, env=env).returncode, 2)
+        lines = self.log_lines()
+        self.assertEqual(len(lines), 1)
+        rec = json.loads(lines[0])
+        self.assertEqual(rec["source"], "entry")
+        self.assertEqual(rec["kind"], "long_render_no_gate")
+        self.assertEqual(rec["duration"], 60)
+        self.assertNotIn("direction-approved", json.dumps(rec))
+        # 放行不写日志
+        self.assertEqual(self.run_guard(30, long_dir, env=env).returncode, 0)
+        self.assertEqual(len(self.log_lines()), 1)
+
+    def test_render_entries_block_before_render(self):
+        """真实渲染入口：无 Gate 的长片请求必须在录制前退出，且不产生任何产物。"""
+        for entry in RENDER_ENTRIES:
+            proj = self.project(f"proj_{entry}", gate=False)
+            html = os.path.join(proj, "demo.html")
+            with open(html, "w", encoding="utf-8") as fh:
+                fh.write("<html></html>")
+            env = self.env_base
+            proc = subprocess.run(
+                [NODE_BIN, os.path.join(HERE, entry), html, "--duration=60"],
+                cwd=proj, capture_output=True, text=True, timeout=60, env=env)
+            self.assertEqual(proc.returncode, 2,
+                             f"{entry} must block before render: {proc.stderr[:200]}")
+            self.assertIn("direction-approved.md", proc.stderr)
+            leftovers = [n for n in os.listdir(proj) if n.endswith(".mp4") or n.startswith((".video-tmp-", ".seek-tmp-"))]
+            self.assertEqual(leftovers, [], f"{entry} must not create artifacts")
+            self.assertFalse(any("playwright" in line for line in proc.stderr.splitlines()),
+                             f"{entry} must block before loading render deps")
+        self.assertEqual(len(self.log_lines()), 2, "one block record per entry")
+
 
 
 if __name__ == "__main__":

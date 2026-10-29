@@ -5,30 +5,39 @@
 #   - 时长 ≥45s 的长片渲染，项目目录或上两级没有 direction-approved.md → exit 2；
 #   - 短片、入口源码明确短默认值（render-video*.js = 30s），
 #     或无法判定时长但已确认 Gate → 放行；
-#   - 无法判定时长且无 Gate、workspace 目标或控制流上下文 → exit 2（fail-closed）；
+#   - 只有「可靠识别出的渲染入口」才阻断：命令里出现 $(...)、变量、heredoc、
+#     if/for/case/while、&&/|| 或渲染字样本身都不是阻断理由（2026-10-27 收窄）；
 #   - 命令里显式带 SKIP_DESIGN_GATE=1（只认该渲染命令自己的前导赋值/导出环境）→ 放行。
 #
-# 实现：这里不再用「删引号 + 整串正则 + raw 兜底」。Python 嵌入脚本按 shell 词法
-# 切分简单命令，解析引号拼接、选项、连接符、子 shell/花括号、常见包装器与嵌套
-# `bash -c`，只在「该简单命令确实执行渲染入口」时检查 Gate；文本命令里的渲染字样
-# 不再触发。条件/短路/循环/函数中无法可靠求值、且可能影响渲染上下文的，保守阻断。
+# 保护分层（2026-10-27）：
+#   1) 入口层：render-video.js / render-video-seek.js 内建的 design-gate-check.js
+#      在真正录制前校验；覆盖 npm run / make / Python 子进程 / bash -c 等所有启动
+#      路径，不依赖本 hook 的解析结果；
+#   2) 命令层：本 hook 在 Bash 工具调用前做预防性识别，补充 HyperFrames
+#      （npx hyperframes）等本 skill 之外的渲染入口。
 #
-# 行为上限不变：本地判断，无网络、无文件写入、无删除；只向 stderr 打印原因。
-# 本 hook 不会被 skill 自动安装；只有用户手动配进 settings.json 后才生效。
+# 实现：Python 嵌入脚本按 shell 词法切分简单命令，解析引号拼接、选项、连接符、
+# 子 shell/花括号、常见包装器与嵌套 `bash -c`；只在「该简单命令确实执行渲染入口」
+# 时检查 Gate。脚本内容解析不出可靠结论时不再阻断，交由入口层兜底。
+#
+# 副作用：本地判断，无网络、无删除；仅在阻断时向 ~/.zcode/hooks/design-gate/logs/
+# 追加一行 JSONL（时间/来源/类别/时长，不含完整命令与环境变量值），失败不影响命令。
+# 本 hook 不会被 skill 自动安装；只有用户手动配进 config.json 后才生效。
 #
 # 覆盖范围：直接渲染入口、npm/node/npx/hyperframes、常见包装器、bash -c、子 shell/
 # 花括号、无条件 cd 连接、明确 true/false 的分支、if/while/until 条件命令、空循环、
 # 未调用函数定义、普通 shell 脚本内容检查；绝对路径 shell/npm/node 也按同一程序识别。
 # 条件/循环里的 cwd/env 变更（含 env -C、npm -C、嵌套 shell -c）按失败关闭处理。
 # 不保证：stdin 动态喂给 shell（... | bash）、远程执行（ssh/docker）、解释器内动态
-# 拼命令、make / npm run build 等间接构建、非字面条件/循环、case、函数调用、
-# workspace/filter/多个 workspace、命令替换/进程替换；这些无法可靠判定时失败关闭。
+# 拼命令、make / npm run build 等间接构建（这些由入口层 design-gate-check.js 兜底）、
+# 非字面条件/循环、函数调用、workspace/filter/多个 workspace、命令替换/进程替换。
 #
-# 依赖：python3（解析 JSON 与 shell 词法）。缺失时按失败关闭（exit 2），不静默放行。
+# 依赖：python3（解析 JSON 与 shell 词法）。缺失时本层降级放行并告警，不阻断普通
+# Bash；入口层校验仍是最后防线。
 
 if ! command -v python3 >/dev/null 2>&1; then
-  printf '%s\n' '🛑 design-gate-hook: 缺少 python3，无法解析命令；按失败关闭。请安装 python3 或停用本 hook。' >&2
-  exit 2
+  printf '%s\n' '⚠️ design-gate-hook: 缺少 python3，命令级预检已降级放行（普通 Bash 不受影响）；渲染入口内建校验（design-gate-check.js）仍是最后防线。请安装 python3 恢复本层。' >&2
+  exit 0
 fi
 
 exec python3 -c "$(cat <<'PY'
@@ -37,6 +46,7 @@ import math
 import os
 import re
 import sys
+import time
 
 GATE = "direction-approved.md"
 MIN_LONG = 45.0
@@ -50,9 +60,36 @@ CONTROL_WORDS = {"if", "elif", "while", "until", "for", "case"}
 # 会改变执行上下文或触发渲染的词。
 STATE_WORDS = {"cd", "export", "unset", "source", ".", "eval", "exec",
                "builtin", "pushd", "popd"}
+# 阻断观测日志：与入口层 design-gate-check.js 共用同一目录与字段。
+LOG_DIR = os.environ.get("DESIGN_GATE_LOG_DIR") or os.path.join(
+    os.path.expanduser("~"), ".zcode", "hooks", "design-gate", "logs")
 
 
-def fail(message: str) -> None:
+def _log_block(kind: str, duration=None) -> None:
+    """Append one block record for later FP/coverage review. Never raises.
+
+    Only time/source/kind/duration are recorded: no command text, no env values.
+    """
+    try:
+        os.makedirs(LOG_DIR, mode=0o700, exist_ok=True)
+        day = time.strftime("%Y-%m-%d", time.localtime())
+        path = os.path.join(LOG_DIR, "blocks-%s.jsonl" % day)
+        record = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime()),
+                  "source": "hook", "kind": kind}
+        if isinstance(duration, (int, float)) and math.isfinite(duration):
+            record["duration"] = round(float(duration), 1)
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+    except Exception:
+        pass
+
+
+def fail(message: str, kind: str = "blocked", duration=None) -> None:
+    _log_block(kind, duration)
     print("🛑 design-gate-hook: " + message, file=sys.stderr)
     sys.exit(2)
 
@@ -355,7 +392,11 @@ def strip_heredocs(s: str) -> str:
         markers = _heredoc_markers(line)
         for start, delim in markers:
             prefix = line[:start]
-            shell_fed = bool(re.search(r"(?:^|[;&|(){}]\s*)(?:bash|sh|zsh|dash)\b", prefix))
+            # 只看该 heredoc 所属简单命令的起始词：同一行更早的 `bash -n x.sh`
+            # 不能把后面 `python3 - <<EOF` 的数据块当成喂给 shell 的脚本。
+            segment = re.split(r";|&&|\|\||\||\(|\{", prefix)[-1]
+            shell_fed = bool(re.match(
+                r"\s*(?:[^\s;&|()]+\s+)*(?:bash|sh|zsh|dash)\b", segment))
             body_lines = []
             while i < len(lines):
                 body = lines[i]
@@ -384,6 +425,17 @@ def _is_assign(word: str) -> bool:
 def _split_assign(word: str):
     name, _, value = word.partition("=")
     return name, value
+
+
+def _refers_to(tokens, name: str) -> bool:
+    """Whether any later word dereferences $name / ${name...}."""
+    if not name:
+        return False
+    pattern = re.compile(r"\$(?:\{%s\b|%s\b)" % (re.escape(name), re.escape(name)))
+    for tok in tokens:
+        if tok.kind == "word" and pattern.search(tok.value):
+            return True
+    return False
 
 
 def _apply_assignments(ctx: Ctx, assignments, export=False) -> None:
@@ -1089,8 +1141,16 @@ def _script_findings(script: str, ctx: Ctx, skip: bool, depth: int, same_shell: 
         return [Finding(ctx.cwd, unresolved=True,
                         reason="脚本路径含通配符，无法可靠解析；保守阻断")]
     if "$" in script or "`" in script or script.startswith("~"):
-        return [Finding(ctx.cwd, unresolved=True,
-                        reason="脚本路径含未解析值；保守阻断")]
+        base = os.path.basename(script)
+        # Fully dynamic basename (e.g. `bash "$SCRIPT"`) stays fail-closed;
+        # a known ordinary tool path such as `~/.../adb-auto-install.sh` passes.
+        if not base or base.startswith("$") or "`" in base or base.startswith("~"):
+            return [Finding(ctx.cwd, unresolved=True,
+                            reason="脚本路径含未解析值；保守阻断")]
+        if "render" in base.lower() or "hyperframes" in base.lower():
+            return [Finding(ctx.cwd, unresolved=True,
+                            reason="脚本路径含未解析值且名称疑似渲染入口；保守阻断")]
+        return []
     path = script
     if not os.path.isabs(path):
         if not ctx.cwd:
@@ -1100,9 +1160,9 @@ def _script_findings(script: str, ctx: Ctx, skip: bool, depth: int, same_shell: 
     if not os.path.isfile(path):
         return []
     try:
-        if os.path.getsize(path) > (1 << 20):
-            return [Finding(ctx.cwd, unresolved=True, reason="脚本过大，无法可靠解析；保守阻断")]
-        text = open(path, "r", encoding="utf-8", errors="replace").read()
+        # 只读前 1 MB 做内容识别。脚本体积本身不是阻断理由：无法可靠判断时
+        # 放行，真正的渲染入口由 design-gate-check.js 在启动时兜底。
+        text = open(path, "r", encoding="utf-8", errors="replace").read(1 << 20)
     except OSError:
         return []
     child = ctx if same_shell else ctx.copy()
@@ -1110,7 +1170,12 @@ def _script_findings(script: str, ctx: Ctx, skip: bool, depth: int, same_shell: 
         child.vars = dict(ctx.env)
         child.env = dict(ctx.env)
         child.exported = set(ctx.env)
-    return parse_tokens(tokenize(strip_heredocs(text)), child, skip, depth + 1)
+    findings = parse_tokens(tokenize(strip_heredocs(text)), child, skip, depth + 1)
+    # 脚本内容里的「无法可靠求值」只说明解析器看不懂这段脚本（heredoc、嵌套
+    # 替换、复杂控制流等），不能据此推断它会渲染长片。这类歧义不再阻断 ——
+    # 渲染入口内建的 design-gate-check.js 才是这条路径的兜底。只有脚本内容中
+    # 确实识别出长片渲染调用时才返回 finding。
+    return [f for f in findings if not f.unresolved]
 
 
 def _parse_shell(prog: str, args, ctx: Ctx, skip: bool,
@@ -1519,8 +1584,15 @@ def _parse_node(args, ctx: Ctx, skip: bool, local_vars: dict, local_env: dict, d
         return []
     script = _expand_word(args[i].value, local_vars)
     if "$" in script or "`" in script or script.startswith("~"):
-        return [Finding(ctx.cwd, unresolved=True,
-                        reason="node 脚本路径含未解析值；保守阻断")]
+        # 路径不可解析时无法确认是否为渲染入口。只有这条命令自己声明了长片时长
+        # （或时长本身不可解析）才按受保护的长片渲染处理；
+        # 否则放行，避免把 `node "$SCRIPT"` 这类普通调用误判为渲染。
+        rest = args[i + 1:]
+        dur = _duration_from_args(rest, local_vars)
+        if _duration_ambiguous(rest, local_vars) or (dur is not None and dur >= MIN_LONG):
+            return [Finding(ctx.cwd, unresolved=True,
+                            reason="node 脚本路径含未解析值且声明了长片时长；保守阻断")]
+        return []
     if "*" in script:
         if "render" in script:
             return [Finding(ctx.cwd, unresolved=True, reason="node 脚本路径含通配符；保守阻断")]
@@ -1641,6 +1713,20 @@ def _tokens_relevant(tokens) -> bool:
         if "render" in name or "hyperframes" in name:
             return True
     return False
+
+
+def _tokens_to_simple_command_end(tokens, start: int):
+    """Tokens of the simple command beginning at `start`, up to the next operator.
+
+    A command substitution's influence stops at its own simple command: a later
+    `; node script.js` must not make it look render-related.
+    """
+    out = []
+    for tok in tokens[start:]:
+        if tok.kind == "op" and tok.value in (";", "&&", "||", "|", "&", ")", "}"):
+            break
+        out.append(tok)
+    return out
 
 
 def _if_parts(tokens, start: int):
@@ -1918,6 +2004,28 @@ def _tokens_state_relevant(tokens, ctx: Ctx) -> bool:
     return False
 
 
+def _has_render_literal(tokens) -> bool:
+    """Whether the token stream actually names a render entry.
+
+    Generic executors (`node`, `npx`, `bash`, `npm`) are not render entries by
+    themselves.  Requiring a literal render token here keeps ordinary loops
+    (Playwright screenshots, check-ui.mjs, npm test) out of the fail-closed
+    path while preserving real render-in-control-flow blocking.
+    """
+    words = [t.value for t in tokens if t.kind == "word"]
+    for value in words:
+        low = value.lower()
+        if "render-video" in low or "render-narration" in low or "hyperframes" in low:
+            return True
+        # `bash -c '... npm run render ...'` keeps the inner command in one word.
+        if re.search(r"\b(?:npm|pnpm|yarn)\s+(?:run|run-script)\s+render\b", low):
+            return True
+    for first, second in zip(words, words[1:]):
+        if first in ("run", "run-script") and second.startswith("render"):
+            return True
+    return False
+
+
 def _control_risk(tokens, ctx: Ctx) -> bool:
     """Whether unparsed control flow may affect a render or context.
 
@@ -1929,6 +2037,8 @@ def _control_risk(tokens, ctx: Ctx) -> bool:
     If the command cannot reach a render at all, control flow is irrelevant
     and must not block ordinary read-only composites.
     """
+    if not _has_render_literal(tokens):
+        return False
     if not _render_subject(tokens):
         return False
     gate = _gate_ok(ctx.cwd)
@@ -2131,9 +2241,18 @@ def parse_tokens(tokens, ctx: Ctx, inherited_skip: bool = False, depth: int = 0)
                                               "stdbuf", "builtin"})
             )
             j, inner = _extract_group(tokens, i + 1, ")")
+            if dynamic and cmd and all(_is_assign(t.value) for t in cmd):
+                # 纯赋值前缀里的命令替换只能改变变量值，不能改变本条命令的执行目标。
+                # 只有当该变量在后续命令里被引用（可能成为命令名/脚本名/参数）时，
+                # 才需要担心替换结果变成渲染命令；否则 `NODE_PATH=$(npm root -g)
+                # node app.js` 这类常见写法会被误拦。
+                names = [_split_assign(t.value)[0] for t in cmd]
+                if not any(_refers_to(tokens[j + 1:], n) for n in names):
+                    dynamic = False
             if dynamic and mode != "skipped" \
-                    and (_tokens_renderish(inner) or _tokens_renderish(tokens[j + 1:])):
-                # 赋值值、命令位置或 eval/包装器参数中的命令替换无法静态确定；
+                    and (_tokens_renderish(inner)
+                         or _tokens_renderish(_tokens_to_simple_command_end(tokens, j + 1))):
+                # 命令位置或 eval/包装器参数中的命令替换无法静态确定；
                 # 若它可能变成渲染命令，失败关闭而不是猜测展开结果。
                 findings.append(Finding(
                     ctx.cwd, skip=inherited_skip, unresolved=True,
@@ -2182,10 +2301,10 @@ def main() -> int:
     try:
         data = json.loads(raw_input)
     except Exception as exc:
-        fail(f"无法解析输入 JSON（{exc}）；按失败关闭。")
+        fail(f"无法解析输入 JSON（{exc}）；按失败关闭。", kind="malformed_input")
         return 2
     if not isinstance(data, dict):
-        fail("输入 JSON 顶层不是对象；按失败关闭。")
+        fail("输入 JSON 顶层不是对象；按失败关闭。", kind="malformed_input")
         return 2
     tool_input = data.get("tool_input")
     if not isinstance(tool_input, dict):
@@ -2214,7 +2333,8 @@ def main() -> int:
         if finding.skip:
             continue
         if finding.unresolved:
-            fail(f"无法可靠判定该渲染命令（{finding.reason}）；按保守策略阻断。")
+            fail(f"无法可靠判定该渲染命令（{finding.reason}）；按保守策略阻断。",
+                 kind="unresolved")
         # 优先级：首个显式 --duration（JS 入口不读 HTML）> 30s 源码默认；
         # 未知 npm/hyperframes 才用项目 data-duration；都无时只有确认 Gate 才放行。
         duration = finding.duration
@@ -2227,15 +2347,17 @@ def main() -> int:
             # 时长不可判定时不能静默放行；只有能确认 Gate 已存在才允许。
             if finding.cwd and os.path.isdir(finding.cwd) and _gate_ok(finding.cwd):
                 continue
-            fail("无法可靠判定渲染时长，且无法确认 Gate；按保守策略阻断。")
+            fail("无法可靠判定渲染时长，且无法确认 Gate；按保守策略阻断。",
+                 kind="duration_unknown")
         if duration < MIN_LONG:
             continue
         if not finding.cwd or not os.path.isdir(finding.cwd):
             fail("长片渲染但 cwd 缺失/无效，无法核对 "
-                 f"{GATE}；按保守策略阻断。")
+                 f"{GATE}；按保守策略阻断。", kind="cwd_invalid")
         if _gate_ok(finding.cwd):
             continue
-        fail(_long_message(finding.cwd, duration))
+        fail(_long_message(finding.cwd, duration),
+             kind="long_render_no_gate", duration=duration)
     return 0
 
 
