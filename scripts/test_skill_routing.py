@@ -280,6 +280,86 @@ class RoutingPriorityTests(unittest.TestCase):
         self.assertIn("48×48dp", verification)
         self.assertIn("不得复制 UI 里手写的顺序 / 数值 / 文案", verification)
 
+    # ── L1 轻量流程（2026-10-29）──────────────────────────────
+    L1_HEADING = "L1 四步流程（最高优先，覆盖通用流程偏好）"
+
+    def test_l1_four_step_flow_is_defined(self):
+        block = section(self.skill, self.L1_HEADING)
+        for step in ("理解现状", "直接修改", "针对性验证", "交付"):
+            self.assertIn(step, block)
+        for needle in ("不强制提问", "默认只实现一个方案", "不强制生图",
+                       "不产出", "design-state.md", "不因普通局部改动自动启动"):
+            self.assertIn(needle, block)
+
+    def test_l1_verification_keeps_hard_gates(self):
+        block = section(self.skill, self.L1_HEADING)
+        for needle in ("Android 原生按 dp", "不能用 HTML CSS px 代替",
+                       "业务规则断言必须独立于 UI 自报结果",
+                       "触控、字号、对比度、字体缩放、布局溢出与交互"):
+            self.assertIn(needle, block)
+
+    def test_l1_does_not_enter_direction_consultant_or_long_spec(self):
+        head = self.skill[self.skill.index("## 设计方向顾问（Fallback 模式）"):][:500]
+        self.assertIn("L1 不进入本节", head)
+        self.assertIn("≥200 字", head)
+        self.assertIn("≥500 字", head)
+        self.assertIn("不跑 Phase 1-5", head)
+
+    def test_standard_checkpoints_are_scoped_for_l1(self):
+        flow = section(self.skill, "标准流程（用TaskCreate追踪）")
+        self.assertIn("L1 走「L1 四步流程」", flow)
+        for label in ("检查点1", "检查点2·资产自检", "检查点3", "检查点4", "检查点5"):
+            line = next(l for l in self.skill.splitlines()
+                        if ("**" + label) in l and "🛑" in l)
+            self.assertIn("L1", line, "%s 必须标明 L1 口径" % label)
+        principle = next(l for l in self.skill.splitlines()
+                         if l.startswith("**检查点原则**"))
+        self.assertIn("L1", principle)
+        self.assertIn("不因确认而停轮", principle)
+
+    def test_l1_preserves_authorization_and_reclassification(self):
+        block = section(self.skill, self.L1_HEADING)
+        for needle in ("用户明确要求多个视觉方案", "选择权",
+                       "重新判型为 L2", "不看页面数量",
+                       "权限、安全、发布或生产数据",
+                       "不因 L1 简化获得任何新授权"):
+            self.assertIn(needle, block)
+
+    def test_l1_fast_path_is_linked_from_references(self):
+        self.assertIn("L1 四步流程", self.routing)
+        self.assertIn("L1 四步流程", self.workflow)
+        fast = section(self.workflow, "L1 快速路径（优先于本文件其余流程偏好）", level=2)
+        for needle in ("理解现状", "直接改现有 UI", "只验受影响屏", "极简交付"):
+            self.assertIn(needle, fast)
+        junior = section(self.workflow, "Junior Designer模式", level=2)
+        self.assertIn("L1 局部改动不走 Pass 1-4", junior)
+
+    def test_l1_acceptance_scenarios(self):
+        """A 按钮尺寸 / B 弹窗局部 / C 字体适配 / D 首页整体 / E 多方案要求 / F 授权。"""
+        block = section(self.skill, self.L1_HEADING)
+        row = next(line for line in self.skill.splitlines()
+                   if "**L1 · 既有体系内的局部优化**" in line)
+        self.assertIn("按钮体系微调", row)          # A
+        self.assertIn("弹窗", row)                  # B
+        self.assertIn("字号", block)                # C
+        self.assertIn("Android 原生按 dp", block)   # C：原生仍需真实验证
+        l2_row = next(r for r in self.routing_rows() if "**L2" in r or "L2：" in r)
+        self.assertIn("首页或重要页面整体设计", l2_row)   # D
+        self.assertIn("用户明确要求多个方案", block)      # E
+        self.assertIn("不因 L1 简化获得任何新授权", block)  # F
+
+    def test_l2_direction_gate_unchanged_by_l1_work(self):
+        """L1 轻量化不得稀释 L2 的停轮与方向选择。"""
+        for needle in ("停轮等用户选定", "默认 **3 个**", "不得只做 1 个",
+                       "唯一豁免（仅此三种"):
+            self.assertIn(needle, self.skill)
+        gpt = read("references/gpt-visual-workflow.md")
+        self.assertIn("不得只做 1 个", gpt)
+        self.assertIn("不得静默改用 HTML/SVG 冒充概念图", gpt)
+        l3 = next(line for line in self.skill.splitlines()
+                  if "**L3 · 非 UI 载体**" in line)
+        self.assertIn("不套 UI 三方向门", l3)
+
 
 if __name__ == "__main__":
     unittest.main()
