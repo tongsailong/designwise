@@ -85,7 +85,7 @@ The skill is **agent-agnostic**: Claude Code, Codex, Cursor, Trae, OpenClaw, Her
 
 The four items above are an **added judgment layer**, not a replacement. Upstream's visual output pipeline is intact:
 
-- **Direction exploration — `scripts/zcode_vision.py` compares the real candidate images, you choose the direction**: every new design task produces **multiple real candidate directions** first (style or brand named — still no exemption); the **prompts are reviewed first** (pre-generation, text-decidable items only, **not a direction decision**), then the approved prompts produce **several genuinely different directions, one real candidate image each**; by default **native self-check** runs **Gate 1 on those real pixels** and returns a **recommendation + rationale + risks** (external `scripts/zcode_vision.py --confirm-gpt-review` only with explicit GPT-review authorization; the formal `copilot` REVIEW only when the user explicitly names Copilot or explicitly requests the `copilot` Skill / formal REVIEW); **you look at the real candidate images and choose the direction** — the choice is yours, GPT only recommends. Only then is a converged final prompt written and the production concept image generated
+- **Direction exploration — `scripts/zcode_vision.py` compares the real candidate images, you choose the direction**: every **L2** task (new visual language or major structural change) produces **multiple real candidate directions** first (style or brand named — still no exemption); **L1 local optimization edits the existing UI directly, with no multi-direction pass**; the **prompts are reviewed first** (pre-generation, text-decidable items only, **not a direction decision**), then the approved prompts produce **several genuinely different directions, one real candidate image each**; by default **native self-check** runs **Gate 1 on those real pixels** and returns a **recommendation + rationale + risks** (external `scripts/zcode_vision.py --confirm-gpt-review` only with explicit GPT-review authorization; the formal `copilot` REVIEW only when the user explicitly names Copilot or explicitly requests the `copilot` Skill / formal REVIEW); **you look at the real candidate images and choose the direction** — the choice is yours, GPT only recommends. Only then is a converged final prompt written and the production concept image generated
 - **60-style HTML-native library** (20 web + 20 deck + 20 infographic, pure CSS, no image generation)
 - **Interactive prototypes** (real iPhone bezel, clickable, Playwright-verified) / **motion** (Stage + Sprite timeline, MP4/GIF export) / **editable PPTX** (real text frames) / **infographics** (print-grade, PDF/PNG/SVG)
 - **Brand-asset protocol** (5 hard steps — never guess brand colors from memory) and an **anti-AI-slop floor**
@@ -220,7 +220,7 @@ No buttons, no panels, no Figma plugin — one sentence is enough:
 
 ### Direction exploration: native self-check compares the real candidate images (external GPT only when authorized), you choose the direction (multi-direction gate)
 
-Any task that produces new visual design starts by producing **multiple real candidate directions** — a named style or brand narrows the interpretation but doesn't waive the choice. The **prompts are reviewed first** (pre-generation, text-decidable items only, **not a direction decision**), then the approved prompts produce **several genuinely different directions, one real candidate image each**. By default **native self-check** then runs **Gate 1 on those real pixels** and returns a **recommendation + rationale + risks** (external `scripts/zcode_vision.py --confirm-gpt-review` only with explicit GPT-review authorization; the formal `copilot` REVIEW runs only when the user explicitly names Copilot or explicitly requests the `copilot` Skill / formal REVIEW); **you look at the real candidate images and choose the direction** — the choice is yours, GPT only recommends. A converged final prompt and the production concept image come after that.
+Any **L2** task (new visual language or major structural change) starts by producing **multiple real candidate directions** — a named style or brand narrows the interpretation but doesn't waive the choice. **L1 local optimization edits the existing UI directly; it does not run the multi-direction gate.** The **prompts are reviewed first** (pre-generation, text-decidable items only, **not a direction decision**), then the approved prompts produce **several genuinely different directions, one real candidate image each**. By default **native self-check** then runs **Gate 1 on those real pixels** and returns a **recommendation + rationale + risks** (external `scripts/zcode_vision.py --confirm-gpt-review` only with explicit GPT-review authorization; the formal `copilot` REVIEW runs only when the user explicitly names Copilot or explicitly requests the `copilot` Skill / formal REVIEW); **you look at the real candidate images and choose the direction** — the choice is yours, GPT only recommends. A converged final prompt and the production concept image come after that.
 
 **Tasks that explore a new visual direction** (app icon · splash redesign · app home or key-page redesign · multi-page visual system · brand exploration · illustration/key visual · interactive prototype) go down this full chain:
 
@@ -269,7 +269,7 @@ Product-UI tasks write three lines before starting (who's using it / what they'r
 
 ### Junior designer workflow
 
-The default mode across every task: send the full question set in one batch and wait; write assumptions + placeholders + reasoning into the HTML first; show it to the user early (even gray blocks); show again at content → variations → Tweaks; eyeball the browser with Playwright before delivery.
+The default mode, scoped by task tier: send the full question set in one batch and wait; write assumptions + placeholders + reasoning into the HTML first; show it to the user early (even gray blocks); **for L2 or an explicit comparison request**, show again at content → variations → Tweaks (**L1 edits the existing UI directly, without a multi-version pass**); eyeball the browser with Playwright before delivery.
 
 ### Fact verification first (core principle #0)
 
@@ -283,7 +283,7 @@ Avoid the visual common denominator of AI output (purple gradients / emoji icons
 
 ## Platforms & requirements
 
-**Agents**: Claude Code · Codex · Cursor · Trae · OpenClaw · Hermes Agent, or any agent supporting markdown-based skills. Weak runtimes (no subagents / non-Claude / limited context) enter a degradation mode and still produce multiple directions (3 by default, 2 when justified; serial and physically isolated).
+**Agents**: Claude Code · Codex · Cursor · Trae · OpenClaw · Hermes Agent, or any agent supporting markdown-based skills. Weak runtimes (no subagents / non-Claude / limited context) enter a degradation mode: **L2** still produces multiple directions (3 by default, 2 when justified; serial and physically isolated); **L1 edits the existing UI directly**.
 
 **Local toolchain** (only needed when you use the matching export/verify capability):
 

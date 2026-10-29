@@ -87,7 +87,7 @@ Skill 是 **agent-agnostic** 的：Claude Code、Codex、Cursor、Trae、OpenCla
 
 上面四项是**新增判断层**，它们不替代原有能力——上游的视觉产出链路一条不少：
 
-- **视觉方向探索**：任何新视觉设计先出**多个方向的候选初稿**（指定风格 / 品牌也不豁免），让你**看着选**而不是在文字里盲选；需探索新方向时走 GPT 概念通路——**每个方向都出真实候选图**，默认由**原生自检**在真实像素上比较并给出**推荐 + 依据 + 风险**；授权后才用 `zcode_vision --confirm-gpt-review`（Copilot 正式 REVIEW 仅点名时启用），**你看着真实候选图选定方向**，选定后再收敛出最终提示词与正式概念图，然后**只做该方向的一套 HTML**
+- **视觉方向探索**：**L2 新视觉设计**先出**多个方向的候选初稿**（L1 局部优化直接改现有 UI，不铺三方向；指定风格 / 品牌也不豁免），让你**看着选**而不是在文字里盲选；需探索新方向时走 GPT 概念通路——**每个方向都出真实候选图**，默认由**原生自检**在真实像素上比较并给出**推荐 + 依据 + 风险**；授权后才用 `zcode_vision --confirm-gpt-review`（Copilot 正式 REVIEW 仅点名时启用），**你看着真实候选图选定方向**，选定后再收敛出最终提示词与正式概念图，然后**只做该方向的一套 HTML**
 - **60 种 HTML 原生风格库**（网页 20 + PPT 20 + 信息图 20，纯 CSS 无需生图）
 - **交互原型**（真 iPhone 机身、可点击、Playwright 验证）/ **动画**（Stage + Sprite 时间轴，导出 MP4 / GIF）/ **可编辑 PPTX**（导出真文本框）/ **信息图**（印刷级排版，可导 PDF / PNG / SVG）
 - **品牌资产协议**（5 步硬流程，绝不从记忆猜品牌色）/ **反 AI slop 底线**
@@ -222,7 +222,7 @@ git clone https://github.com/tongsailong/designwise.git ~/.claude/skills/designw
 
 ### 视觉方向探索：GPT 在真实候选图上比较并推荐，你选定方向（多方向硬门）
 
-收到任何会产出新视觉设计的任务，先出**多个方向的真实候选初稿**——指定了风格或品牌也不豁免，只是收窄了解释空间。**提示词先经专家评审**（生图前，只判文字可判项、**不决定方向**），然后用通过的提示词**生成多个真正不同的视觉方向、每个方向 1 张真实候选图**；默认由**原生自检**在这些**真实像素**上做 **Gate 1**；授权后才用 `zcode_vision --confirm-gpt-review`（Copilot 仅点名），输出**推荐 + 依据 + 风险**；**你看完真实候选图后选定方向**——方向决策权在你，GPT 只推荐。选定后才收敛出最终提示词与正式概念图。
+收到 **L2（新视觉语言或重大结构变化）** 任务，先出**多个方向的真实候选初稿**——指定了风格或品牌也不豁免，只是收窄了解释空间。**L1 局部优化直接改现有 UI，不铺三方向。** **提示词先经专家评审**（生图前，只判文字可判项、**不决定方向**），然后用通过的提示词**生成多个真正不同的视觉方向、每个方向 1 张真实候选图**；默认由**原生自检**在这些**真实像素**上做 **Gate 1**；授权后才用 `zcode_vision --confirm-gpt-review`（Copilot 仅点名），输出**推荐 + 依据 + 风险**；**你看完真实候选图后选定方向**——方向决策权在你，GPT 只推荐。选定后才收敛出最终提示词与正式概念图。
 
 **需探索新视觉方向的任务**（App 图标 · 启动页改版 · App 首页或重要页面整体设计 · 多页面视觉体系 · 品牌视觉探索 · 插画主视觉 · 交互原型）走这条完整链路：
 
@@ -271,7 +271,7 @@ git clone https://github.com/tongsailong/designwise.git ~/.claude/skills/designw
 
 ### Junior Designer 工作流
 
-默认工作模式，贯穿所有任务：开工前一次性发问题清单、等批量答完；HTML 里先写 assumptions + placeholders + reasoning；尽早 show 给你（哪怕只是灰块）；填充内容 → variations → Tweaks 三步分别再 show；交付前用 Playwright 肉眼过一遍浏览器。
+默认工作模式（按任务分层使用）：开工前一次性发问题清单、等批量答完；HTML 里先写 assumptions + placeholders + reasoning；尽早 show 给你（哪怕只是灰块）；**L2 或你明确要求对比时**填充内容 → variations → Tweaks 三步分别再 show（**L1 直接改现有 UI**，不铺多版）；交付前用 Playwright 肉眼过一遍浏览器。
 
 ### 事实验证先于假设（核心原则 #0）
 
@@ -285,7 +285,7 @@ git clone https://github.com/tongsailong/designwise.git ~/.claude/skills/designw
 
 ## 支持平台与依赖
 
-**Agent 支持**：Claude Code · Codex · Cursor · Trae · OpenClaw · Hermes Agent，或任何支持 markdown-based skill 的 agent。弱 runtime（无 subagent / 非 Claude / 上下文受限）自动进入降级模式，仍然出多个方向（改为串行、差异化隔离）。
+**Agent 支持**：Claude Code · Codex · Cursor · Trae · OpenClaw · Hermes Agent，或任何支持 markdown-based skill 的 agent。弱 runtime（无 subagent / 非 Claude / 上下文受限）自动进入降级模式：**L2** 仍然出多个方向（改为串行、差异化隔离）；**L1** 直接改现有 UI。
 
 **本地工具链**（按需，只有用到对应导出/验证能力时才需要）：
 
