@@ -6,11 +6,11 @@
 > **何时读本文件**：正文压缩表找不到对应任务、或需要该行的完整约束描述时。
 > **路径约定**：下表里所有 `references/xxx.md`、`assets/xxx`、`scripts/xxx` 均相对本 skill 根目录。
 
-## 工具路由（与全局 `AGENTS.md` §6 一致）
+## 工具路由（与全局 `AGENTS.md` §5《委派与独立复核》一致）
 
 1. **常规独立编码、修复、测试** → 默认由 **ZCode 主控使用原生工具直接完成**；只有确实可拆分、并行有收益时才派原生子智能体。
 2. **用户明确要求的独立复核，以及全局风险分档触发的复核** → 使用 **ZCode 原生子智能体的独立上下文**（只读）。
-3. **DesignWise Gate 1 / Gate 2 视觉评审** → 默认 **`scripts/zcode_vision.py`**（直连 CPA、只收真实图片；不是 copilot 正式 REVIEW）。
+3. **DesignWise Gate 1 / Gate 2 视觉评审** → 默认 **原生视觉自检**（主模型直接读真实图片，结论标注「自检」）；**用户明确授权 GPT 评审通道后**才可用 `scripts/zcode_vision.py --confirm-gpt-review`（直连 CPA、只收真实图片；不是 copilot 正式 REVIEW）。未授权时不得用它绕过 Copilot 的启用限制。
 4. **Copilot 正式 REVIEW** → 仅在用户**明确点名 Copilot** / **明确要求使用 `copilot` Skill** / **明确要求正式 REVIEW** 时调用；任务复杂度、风险高低、是否需要独立复核、其他通道是否可用，均不构成授权。
 5. **普通第二视角、并行探索、一般协作** → 遵循全局规则，用原生子智能体，**不强制**走独立复核通道。
 6. **用户明确指定其他工具** → 遵循用户指定。
@@ -23,7 +23,7 @@
 | 任务 | 读 |
 |------|-----|
 | 开工前问问题、定方向 | `references/workflow.md` |
-| 🎨 **GPT 视觉概念生图**（阶段 2 · 需探索新视觉方向时强制前置：Visual Brief（含约束分层）/ 能力探测 / **生成范围与成本控制 §1.5** / 多方向与英文 prompt 自动生成（图标 §2.3.1）/ **提示词专家评审 §2.6（生图前，不决定方向）** / 🔴 **Gate 1 · `scripts/zcode_vision.py` 视觉方向评审 §2.6.1（真实候选图之后；Copilot 正式 REVIEW 仅用户点名）** / **候选方向的取舍与用户选定 §2.7** / **收敛型最终提示词与决策记录 §2.8（用户选定后）** / **用户介入边界 §2.9** / **生成结果质量自检 §2.4** / **禁止静默回退为代码绘图**）→ **第一次评审：真实图专家评审 + 用户确认方向**（阶段 3）→ **概念图→视觉规范转译 §3.5** → **按需单套 HTML 原型 §3.6**（**图片素材规则 §3.6.3** / 素材三态 §3.6.4）→ **第二次评审与定向迭代 §3.7** → **验证素材处置 §5.1** / **正式图片素材 §4.6** / **开发期按需生成 §4.7** → 验证闭环 §6.2 / 费用治理 / 降级 | `references/gpt-visual-workflow.md` |
+| 🎨 **GPT 视觉概念生图**（阶段 2 · 需探索新视觉方向时强制前置：Visual Brief（含约束分层）/ 能力探测 / **生成范围与成本控制 §1.5** / 多方向与英文 prompt 自动生成（图标 §2.3.1）/ **提示词专家评审 §2.6（生图前，不决定方向）** / 🔴 **Gate 1 视觉方向评审 §2.6.1（真实候选图之后；默认原生自检，授权后才用 `zcode_vision --confirm-gpt-review`；Copilot 仅点名）** / **候选方向的取舍与用户选定 §2.7** / **收敛型最终提示词与决策记录 §2.8（用户选定后）** / **用户介入边界 §2.9** / **生成结果质量自检 §2.4** / **禁止静默回退为代码绘图**）→ **第一次评审：真实图专家评审 + 用户确认方向**（阶段 3）→ **概念图→视觉规范转译 §3.5** → **按需单套 HTML 原型 §3.6**（**图片素材规则 §3.6.3** / 素材三态 §3.6.4）→ **第二次评审与定向迭代 §3.7** → **验证素材处置 §5.1** / **正式图片素材 §4.6** / **开发期按需生成 §4.7** → 验证闭环 §6.2 / 费用治理 / 降级 | `references/gpt-visual-workflow.md` |
 | 📦 **设计交付契约**（DesignWise → **Web / Android / PPT**：七件套 = 页面结构 / 设计 token / 状态与交互 / 真实文案与数据 / 素材清单 / 适配与无障碍 / 验收基准图；三平台共用一套 + 平台适配层；含交付包自检、红线、**§8 真实实现反馈闭环**） | `references/design-handoff.md` |
 | ⭐ **产品价值判断**（产品界面/交互原型：谁在用·核心行为·关键取舍·易用性；含「要不要用」的适用边界判定） | `references/product-value.md` |
 | **App/iOS 原型完整守则**（架构表/取图代码/AppPhone骨架/ios_frame用法） | `references/app-prototype.md` |
@@ -46,8 +46,8 @@
 | 没有design context怎么办 | `references/design-context.md`（薄 fallback） 或 `references/design-styles.md`（厚 fallback：HTML 原生 60 种风格库，网页 20+PPT 20+信息图 20，按温度分级） |
 | **需求模糊要推荐风格方向** | `references/design-styles.md`（60 种 HTML 原生风格库，含还原度/温度/开源字体）+ `assets/showcases/INDEX.md`（预制截图画廊） |
 | **按输出类型查场景模板**（封面/PPT/信息图） | `references/scene-templates.md` |
-| 输出完后验证 | `references/verification.md` + `scripts/verify.py`（渲染/控制台）+ `scripts/check-contrast.py`（对比度三档机械校验）+ `scripts/check-assets.py`（素材清单可追踪/可复现/可引用） |
-| **设计评审/打分**（设计完成后可选；**含生图前的提示词专家评审**） | `references/critique-guide.md`（**概念/立意（第 0 位，权重最高）+ 5 维度评分** + 常见问题清单；+产品界面类「用户价值与易用性」、+有 spec 时「Spec 一致性与范围核验」、+GPT 通路「视觉还原检查」、+**生图前「Prompt 级创意评审」**（文字可判 / 不可判边界，**不决定视觉方向**）四项附加检查）。🔴 **视觉方向判断与阶段门槛裁决默认由 `scripts/zcode_vision.py` 承担**（Gate 1 / Gate 2，见「GPT 视觉评审门」大节；**Copilot 正式 REVIEW 仅用户点名**）——本行是 DesignWise 自主的专家评审，两者职责不同、不互相替代 |
+| 输出完后验证 | `references/verification.md` + `scripts/verify.py`（渲染/控制台）+ `scripts/check-ui.mjs`（触控 / 字号 / 溢出 / 控制台采集；输出 CSS px，不等同 Android dp）+ `scripts/check-contrast.py`（对比度三档机械校验）+ `scripts/check-assets.py`（素材清单可追踪/可复现/可引用） |
+| **设计评审/打分**（设计完成后可选；**含生图前的提示词专家评审**） | `references/critique-guide.md`（**概念/立意（第 0 位，权重最高）+ 5 维度评分** + 常见问题清单；+产品界面类「用户价值与易用性」、+有 spec 时「Spec 一致性与范围核验」、+GPT 通路「视觉还原检查」、+**生图前「Prompt 级创意评审」**（文字可判 / 不可判边界，**不决定视觉方向**）四项附加检查）。🔴 **视觉方向判断与阶段门槛默认由原生自检承担；外部 GPT 仅用户授权后**（Gate 1 / Gate 2，见「视觉评审门」大节；**Copilot 正式 REVIEW 仅用户点名**）——本行是 DesignWise 自主的专家评审，两者职责不同、不互相替代 |
 | **动画导出MP4/GIF/加BGM** | `references/video-export.md` + `scripts/render-video.js`（默认25fps）/ `scripts/render-video-seek.js`（真60fps·确定性·无黑帧，走Stage时钟时用）+ `scripts/convert-formats.sh` + `scripts/add-music.sh` |
 | **动画加音效SFX**（苹果发布会级，37个预制） | `references/sfx-library.md` + `assets/sfx/<category>/*.mp3` |
 | **动画音频配置规则**（SFX+BGM双轨制、黄金配比、ffmpeg模板、场景配方） | `references/audio-design-rules.md` |

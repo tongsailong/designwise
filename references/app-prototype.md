@@ -152,7 +152,7 @@ Screen 组件接 callback props（`onTabChange`、`onOpen`、`onClose`、`onTogg
 
 > 2026-10-27 从 SKILL.md 移入，内容逐字保留；入口见 SKILL.md 对应小节。
 
-做移动 app 原型时（触发：「app 原型」「iOS mockup」「移动应用」「做个 app」），以下硬规则**覆盖**通用 placeholder 原则——app 原型是 demo 现场，静态摆拍没有说服力。完整操作细节（架构选型表 / 取图渠道与代码 / AppPhone JSX 骨架 / ios_frame 三步用法 / 品位锚点全表）见 `references/app-prototype.md`：
+做移动 app 原型时（触发：「app 原型」「iOS mockup」「移动应用」「做个 app」），以下硬规则**覆盖**通用 placeholder 原则——app 原型是 demo 现场，静态摆拍没有说服力。完整操作细节（架构选型表 / 取图渠道与代码 / AppPhone JSX 骨架 / ios_frame 三步用法 / 品位锚点全表）见本文档正文 §0–§4：
 
 1. **架构默认单文件 inline React**：`file://` 双击就能开，本地图片 base64 内嵌；仅 >1000 行难维护或多 agent 并行写不同屏才拆多文件（拆了必须附 `python3 -m http.server` 启动说明）
 2. **先找真图再设计**：渠道同 Phase 3.5 取图表；取图前过**真图诚实性测试**——「去掉这张图信息是否有损？」无损 = 装饰 = slop，不加

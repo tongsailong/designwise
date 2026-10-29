@@ -21,7 +21,7 @@
 | **文件读写** | 写 HTML/JSX/CSS、写 gate 文件（`brand-spec.md` 等） | Write / Edit | 纯对话 runtime 无文件系统时，把文件内容贴进回复，并说明「请自行保存为 X.html」 |
 | **云能力**（可选） | 豆包 TTS 配音、AI 看片评审 | `scripts/cloud/*`，需自备 key + `--yes` 显式确认 | 默认不用。无声/无 AI 评审时走 `scripts/verify-video.sh` 截帧人工核；见 SECURITY.md |
 | **GPT 图像生成**（概念效果图 / 正式图片素材） | GPT 视觉概念生图通路的概念效果图与正式素材（需探索新视觉方向的 App/Web/交互原型任务） | ZCode 默认 `scripts/zcode_image.py`（本机 CPA，OpenAI 兼容 `/v1/images/generations`、`/v1/images/edits`；也可用 `ZCODE_CPA_BASE_URL` / `ZCODE_CPA_API_KEY` 覆盖；方法论见 `~/.zcode/skills/huashu-gpt-image/`） | 其他 runtime 用自身图像生成能力；再不行 → **明确报告技术限制、暂停生图环节**（可交付完整英文 prompt 供用户在 ChatGPT 出图后交回继续），**不得静默改用 SVG/程序绘图冒充概念图**；判定为「不适用」的任务仍走 HTML/CSS 原生链路，能力一条不减（探测与判定见 `references/gpt-visual-workflow.md` §1 / §2.2.1） |
-| **视觉评审**（Gate 1 / Gate 2） | 基于真实像素比较候选方向 / 判阶段门槛 | ZCode 默认 `scripts/zcode_vision.py`（只收磁盘上的真实图片；CPA Responses `input_image`；也可用 `ZCODE_CPA_BASE_URL` / `ZCODE_CPA_API_KEY` 覆盖）；其他 runtime 用原生视觉或自带评审工具 | 没有等价能力 → **如实报告「未获得有效视觉裁决」，按缺证处理**（Gate 1 交候选图让用户选）；**不得用纯文字 / 代码复核子智能体冒充视觉评审，不得伪造 PASS**；用户明确点名 Copilot 时才走 copilot 正式 REVIEW |
+| **视觉评审**（Gate 1 / Gate 2） | 基于真实像素比较候选方向 / 判阶段门槛 | **默认原生视觉自检**（主模型直接读真实图片，标注「自检」）；**用户明确授权 GPT 评审通道后**才用 `scripts/zcode_vision.py --confirm-gpt-review`（只收磁盘真实图片；CPA Responses `input_image`）；其他 runtime 用自身视觉或自带评审工具 | 没有等价能力 → **如实报告「未获得有效视觉裁决」，按缺证处理**（Gate 1 交候选图让用户选）；**不得用纯文字 / 代码复核子智能体冒充视觉评审，不得伪造 PASS**；用户点名 Copilot 时才走 copilot 正式 REVIEW |
 
 ## 怎么判断「我有没有这个能力」
 

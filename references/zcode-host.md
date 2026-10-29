@@ -74,22 +74,24 @@ python3 scripts/sync_runtime.py --to ~/.zcode/skills/designwise --apply --prune
 | 计划模式 | Reasonix Plan | **ZCode plan 权限模式**（`EnterPlanMode`） |
 | 浏览器验证 / 截图 | 内置 browser 工具 | `scripts/verify.py`（需 playwright）或 headless Chromium 直调（见下） |
 | 真实生图 | `huashu-gpt-image` 的 `gen_via_cpa.py` | **`scripts/zcode_image.py`**（本 skill 自带；方法论按已迁移的 `~/.zcode/skills/huashu-gpt-image/` 执行） |
-| 真实像素评审（Gate 1/2） | `copilot` 的 REVIEW 通道 | **默认 `scripts/zcode_vision.py`**（本 skill 自带适配器：直连 CPA Responses API 的 `input_image`，只收真实图片；无台账/审计/轮次限制，非 copilot 正式 REVIEW）；**仅用户明确点名 Copilot 时**才用完整 `copilot` 技能（REVIEW + 证据桥接 + 台账 + 审计） |
+| 真实像素评审（Gate 1/2） | `copilot` 的 REVIEW 通道 | **默认原生视觉自检**（主模型直接读真实图片）；**外部 GPT** 仅用户明确授权后走 `scripts/zcode_vision.py --confirm-gpt-review`（直连 CPA Responses API 的 `input_image`，只收真实图片；无台账/审计，非 copilot 正式 REVIEW）；**仅点名 Copilot 时**才用完整 `copilot` 技能（REVIEW + 证据桥接 + 台账 + 审计） |
 | 全局规则来源 | Reasonix 自有规则 | `~/.zcode/AGENTS.md` |
 
-### 评审与生图的默认路由（2026-10-26 更新）
+### 评审与生图的默认路由（2026-10-29 收口）
 
 原 skill 依赖 `huashu-gpt-image`（生图）与 `copilot`（视觉评审）两个全局技能。两者已于 2026-10-24
-迁入 ZCode（`~/.zcode/skills/huashu-gpt-image/`、`~/.zcode/skills/copilot/`）。**2026-10-26 起
-Copilot 改为显式启用**：Gate 1 / Gate 2 默认走本 skill 自带的 `scripts/zcode_vision.py`；
-只有用户明确点名 Copilot / GPT 评审通道时，才允许进入 copilot 的正式 REVIEW 流程。
+迁入 ZCode（`~/.zcode/skills/huashu-gpt-image/`、`~/.zcode/skills/copilot/`）。
 
-- **Gate 1 / Gate 2 视觉评审 → 默认 `scripts/zcode_vision.py`**：
+- **Gate 1 / Gate 2 默认做原生视觉自检**：主模型直接读真实候选图 / 渲染截图，按 Gate 清单判断，结论标注「自检」，**不得写成独立 GPT 裁决**。
+- **外部 GPT 视觉评审**：仅当用户明确授权 GPT 评审通道（点名 GPT / GPT 视觉评审 / Copilot / 正式 REVIEW）时启用；调用必须带 `--confirm-gpt-review`。**未授权时不得用它绕过 Copilot 的启用限制**。
+- **Copilot 正式 REVIEW**：仅用户点名 Copilot / `copilot` Skill / 正式 REVIEW 时。
+- 若任务强制要求独立 GPT 裁决而本轮无授权 → **报告阻塞**，不用原生自检冒充。
 
 ```bash
-python3 scripts/zcode_vision.py \
+# 仅在用户明确授权 GPT 评审通道后
+python3 scripts/zcode_vision.py --confirm-gpt-review \
   --image candidate-1.png --image candidate-2.png \
-  --prompt "<每张图对应的方向 / 角色 + 评审要求：推荐 + 依据 + 风险>"
+  --prompt "<每张图对应的方向 / 角色 + 推荐 + 依据 + 风险>"
 ```
 
   它只接受磁盘上的真实图片（png/jpeg/webp/gif，按魔数校验），一次可送多张；默认模型
@@ -117,7 +119,7 @@ python3 "$COP/call_gpt.py" --mode REVIEW --one-shot-visual-review \
   输出被截断时，如实报告「本轮未获得视觉裁决」，按缺证处理（Gate 1 交候选图让用户直接选），
   不伪造 PASS、不静默换链路、不自动重试；不得用代码复核子智能体或其他不支持图像输入的通道冒充视觉评审。
 
-- **代码 / 变更的独立复核**仍按 `~/.zcode/AGENTS.md` §6 由原生子智能体的独立上下文承担；它不具备视觉评审能力，
+- **代码 / 变更的独立复核**仍按 `~/.zcode/AGENTS.md` §5《委派与独立复核》由原生子智能体的独立上下文承担；它不具备视觉评审能力，
   不用于 Gate 1 / Gate 2。
 
 ### 生图适配器（本 skill 自带，已实测出图）
@@ -139,8 +141,8 @@ python3 scripts/zcode_image.py --prompt "<提示词>" --out refined.png --ref co
 
 原 skill 依赖 `huashu-gpt-image`（生图）与 `copilot`（视觉评审）两个全局技能。两者已于 2026-10-24
 迁入 ZCode（见上节路由）；本 skill 自带的两个适配器**继续保留**——`zcode_image.py` 仍是默认
-生图入口，`zcode_vision.py` 是 **Gate 1 / Gate 2 的默认视觉评审路径**。它们都是真的调用接口，
-不是占位实现：
+生图入口，`zcode_vision.py` 是 **用户授权后的外部 GPT 评审入口**（默认路径是原生视觉自检）。
+它们都是真的调用接口，不是占位实现：
 
 ```bash
 # 零成本探测（不出图、不计额度）
@@ -152,8 +154,8 @@ python3 scripts/zcode_image.py --prompt "<英文提示词>" --out candidate-1.pn
 python3 scripts/zcode_image.py --prompt "<提示词>" --out v.png --n 2      # → v-1.png v-2.png
 python3 scripts/zcode_image.py --prompt "<提示词>" --out refined.png --ref concept.png
 
-# 视觉评审默认路径（Gate 1 / Gate 2；注明无台账/审计，非 copilot 正式 REVIEW）
-python3 scripts/zcode_vision.py --image a.png --image b.png --prompt "<评审要求>"
+# 外部 GPT 评审（仅用户明确授权后；注明无台账/审计，非 copilot 正式 REVIEW）
+python3 scripts/zcode_vision.py --confirm-gpt-review --image a.png --image b.png --prompt "<评审要求>"
 ```
 
 **两个适配器的硬边界（不可绕过）**：
