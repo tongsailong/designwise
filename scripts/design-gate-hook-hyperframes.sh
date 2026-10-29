@@ -14,7 +14,9 @@
 #   - 时长取 --duration=<num>，否则项目 index.html 的 data-duration；
 #   - 长片（≥45s）且项目内没有 direction-approved.md → exit 2；
 #   - 时长无法判定且没有 Gate → exit 2；
-#   - 显式 SKIP_DESIGN_GATE=1 → 放行。
+#   - 显式 SKIP_DESIGN_GATE=1 → 放行；
+#   - cat/grep/sed/head/tail/rg 等只读命令引用 .sh 时按数据处理，不扫描其内容；
+#     只有执行脚本（bash/sh/source/直接运行/包装器）才扫描内容判定渲染。
 # 已知边界：不解析 Python/Node 内部动态拼出的命令；不读取 .js 构建脚本。
 #
 # 依赖：python3；缺失时降级放行并告警（设计入口层仍是最后防线）。
@@ -131,6 +133,15 @@ def package_script_body(cwd, script):
 WRAPPERS = {"npx", "npm", "pnpm", "yarn", "node", "bash", "sh", "zsh", "dash",
             "timeout", "env", "sudo", "nohup", "nice", "xargs", "command", "exec"}
 
+# Commands that only read/search a file. A `.sh` they reference is data, not an
+# execution request, so its content must not be scanned for a render command.
+# Anything not listed here keeps the conservative content scan (fail-closed).
+READONLY_READERS = {"cat", "head", "tail", "sed", "grep", "egrep", "fgrep",
+                    "rg", "less", "more", "nl", "wc", "awk", "cut", "sort",
+                    "uniq", "strings", "od", "xxd", "hexdump", "file", "stat",
+                    "diff", "cmp", "md5sum", "sha1sum", "sha256sum",
+                    "shasum", "cksum"}
+
 
 def first_word(segment):
     s = segment.strip()
@@ -140,6 +151,11 @@ def first_word(segment):
             break
         s = s[m.end():]
     return (s.split(None, 1)[0].lower() if s.split(None, 1) else "")
+
+
+def command_name(segment):
+    """First word of a simple command, ignoring a leading path."""
+    return first_word(segment).rsplit("/", 1)[-1]
 
 
 def mentions_hyperframes(cmd, cwd):
@@ -171,16 +187,23 @@ def mentions_hyperframes(cmd, cwd):
         if "hyperframes" in body and "render" in body:
             return True
     # Local shell wrappers: scan the referenced .sh for the hyperframes entry.
-    for word in re.findall(r"[\w./~$-]+\.sh\b", cmd):
-        path = word if os.path.isabs(word) else os.path.join(cwd or ".", word)
-        try:
-            if os.path.getsize(path) > (1 << 20):
-                continue
-            text = open(path, encoding="utf-8", errors="replace").read().lower()
-        except OSError:
+    # Read-only readers inspect the file as data; only commands that may execute
+    # it (shells, source, direct invocation, wrappers, anything unclassified)
+    # trigger the content scan. Segments are independent: a later
+    # `&& hyperframes render` is still caught by the command-position check above.
+    for segment in re.split(r"[;\n]|&&|\|\||\|", cmd):
+        if command_name(segment) in READONLY_READERS:
             continue
-        if "hyperframes" in text and "render" in text:
-            return True
+        for word in re.findall(r"[\w./~$-]+\.sh\b", segment):
+            path = word if os.path.isabs(word) else os.path.join(cwd or ".", word)
+            try:
+                if os.path.getsize(path) > (1 << 20):
+                    continue
+                text = open(path, encoding="utf-8", errors="replace").read().lower()
+            except OSError:
+                continue
+            if "hyperframes" in text and "render" in text:
+                return True
     return False
 
 

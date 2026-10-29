@@ -91,11 +91,31 @@ class HyperframesHookTests(unittest.TestCase):
                    "bash ~/.zcode/skills/app-testing/runtime/mi6-verify/"
                    "adb-auto-install.sh \"$APK\"", 0, "APK install")
         self.check("while true; do npm test; break; done", 0, "npm test loop")
+        self.check("npm test", 0, "test runner")
         self.check("git status", 0, "git status")
         self.check("echo hyperframes render", 0,
                    "the words in an echo are not a render")
         self.check("node scripts/render-video.js out.html --duration=60", 0,
                    "designwise renderer is entry-layer protected")
+
+    def test_read_only_script_inspection_passes(self):
+        """Reading or searching a .sh is data access, not an execution request."""
+        for command in (
+            f"cat {HOOK}",
+            "cat run-hf.sh",
+            "head -n 5 run-hf.sh",
+            "tail -n 5 run-hf.sh",
+            "grep -n render run-hf.sh",
+            "rg render run-hf.sh",
+            "sed -n '1,5p' run-hf.sh",
+            "awk '/render/' run-hf.sh",
+        ):
+            self.check(command, 0, "read-only inspection", cwd=self.long)
+
+    def test_unclassified_file_commands_stay_conservative(self):
+        """Non-read-only commands keep the fail-closed content scan."""
+        self.check("cp run-hf.sh /tmp/out.sh", 2,
+                   "unclassified file operation is still scanned", cwd=self.long)
 
     def test_hyperframes_long_render_blocks(self):
         self.check("npx hyperframes render --duration=60", 2, "direct npx")
@@ -108,6 +128,12 @@ class HyperframesHookTests(unittest.TestCase):
         self.check("npm exec hyperframes -- render --duration=60", 2,
                    "npm exec")
         self.check("bash run-hf.sh", 2, "local wrapper script")
+        self.check("sh run-hf.sh", 2, "sh wrapper script")
+        self.check("source run-hf.sh", 2, "source wrapper script")
+        self.check(". run-hf.sh", 2, "dot-source wrapper script")
+        self.check("./run-hf.sh", 2, "direct invocation")
+        self.check("cat run-hf.sh && hyperframes render --duration=60", 2,
+                   "read-only prefix does not bypass a render chain")
 
     def test_npm_script_paths(self):
         """Scaffolded projects use `npm run render` to invoke hyperframes."""
