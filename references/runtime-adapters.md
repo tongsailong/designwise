@@ -15,8 +15,8 @@
 | 能力 | 在流程里干什么 | 满血环境的典型载体 | 缺失时怎么办 |
 |------|---------------|-------------------|-------------|
 | **网络检索** | 核心原则#0 事实验证；§1.a 找官方品牌资产；逻辑二核实参照案例真实存在 | `WebSearch` / 内置联网搜索 | 用任何能取到公开网页的方式：`web_fetch`、HTTP 客户端、浏览器（如 Chrome 自动化）；能检索到即可，工具名不重要 |
-| **子代理并行** | Fallback Phase 4 三套逻辑并行（**仅 L2 的三种例外**）；多视角并行实验 | `spawn subagent` / `task` / `fleet` | **串行跑三套**（SKILL.md Phase 4 已定义）：每套开跑前只读 spec、清空上一套记忆、换不同 anchor 隔离趋同。串行也必须出三版（L2 例外通路） |
-| **浏览器控制 + 截图** | Step 7 验证；Phase 4 三版截图（L2 例外）；deck 单页截图 | 内置 fork-verifier / Playwright | `scripts/verify.py`（Playwright 封装）；再不行让用户自己打开 HTML 看，并把「未经自动验证」写进交付说明 |
+| **子代理并行** | Fallback Phase 4 逻辑并行（**仅 L2 的三种例外**；套数按方案数量，**默认 1 套**）；多视角并行实验 | `spawn subagent` / `task` / `fleet` | **串行跑 N 套**（SKILL.md Phase 4 已定义）：每套开跑前只读 spec、清空上一套记忆、换不同 anchor 隔离趋同。**多方案分支串行也必须出 N 套**；单一方案本就只需 1 套 |
+| **浏览器控制 + 截图** | Step 7 验证；Phase 4 真实初稿截图（L2 例外，每套 1 张）；deck 单页截图 | 内置 fork-verifier / Playwright | `scripts/verify.py`（Playwright 封装）；再不行让用户自己打开 HTML 看，并把「未经自动验证」写进交付说明 |
 | **本地命令执行** | 跑 `scripts/*`（导出 PDF/PPTX/MP4）、`gen_deck_thumbs.mjs` | bash / shell 工具 | 无 shell 时交付 HTML 源 + 导出命令说明，让用户在本地跑；不要假装已导出 |
 | **文件读写** | 写 HTML/JSX/CSS、写 gate 文件（`brand-spec.md` 等） | Write / Edit | 纯对话 runtime 无文件系统时，把文件内容贴进回复，并说明「请自行保存为 X.html」 |
 | **云能力**（可选） | 豆包 TTS 配音、AI 看片评审 | `scripts/cloud/*`，需自备 key + `--yes` 显式确认 | 默认不用。无声/无 AI 评审时走 `scripts/verify-video.sh` 截帧人工核；见 SECURITY.md |
@@ -43,5 +43,5 @@
 
 ## 能力映射的自由度边界
 
-- 工具名可以换（`WebSearch` 换成任何检索工具），但**能力不能降级**：**L2 的三方向门**、**涉及品牌时的资产协议**、**事实验证**是硬约束，任何 runtime 都要达成，只是达成手段不同（**L1 不套三方向门**）。
+- 工具名可以换（`WebSearch` 换成任何检索工具），但**能力不能降级**：**L2 的视觉方向门（默认 1 个方案也要有真实视觉证据）**、**涉及品牌时的资产协议**、**事实验证**是硬约束，任何 runtime 都要达成，只是达成手段不同（**L1 不套方向门**）。
 - 举例：Reasonix 环境里，检索走内置 `web_search` 或 `web_fetch`、时效敏感信息走 Chrome 自动化兜底；子代理走 `task` / `fleet`；浏览器验证走内置 browser 工具或 `scripts/verify.py`。**这张具体映射会随平台变化，所以它写在这里当例子，而不是写进能力表当规则。**

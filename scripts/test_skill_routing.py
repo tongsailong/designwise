@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
-"""路由优先级回归：L1 / L2 / L3 分流与硬门槛的文档契约。
+"""路由与默认设计策略的文档契约测试。
 
-这些测试保护的是「任务分层优先于通用流程」这一结构：
-- L2 只有一个任务路由入口，默认 GPT 概念图通路；
-- L1 不被通用 variations / 三方向 / Gate 1 规则反向覆盖；
-- L3 保留自己的专业工作流；
-- 授权、Gate、失败关闭、48dp 与业务断言等硬规则仍然存在。
+三类契约：
 
-它们是文档契约测试，不执行真实渲染，也不调用外部模型。
+1. **任务路由**：L1 / L2 / L3 分流，L1 不被通用 variations / 方向门反向覆盖，
+   L3 保留自己的专业工作流，授权、Gate、失败关闭、48dp 与业务断言等硬规则仍在。
+2. **默认设计策略（2026-10-30 归并）**：`SKILL.md`「项目规则优先」是方案数量、
+   设计自由度与产品原则权威的唯一口径——默认单一最佳方案、替代方向只在实质分歧
+   或用户明确要求时出现、项目规则可以更严、业务与合规边界与质量门槛不放宽。
+3. **效力分层与交付物数量（2026-10-30 精修）**：规则效力按职责分 5 层（全局安全 →
+   用户决策 → 项目规则 → `SKILL.md` → `references/`），分层排序只在 `SKILL.md` 维护；
+   设计方向数量（默认 1）与实际交付物数量相互独立，L3 不因方向数为 1 就限制
+   页面 / 尺寸 / 状态 / 组件变体 / 导出格式的数量。
+
+这些是文档契约测试：读真实文件、检查真实规则内容与跨文档一致性，
+不执行渲染，也不调用外部模型。
 """
 import os
 import re
@@ -15,6 +22,23 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+
+# 「项目规则优先」是方案数量 / 设计自由度 / 产品原则权威的唯一口径。
+RULE_HEADING = "项目规则优先（产品原则 / 设计自由度 / 方案数量）"
+
+# 已废止的强制多方向口径：SKILL.md、references 与两份 README 的规则文本里都不该再出现（断言范围见下方用例）。
+BANNED_RULE_PATTERNS = (
+    "不得只做 1 个",
+    "默认 **3 个**",
+    "默认 3 个",
+    "默认 3 版",
+    "推荐 3+",
+    "三方向硬门",
+    "多方向硬门",
+    "唯一豁免（仅此三种",
+    "仍然出多个方向",
+    "still produces multiple directions",
+)
 
 
 def read(rel):
@@ -36,6 +60,14 @@ def section(text, heading, level=3):
             end = i
             break
     return "\n".join(lines[start:end])
+
+
+def reference_docs():
+    """All references/*.md as {relative path: text}."""
+    folder = os.path.join(ROOT, "references")
+    return {os.path.join("references", name): read(os.path.join("references", name))
+            for name in sorted(os.listdir(folder))
+            if name.endswith(".md")}
 
 
 class RoutingPriorityTests(unittest.TestCase):
@@ -60,9 +92,11 @@ class RoutingPriorityTests(unittest.TestCase):
                              row.strip().strip("|").split("|")[0])]
         self.assertEqual(len(rows), 1, "L2 必须只有一个任务路由入口: %r" % rows)
         row = rows[0]
-        for needle in ("默认", "GPT", "Visual Brief", "每方向 1 张真实候选图",
-                       "Gate 1", "停轮等用户选定", "收敛提示词", "正式概念图",
-                       "visual-translation.md", "只对选定方向按需做一套 HTML",
+        for needle in ("默认 GPT 视觉概念生图通路", "默认单一最佳方案",
+                       "Visual Brief", "多方向每方向 1 张",
+                       "Gate 1", "单一方案直接收敛概念图进入实现",
+                       "停轮等用户选定", "收敛提示词", "正式概念图",
+                       "visual-translation.md", "按需做一套 HTML",
                        "客观验证", "Gate 2", "HTML fallback", "三种例外",
                        "依据记入 `design-brief.md` 或 `direction-approved.md`"):
             self.assertIn(needle, row)
@@ -71,7 +105,7 @@ class RoutingPriorityTests(unittest.TestCase):
     def test_l1_row_does_not_require_direction_gate(self):
         row = next(line for line in self.skill.splitlines()
                    if "**L1 · 既有体系内的局部优化**" in line)
-        for needle in ("默认直接改现有 UI", "不做三方向", "Gate 1 不适用"):
+        for needle in ("默认直接改现有 UI", "不做多方向门", "Gate 1 不适用"):
             self.assertIn(needle, row)
         self.assertNotIn("direction-approved.md", row)
 
@@ -80,12 +114,11 @@ class RoutingPriorityTests(unittest.TestCase):
                    if "产品界面 / 交互原型" in row)
         self.assertIn("先按「任务分层」判 L1/L2", row)
         self.assertIn("L1 直接改现有 UI", row)
-        if "三方向" in row:
-            self.assertIn("不强制三方向", row)
+        self.assertIn("不强制多方向", row)
 
     def test_variation_rules_are_scoped(self):
         philosophy = section(
-            self.skill, "3. 给variations（L2 / 用户明确要求），不给「最终答案」")
+            self.skill, "3. 给variations（实质分歧 / 用户明确要求），不给「最终答案」")
         for needle in ("L1", "L2", "L3", "默认直接改现有 UI"):
             self.assertIn(needle, philosophy)
 
@@ -95,7 +128,7 @@ class RoutingPriorityTests(unittest.TestCase):
             self.assertIn(needle, step6)
 
         question = next(line for line in self.skill.splitlines()
-                        if "想要几种" in line and "variations" in line)
+                        if "想要几种 variations" in line)
         for needle in ("L1", "L2"):
             self.assertIn(needle, question)
 
@@ -114,15 +147,15 @@ class RoutingPriorityTests(unittest.TestCase):
         self.assertIn("L1", refusal)
 
     def test_reference_routers_state_l1_exemption(self):
-        self.assertIn("不套三方向门", self.routing)
-        self.assertIn("L1 不套三方向门", self.adapters)
+        self.assertIn("不套多方向门", self.routing)
+        self.assertIn("L1 不套方向门", self.adapters)
         self.assertIn("L1 不适用", self.product_value)
 
     def test_l3_keeps_own_workflow(self):
         l3 = next(line for line in self.skill.splitlines()
                   if "**L3 · 非 UI 载体**" in line)
-        self.assertIn("不套 UI 三方向门", l3)
-        self.assertIn("不是 UI 方向门", l3)
+        self.assertIn("不套 UI 多方向门", l3)
+        self.assertNotIn("GPT 视觉概念生图", l3)
 
         l3_rows = [row for row in self.routing_rows()
                    if "幻灯片/PPT" in row or "动画/导出" in row
@@ -152,7 +185,7 @@ class RoutingPriorityTests(unittest.TestCase):
             self.assertIn(needle, exception_rule)
 
         step1 = next(line for line in self.skill.splitlines()
-                     if "多方向硬门（仅 L2" in line)
+                     if "视觉方向门（仅 L2" in line)
         self.assertIn("默认走 GPT 通路", step1)
         self.assertIn("Phase 1-3.5", step1)
         self.assertNotIn("Phase 1-5", step1)
@@ -163,14 +196,14 @@ class RoutingPriorityTests(unittest.TestCase):
             self.assertIn(needle, handoff)
 
         gpt = read("references/gpt-visual-workflow.md")
-        self.assertIn("不得只做 1 个", gpt)
+        self.assertIn("不得把单方向包装成多方向比较", gpt)
         self.assertNotIn("只有一个合理视觉方向", gpt)
 
     def test_verification_scope_is_tiered(self):
         verification = read("references/verification.md")
         self.assertIn("L1 只跑受影响屏/状态的最小矩阵", verification)
 
-    def test_readmes_do_not_promise_universal_direction_gate(self):
+    def test_readmes_state_single_scheme_default(self):
         zh = read("README.md")
         en = read("README.en.md")
         self.assertNotIn("收到任何会产出新视觉设计的任务", zh)
@@ -179,12 +212,15 @@ class RoutingPriorityTests(unittest.TestCase):
         self.assertIn("**L2（新视觉语言或重大结构变化）**", zh)
         self.assertIn("Any **L2** task", en)
 
+        self.assertIn("默认只出 1 个最佳方案", zh)
+        self.assertIn("single best scheme", en)
+
         weak_zh = next(line for line in zh.splitlines()
-                       if "仍然出多个方向" in line)
+                       if "仍然要有真实候选图" in line)
         self.assertIn("L2", weak_zh)
         self.assertIn("L1", weak_zh)
         weak_en = next(line for line in en.splitlines()
-                       if "still produces multiple directions" in line)
+                       if "still requires real candidate visual evidence" in line)
         self.assertIn("L2", weak_en)
         self.assertIn("L1", weak_en)
 
@@ -225,10 +261,9 @@ class RoutingPriorityTests(unittest.TestCase):
                        if "咖啡主题的 PPT" in line)
         self.assertIn("不是 L2 的 Phase 4", example)
 
-        deck = next(line for line in self.skill.splitlines()
-                    if "多页 deck 需要三版方向对比时" in line)
-        self.assertIn("L3 载体自身规则", deck)
-        self.assertIn("L3 载体的方向探索", self.skill)
+        l3_note = next(line for line in self.skill.splitlines()
+                       if "L3 载体的方向探索" in line)
+        self.assertIn("默认 1 版", l3_note)
 
     def test_brand_asset_l1_exemption(self):
         asset = read("references/brand-asset-protocol.md")
@@ -236,7 +271,7 @@ class RoutingPriorityTests(unittest.TestCase):
                    if "色值完全找不到" in line)
         self.assertIn("L2", row)
         self.assertIn("L1 局部优化", row)
-        self.assertIn("不铺三方向", row)
+        self.assertIn("不铺方向门", row)
 
     def test_flow_header_states_default(self):
         line = next(line for line in self.skill.splitlines()
@@ -348,17 +383,541 @@ class RoutingPriorityTests(unittest.TestCase):
         self.assertIn("用户明确要求多个方案", block)      # E
         self.assertIn("不因 L1 简化获得任何新授权", block)  # F
 
-    def test_l2_direction_gate_unchanged_by_l1_work(self):
-        """L1 轻量化不得稀释 L2 的停轮与方向选择。"""
-        for needle in ("停轮等用户选定", "默认 **3 个**", "不得只做 1 个",
-                       "唯一豁免（仅此三种"):
+    def test_l2_single_scheme_does_not_weaken_gate(self):
+        """单方案默认不得稀释 Gate 1 的真实视觉证据与多分支停轮。"""
+        for needle in ("停轮等用户选定", "默认交付单一最佳方案",
+                       "不得用文字描述替代真实视觉"):
             self.assertIn(needle, self.skill)
+        self.assertNotIn("不得只做 1 个", self.skill)
+
         gpt = read("references/gpt-visual-workflow.md")
-        self.assertIn("不得只做 1 个", gpt)
+        self.assertIn("不得把单方向包装成多方向比较", gpt)
         self.assertIn("不得静默改用 HTML/SVG 冒充概念图", gpt)
+        self.assertIn("不得把它包装成「用户选择」", gpt)
+
         l3 = next(line for line in self.skill.splitlines()
                   if "**L3 · 非 UI 载体**" in line)
-        self.assertIn("不套 UI 三方向门", l3)
+        self.assertIn("不套 UI 多方向门", l3)
+
+
+class DefaultDesignStrategyContractTests(unittest.TestCase):
+    """「项目规则优先」归并后的 9 项契约（2026-10-30）。
+
+    这些断言检查真实规则内容与跨文档一致性，不是孤立关键词：
+    每个 bullet 按自己的语义被单独取出校验，跨文档则检查同一条口径。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.agents = read("AGENTS.md")
+        cls.product_value = read("references/product-value.md")
+        cls.routing = read("references/routing-table.md")
+        cls.workflow = read("references/workflow.md")
+        cls.gpt = read("references/gpt-visual-workflow.md")
+        cls.direction_path = read("references/direction-gpt-path.md")
+        cls.readme_zh = read("README.md")
+        cls.readme_en = read("README.en.md")
+        cls.refs = reference_docs()
+
+    # ── helpers ────────────────────────────────────────────────
+    @classmethod
+    def rule_block(cls):
+        return section(cls.skill, RULE_HEADING)
+
+    @classmethod
+    def rule_bullets(cls):
+        bullets = {}
+        for line in cls.rule_block().splitlines():
+            match = re.match(r"- \*\*(.+?)\*\*", line)
+            if match:
+                bullets[match.group(1)] = line
+        return bullets
+
+    def bullet(self, label):
+        bullets = self.rule_bullets()
+        self.assertIn(label, bullets, "「项目规则优先」缺少条目：%s" % label)
+        return bullets[label]
+
+    # ── 1. 唯一口径节存在，且名称保留 ─────────────────────────
+    def test_01_rule_section_is_single_authority(self):
+        self.assertEqual(self.skill.count("### " + RULE_HEADING), 1,
+                         "「项目规则优先」必须恰好一个三级小节（引用兼容）")
+        block = self.rule_block()
+        self.assertIn("权威口径", block)
+        self.assertIn("不得给出不同数值", block)
+        self.assertIn("不放宽", block)
+
+        # 方案数量口径只有 SKILL.md 这一处给出数字；references 只能指针引用。
+        for rel, text in self.refs.items():
+            if "单一最佳方案" in text:
+                self.assertIn("项目规则优先", text,
+                              "%s 提到方案数量却没有指向唯一口径" % rel)
+
+    # ── 2. 默认单一最佳方案是本 skill 自身默认，不是项目 opt-in ──
+    def test_02_default_is_single_best_scheme(self):
+        bullet = self.bullet("默认交付单一最佳方案")
+        for needle in ("1 个", "不需要使用方项目另行声明",
+                       "实质性设计分歧", "2–3 个", "只换配色"):
+            self.assertIn(needle, bullet)
+
+        for rel in ("references/gpt-visual-workflow.md",
+                    "references/routing-table.md",
+                    "references/workflow.md",
+                    "references/direction-gpt-path.md",
+                    "README.md"):
+            self.assertIn("单一最佳方案", read(rel), "%s 未声明单一最佳方案默认" % rel)
+
+        # 单一最佳方案不需要在每个使用方项目重复声明
+        self.assertIn("不需要使用方项目另行声明", bullet)
+
+    # ── 3. 全仓不再有强制多方向 / 三方向硬门 ───────────────────
+    def test_03_no_forced_multi_direction_leftover(self):
+        docs = dict(self.refs)
+        docs["SKILL.md"] = self.skill
+        docs["README.md"] = self.readme_zh
+        docs["README.en.md"] = self.readme_en
+        for rel, text in docs.items():
+            for pattern in BANNED_RULE_PATTERNS:
+                self.assertNotIn(pattern, text,
+                                 "%s 仍保留已废止的强制多方向口径：%r" % (rel, pattern))
+
+        # 量化口径只能指向 1 个默认
+        self.assertIn("方向数量**：默认 **1 个**", self.skill)
+        self.assertIn("默认 1 套", self.skill)          # Phase 4 套数
+        self.assertIn("默认 1 版", self.skill)          # L3 载体版本数
+
+    # ── 4. 替代方向只在实质分歧或用户明确要求时出现 ─────────────
+    def test_04_alternatives_only_on_divergence_or_request(self):
+        gate = next(line for line in self.skill.splitlines()
+                    if "默认单一最佳方案不走方向门" in line)
+        for needle in ("默认单一最佳方案不走方向门",
+                       "实质性设计分歧", "用户明确要求", "先出自己的最佳方案"):
+            self.assertIn(needle, gate)
+        self.assertIn("先出自己的最佳方案", gate)
+        self.assertNotIn("默认出 3", gate)
+
+        quantity = next(line for line in self.skill.splitlines()
+                        if line.startswith("**方向数量**"))
+        self.assertIn("默认 **1 个**", quantity)
+        self.assertIn("2–3 个", quantity)
+        self.assertIn("结构性不同", quantity)
+
+        philosophy = section(
+            self.skill, "3. 给variations（实质分歧 / 用户明确要求），不给「最终答案」")
+        self.assertIn("只有存在实质性设计分歧、或用户明确要求多版本对比时", philosophy)
+
+        self.assertIn("存在实质分歧或用户要求对比时 2–3 版",
+                      self.skill)  # L3 deck 例
+
+    # ── 5. 常规设计自由度不被旧 IA / 旧设计稿锁死 ───────────────
+    def test_05_design_freedom_not_bound_to_existing_design(self):
+        bullet = self.bullet("「从 existing context 出发」≠ 必须继承上一版设计")
+        for needle in ("信息架构", "页面数量", "导航", "交互", "视觉语言",
+                       "设计基线", "组件形态", "常规设计自由度",
+                       "不需要为此逐步申请批准"):
+            self.assertIn(needle, bullet)
+        self.assertIn("真实资产", bullet)
+
+    # ── 6. 业务 / 商业化 / 隐私 / 安全 / 合规边界不因自由度放宽 ──
+    def test_06_business_and_compliance_boundaries_hold(self):
+        bullet = self.bullet("设计自由度不改变业务与合规边界")
+        for needle in ("业务规则", "商业化", "广告", "隐私", "安全", "合规",
+                       "不因设计自由度放宽", "见上级 `AGENTS.md` 与项目规则",
+                       "设计自主不构成实施、发布或推送授权"):
+            self.assertIn(needle, bullet)
+
+        # 停轮与授权语义仍在：单一方案不停轮 ≠ 不用给用户看
+        stop = self.bullet("停轮语义")
+        for needle in ("单一方案默认路径**不设「方向选择」停轮**",
+                       "真实视觉证据", "多个真实候选", "不得用文字描述替代真实视觉"):
+            self.assertIn(needle, stop)
+
+    # ── 7. 质量门槛不放宽（真实证据 / 不伪造 / dp）──────────────
+    def test_07_quality_gates_remain(self):
+        bullet = self.bullet("质量要求不放宽")
+        for needle in ("真实像素", "dp", "业务不变量", "不伪造 PASS",
+                       "历史结论不等于现状", "项目要求更严时取更严值"):
+            self.assertIn(needle, bullet)
+
+        for needle in ("Gate 1", "Gate 2", "--confirm-gpt-review",
+                       "SKIP_DESIGN_GATE", "48dp"):
+            self.assertIn(needle, self.skill)
+
+        gate_js = read("scripts/design-gate-check.js")
+        self.assertIn("MIN_LONG", gate_js)
+        self.assertIn("direction-approved.md", gate_js)
+
+    # ── 8. 项目规则权威在项目；SKILL.md 不再硬编码他项目的 §1.4 ──
+    def test_08_project_rule_authority_without_hardcoded_ref(self):
+        self.assertNotIn("§1.4", self.skill)
+        self.assertNotIn("AGENTS.md §1.4", self.readme_zh)
+        self.assertNotIn("AGENTS.md §1.4", self.readme_en)
+
+        bullet = self.bullet("产品原则的权威在项目")
+        for needle in ("唯一权威", "product-value.md", "默认方法",
+                       "章节位置由项目自定",
+                       "不把两套原则同时复述"):
+            self.assertIn(needle, bullet)
+        self.assertIn("本 skill 自身不定义产品设计原则", bullet)
+
+        trust = self.bullet("项目规则可以更严")
+        for needle in ("多方向探索", "标注 `agent 决策`",
+                       "可回退版本", "不把它们升级为全局硬门"):
+            self.assertIn(needle, trust)
+
+        # AGENTS.md 只声明职责分工，不搬其他项目规则、不新增 §1.4
+        self.assertIn("产品原则的权威在使用方项目", self.agents)
+        self.assertIn("不把其他项目的产品规则搬进本仓库", self.agents)
+        self.assertNotIn("## 1.4", self.agents)
+
+    # ── 9. product-value.md 只留指针，不复述长规则 ──────────────
+    def test_09_product_value_only_keeps_pointer(self):
+        note = next(line for line in self.product_value.splitlines()
+                    if line.startswith("> **效力顺序**"))
+        for needle in ("唯一权威", "默认方法", "`SKILL.md`「项目规则优先」",
+                       "不得给出不同数值"):
+            self.assertIn(needle, note)
+
+        # 不复述规则正文
+        for duplicated in ("不需要使用方项目另行声明",
+                           "项目规则可以更严",
+                           "不把它们升级为全局硬门"):
+            self.assertNotIn(duplicated, self.product_value)
+
+        # 不保留日期戳式的「效力顺序」快照
+        self.assertIsNone(
+            re.search(r"效力顺序[（(]\s*\d{4}-\d{2}-\d{2}", self.product_value),
+            "product-value.md 不应带日期的效力顺序快照")
+        self.assertNotIn("2026-10-30", self.product_value)
+
+        # 方向门数字口径只在 SKILL.md 给出
+        self.assertIn("数量口径见 `SKILL.md`「项目规则优先」", self.product_value)
+
+
+class RulePrecedenceAndDeliverableContractTests(unittest.TestCase):
+    """第 6 轮精修的 13 项契约（2026-10-30）。
+
+    检查**规则之间的关系**而不只是关键词：5 层的层间约束、单一维护处的结构事实、
+    方向数量与交付物数量的独立性、L3 的完整交付、以及外置内容入口能否解析。
+    """
+
+    PRECEDENCE_MARKERS = "①②③④⑤"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.agents = read("AGENTS.md")
+        cls.product_value = read("references/product-value.md")
+        cls.routing = read("references/routing-table.md")
+        cls.workflow = read("references/workflow.md")
+        cls.gpt = read("references/gpt-visual-workflow.md")
+        cls.components = read("references/components-and-output.md")
+        cls.ui_demo = read("references/ui-demo-animation.md")
+        cls.storyboard = read("references/storyboard-basics.md")
+        cls.launch_film = read("references/launch-film-director-notes.md")
+        cls.design_styles = read("references/design-styles.md")
+        cls.readme_zh = read("README.md")
+        cls.readme_en = read("README.en.md")
+        cls.refs = reference_docs()
+
+    # ── helpers ────────────────────────────────────────────────
+    @classmethod
+    def rule_block(cls):
+        return section(cls.skill, RULE_HEADING)
+
+    def bullet(self, label):
+        for line in self.rule_block().splitlines():
+            if line.startswith("- **" + label + "**"):
+                return line
+        raise AssertionError("「项目规则优先」缺少条目：%s" % label)
+
+    @classmethod
+    def precedence_line(cls):
+        return next(line for line in cls.skill.splitlines()
+                    if "效力关系按职责分层判断" in line)
+
+    @classmethod
+    def layers(cls):
+        """Split the single precedence sentence into its 5 responsibility layers."""
+        line = cls.precedence_line()
+        positions = [line.index(m) for m in cls.PRECEDENCE_MARKERS]
+        positions.append(len(line))
+        return {mark: line[positions[i]:positions[i + 1]]
+                for i, mark in enumerate(cls.PRECEDENCE_MARKERS)}
+
+    # ── 1. 5 层效力关系存在、排序正确，且只在 SKILL.md 维护完整排序 ──
+    def test_01_precedence_is_single_sourced(self):
+        layers = self.layers()
+        # 层序：全局安全 → 用户决策 → 项目规则 → SKILL.md → references
+        self.assertIn("全局安全与授权约束", layers["①"])
+        self.assertIn("用户明确的业务目标与关键决策", layers["②"])
+        self.assertIn("使用方项目规则", layers["③"])
+        self.assertIn("本 skill `SKILL.md`", layers["④"])
+        self.assertIn("`references/`", layers["⑤"])
+        self.assertIn("按规则所属职责判断", self.precedence_line())
+
+        # 单一维护处：完整 5 层只在 SKILL.md 出现；AGENTS.md 只记结论、不复制分层
+        self.assertEqual(self.skill.count("效力关系按职责分层判断"), 1)
+        self.assertIn("本文件不复述完整分层", self.agents)
+        self.assertNotIn("⑤", self.agents)
+        self.assertNotIn("⑤", self.product_value)
+        self.assertIn("完整 5 层效力关系", self.product_value)
+        self.assertIn("`SKILL.md`「项目规则优先」", self.product_value)
+        self.assertIn("`SKILL.md`「项目规则优先」", self.routing)
+
+    # ── 2. 全局安全与授权约束不得被项目规则或 skill 放宽 ──────────
+    def test_02_global_safety_not_relaxed(self):
+        top = self.layers()["①"]
+        self.assertIn("上级 `AGENTS.md`", top)
+        self.assertIn("不得被项目规则或本 skill 放宽", top)
+
+        # 三处文档口径一致，且都指向同一层
+        self.assertIn("全局安全与授权硬约束", self.skill)              # ZCode 适配
+        self.assertIn("不得被项目规则或本 skill 放宽", self.skill)
+        self.assertIn("不被本文件或项目规则放宽", self.product_value)
+        self.assertIn("全局安全与授权硬约束", self.agents)
+        self.assertIn("被本项目规则或 DesignWise 放宽", self.agents)
+
+    # ── 3. 用户业务决策定方向，但不扩大授权范围 ─────────────────
+    def test_03_user_decisions_set_direction_not_authorization(self):
+        layer = self.layers()["②"]
+        self.assertIn("决定本次任务的产品方向、优先级与取舍", layer)
+        self.assertIn("受 ① 约束", layer)
+        self.assertIn("不自动获得任务范围外的操作授权", layer)
+
+        # 同一条授权语义在边界条与 AGENTS.md 维护结论里成立
+        self.assertIn("设计自主不构成实施、发布或推送授权",
+                      self.bullet("设计自由度不改变业务与合规边界"))
+        self.assertIn("使用方项目的产品原则与用户关键决策", self.agents)
+
+    # ── 4. 项目产品原则 > skill 通用设计偏好；项目规则覆盖不了全局安全 ──
+    def test_04_project_principles_outrank_skill_preferences(self):
+        layers = self.layers()
+        self.assertIn("覆盖本 skill 的通用设计偏好", layers["③"])
+        self.assertIn("却覆盖不了 ①", layers["③"])
+        self.assertIn("不把自身设计偏好强加给项目", layers["④"])
+        self.assertIn("不形成独立于 `SKILL.md` 的冲突规则", layers["⑤"])
+
+        # 层次关系是「按职责」的：③ 高于 ④，但 ① 高于 ③
+        self.assertIn("DesignWise 的一般设计偏好", self.agents)
+        self.assertIn("唯一权威", self.bullet("产品原则的权威在项目"))
+
+    # ── 5. 默认设计方向数 = 1（跨文档同一口径）────────────────
+    def test_05_default_direction_count_is_one(self):
+        self.assertIn("默认产出 **1 个**",
+                      self.bullet("默认交付单一最佳方案"))
+        self.assertIn("**方向数量**：默认 **1 个**", self.skill)
+        self.assertIn("默认 1 套", self.skill)          # HTML fallback 套数
+        self.assertIn("设计方向**版本数同样按「方案数量」默认 1 版", self.skill)
+
+        for rel, needle in (
+                ("references/routing-table.md", "默认单一最佳方案"),
+                ("references/design-styles.md", "默认只出 1 个方向"),
+                ("references/gpt-visual-workflow.md", "默认 1 个＝单一最佳方案"),
+                ("references/ui-demo-animation.md", "默认 1 版方向板"),
+                ("references/storyboard-basics.md", "默认 1 张"),
+                ("references/launch-film-director-notes.md", "默认 1 版"),
+        ):
+            self.assertIn(needle, read(rel), "%s 的方向默认数口径不一致" % rel)
+
+    # ── 6. 全仓不得再有强制三方向 ───────────────────────────────
+    def test_06_no_forced_three_directions(self):
+        docs = dict(self.refs)
+        docs["SKILL.md"] = self.skill
+        docs["AGENTS.md"] = self.agents
+        docs["README.md"] = self.readme_zh
+        docs["README.en.md"] = self.readme_en
+        forced = re.compile(r"(必须|强制|默认)[^。\n]{0,12}(3|三)\s*(个|版)\s*(方向|方案)")
+        for rel, text in docs.items():
+            for pattern in BANNED_RULE_PATTERNS:
+                self.assertNotIn(pattern, text,
+                                 "%s 仍保留强制多方向口径：%r" % (rel, pattern))
+            self.assertIsNone(forced.search(text),
+                              "%s 仍把三个方向写成必须/默认" % rel)
+
+    # ── 7. 替代方向只在实质分歧或用户明确要求时出现 ─────────────
+    def test_07_alternatives_only_on_substantive_divergence(self):
+        gate = next(line for line in self.skill.splitlines()
+                    if "默认单一最佳方案不走方向门" in line)
+        self.assertIn("存在实质性设计分歧", gate)
+        self.assertIn("用户明确要求", gate)
+        self.assertNotIn("默认出 3", gate)
+
+        self.assertIn("存在实质分歧或用户明确要求时才 2–3 个", self.gpt)
+        self.assertIn("只有当确实存在实质性设计分歧、或用户明确要求多方向时",
+                      self.workflow)
+
+    # ── 8. 方向数量与交付物数量相互独立 ─────────────────────────
+    def test_08_direction_and_deliverable_counts_are_independent(self):
+        bullet = self.bullet("设计方向数量 ≠ 交付物数量")
+        for needle in ("只约束**设计方向**", "**不限制实际交付物**",
+                       "交付物由任务范围、载体、平台与验收要求决定",
+                       "不因方向数为 1 就只交一页、一个文件、一个尺寸或一个状态"):
+            self.assertIn(needle, bullet)
+
+        self.assertIn("设计方向数量与交付物数量相互独立", self.routing)
+        self.assertIn("variations 数量只约束「设计方向」，不约束交付物", self.workflow)
+        self.assertIn("方案数量只约束「设计方向」", self.components)
+
+    # ── 9. 一个方向可含多页面/多尺寸/多状态/组件变体 ─────────────
+    def test_09_one_direction_covers_full_delivery(self):
+        block = section(self.components, "交付物数量（与设计方向数量无关）")
+        for needle in ("多个页面与完整页面流程",
+                       "多尺寸与多设备适配稿",
+                       "多个页面状态与交互状态",
+                       "必要组件及组件变体",
+                       "各平台所需素材尺寸与导出文件",
+                       "同一方向的多种交付格式"):
+            self.assertIn(needle, block)
+
+        # 同一口径回写 SKILL.md 与 GPT 通路「一套」的定义
+        self.assertIn("多页面与完整页面流程", self.bullet(
+            "设计方向数量 ≠ 交付物数量"))
+        self.assertIn("「一套」指同一设计方向下的完整交付，不是只交一屏", self.gpt)
+        self.assertIn("「一套」指同一设计方向下的完整交付", self.skill)
+
+    # ── 10. L3 无机械「单文件 / 单载体版本」限制 ────────────────
+    def test_10_l3_has_no_single_file_limit(self):
+        l3_row = next(line for line in self.skill.splitlines()
+                      if "**L3 · 非 UI 载体**" in line)
+        self.assertIn("交付物按任务范围完整交付", l3_row)
+        self.assertIn("不因方向数为 1 而受限", l3_row)
+
+        self.assertIn("交付物数量不受此限", self.skill)      # Phase 4 L3 说明
+        self.assertIn("不因方向数为 1 就只交一屏", self.skill)  # Phase 5.5
+
+        for text, needle in (
+                (self.ui_demo, "方向板 1 版 ≠ 只交 1 支成片 / 1 个尺寸"),
+                (self.storyboard, "方向板 1 张 ≠ 成片只 1 个镜头或只 1 个交付版本"),
+                (self.launch_film, "方向板 1 版 ≠ 交付物只有 1 个版本"),
+        ):
+            self.assertIn(needle, text)
+
+        # 没有任何文档把「单交付物」写成规则（只允许否定式表述）
+        positive_only = re.compile(r"只能交付一个(文件|版本|尺寸)|只允许一个版本")
+        for rel, text in dict(self.refs, **{"SKILL.md": self.skill}).items():
+            self.assertIsNone(positive_only.search(text),
+                              "%s 仍把交付物数量限制为一个" % rel)
+
+    # ── 11. references 与 SKILL.md 的数量口径不冲突 ─────────────
+    def test_11_no_conflicting_count_rules_across_docs(self):
+        # 声明方向默认数的文档必须指向唯一口径，避免各自维护一套数字
+        for rel in ("references/routing-table.md",
+                    "references/design-styles.md",
+                    "references/gpt-visual-workflow.md",
+                    "references/ui-demo-animation.md",
+                    "references/storyboard-basics.md",
+                    "references/launch-film-director-notes.md",
+                    "references/workflow.md",
+                    "references/product-value.md"):
+            self.assertIn("项目规则优先", read(rel),
+                          "%s 给出方向/交付物数量口径却没有入口指针" % rel)
+
+        # 除 SKILL.md 外，任何文档不得另立「默认 3 个方向」式默认值
+        default_three = re.compile(r"默认\s*(3|三)\s*(个|版)\s*(方向|方案)")
+        for rel, text in self.refs.items():
+            self.assertIsNone(default_three.search(text),
+                              "%s 私自改了方向默认数" % rel)
+
+    # ── 12. 业务 / 隐私 / 安全 / 商业化 / 合规边界仍在 ──────────
+    def test_12_core_boundaries_survive(self):
+        header = self.rule_block().splitlines()[2]
+        for needle in ("不放宽**授权与隐私/合规边界", "真实视觉证据", "不伪造结论"):
+            self.assertIn(needle, header)
+
+        boundary = self.bullet("设计自由度不改变业务与合规边界")
+        for needle in ("业务规则", "商业化", "广告", "隐私", "安全", "合规"):
+            self.assertIn(needle, boundary)
+
+        # 硬门与授权语义未因压缩而消失
+        for needle in ("48dp", "Gate 1", "Gate 2", "不伪造 PASS",
+                       "SKIP_DESIGN_GATE", "--confirm-gpt-review"):
+            self.assertIn(needle, self.skill)
+
+    # ── 13. 外置内容仍有可解析的入口 ────────────────────────────
+    def test_13_externalized_content_is_resolvable(self):
+        # SKILL.md 里提到的每个 references/*.md 都真实存在
+        for rel in set(re.findall(r"`(references/[^`]+?\.md)`", self.skill)):
+            self.assertTrue(os.path.exists(os.path.join(ROOT, rel)),
+                            "SKILL.md 指向不存在的文件：%s" % rel)
+
+        # 方向/交付物口径的入口指向真实小节，不是悬空标题
+        self.assertIn("清单见 `references/components-and-output.md`「交付物数量」",
+                      self.skill)
+        section(self.components, "交付物数量（与设计方向数量无关）")
+
+        # GPT 通路「一套」的定义与「按需 HTML」入口对得上
+        self.assertIn("按需做一套 HTML", self.skill)
+        self.assertIn("## 3.6 按需制作一套可交互 HTML 原型", self.gpt)
+
+
+class DocConsistencyRepairTests(unittest.TestCase):
+    """第 8 轮独立验收发现的文档一致性缺陷的回归测试（2026-10-30）。
+
+    这些缺陷此前被测试漏掉：悬空的「SKILL.md §某节」引用、被压缩掉的落档义务、
+    被简化的评审维度锚点，以及「唯一口径/不复述数字」与实际文本自相矛盾。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.routing = read("references/routing-table.md")
+        cls.components = read("references/components-and-output.md")
+        cls.video = read("references/video-export.md")
+        cls.philosophy = read("references/design-philosophy.md")
+        cls.direction_path = read("references/direction-gpt-path.md")
+        cls.product_value = read("references/product-value.md")
+
+    # ── 1. 方向门豁免的落档义务仍在 ────────────────────────────
+    def test_01_exemption_trail_is_still_required(self):
+        self.assertIn("多方案分支下三种都要把原话/理由落档到 `direction-approved.md`",
+                      self.skill)
+        # 三条豁免一条都不能少
+        for needle in ("本次会话明说", "已选定方向后的迭代", "非设计的机械操作"):
+            self.assertIn(needle, self.skill)
+        self.assertIn("设计方向数量 ≠ 交付物数量", section(self.skill, RULE_HEADING))
+
+    # ── 2. design-philosophy 的入口指向真实小节 ────────────────
+    def test_02_design_philosophy_entry_resolves(self):
+        head = self.philosophy.splitlines()[2]
+        self.assertIn("入口见 SKILL.md", head)
+        self.assertNotIn("你不是一个人，是一个工作室", head)
+        # 入口指向的落点在 SKILL.md 里真实存在
+        self.assertIn("你是设计师，不是写 HTML 的程序员", self.skill)
+        self.assertIn("`references/design-philosophy.md`", self.skill)
+
+    # ── 3. video-export 的水印指针指向真实小节 ─────────────────
+    def test_03_watermark_pointer_resolves(self):
+        self.assertNotIn("SKILL.md §「水印」", self.skill + self.video)
+        self.assertIn("`references/components-and-output.md`「水印（动画产出）」",
+                      self.video)
+        section(self.components, "水印（动画产出）", level=2)
+
+    # ── 4. 方案数量的口径声明与实际复述不矛盾 ──────────────────
+    def test_04_scheme_count_authority_wording_is_consistent(self):
+        header = section(self.skill, RULE_HEADING).splitlines()[2]
+        self.assertIn("权威口径", header)
+        self.assertIn("不得给出不同数值", header)
+        # 旧措辞会让「多处带数字复述」变成违规（文件自称不复述、正文却复述），已废止。
+        # 注意断言对象是真正会复述数字的那两份文件，不是 SKILL.md。
+        for rel, text in (("references/direction-gpt-path.md", self.direction_path),
+                          ("references/product-value.md", self.product_value)):
+            self.assertNotIn("不复述数字", text, "%s 仍自称不复述数字" % rel)
+            self.assertNotIn("只引用不复述", text, "%s 仍自称只引用不复述" % rel)
+            self.assertIn("不得给出不同数值", text, "%s 缺统一口径声明" % rel)
+
+    # ── 5. 专家评审的「功能性」维度锚点没被精简掉 ─────────────
+    def test_05_review_dimension_anchor_survives(self):
+        self.assertIn("产品界面类在「功能性」维度加查用户价值与易用性", self.skill)
+
+    # ── 6. routing-table 不再自称逐字副本，且承认 SKILL.md 权威 ─
+    def test_06_routing_table_points_to_authority(self):
+        head = "\n".join(self.routing.splitlines()[:6])
+        self.assertNotIn("逐字完整版", head)
+        self.assertIn("参考入口（速查）", head)
+        self.assertIn("冲突时以 `SKILL.md` 为准", head)
+        self.assertIn("## 参考入口（速查）", self.skill)
 
 
 if __name__ == "__main__":

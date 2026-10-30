@@ -54,11 +54,11 @@ python3 scripts/sync_runtime.py --to ~/.zcode/skills/designwise --apply --prune
 **触发判定**（按**已观察到的能力/资源限制**，不按模型品牌）：无 spawn subagent 能力 / 实测上下文不足以完成当前任务 / 已多次因窗口耗尽中断。为什么：按满血流程跑，弱 runtime 中途爆上下文或偷工，产出反而更差（issue #2/#6/#41 用户复现不出效果的根因）。**不得仅因驱动模型不是 Claude 就降级。**
 
 **降级动作（按吃紧程度逐级启用）**：
-1. **L2 例外通路**的三版并行 → 串行：按上文 Phase 4「不支持 spawn subagent 的 runtime」规则执行（已有规则，直接引用）
-2. 串行仍吃紧 → 1 个主版 + 1 个变体；变体必须在**布局骨架或信息组织**上有一处真实结构差异，不得只换色板/排印冒充「方向」（为什么：布局重写最耗上下文，但只换皮不构成用户可比较的方向）
+1. **L2 例外通路**的多套并行 → 串行（N 按方案数量，默认 1 套）：按上文 Phase 4「不支持 spawn subagent 的 runtime」规则执行（已有规则，直接引用）
+2. 多方案分支串行仍吃紧 → 收成 1 个主版 + 1 个变体；变体必须在**布局骨架或信息组织**上有一处真实结构差异，不得只换色板/排印冒充「方向」（为什么：布局重写最耗上下文，但只换皮不构成用户可比较的方向；**单一方案默认路径不受本条影响**）
 3. references 只读当前任务对应的 1 个文件，不全读（为什么：路由表的意义就是按需加载，全读必爆窗口）
 4. deck 默认单文件架构（`assets/deck_stage.js`）（为什么：多文件 + 概览墙依赖多轮文件操作，弱 runtime 容易半途而废留下坏 deck）
-5. 检查点问答**不可整体跳过**：只可把可自行补齐的低风险假设写入 assumption 清单。**方向选择、授权边界、真实视觉确认仍必须由用户完成**，不因上下文紧张而降级。
+5. 检查点问答**不可整体跳过**：只可把可自行补齐的低风险假设写入 assumption 清单。**方向选择（多方案分支）、授权边界、真实视觉确认仍必须由用户完成**，不因上下文紧张而降级；单一方案由 agent 定方向并标注 `agent 决策`，用户看完真实视觉可否决（见 `SKILL.md`「项目规则优先」）。
 
 **原则一句话**：降级牺牲多样性和流程，绝不牺牲反 slop 底线和真实资产协议。
 ---
@@ -70,7 +70,7 @@ python3 scripts/sync_runtime.py --to ~/.zcode/skills/designwise --apply --prune
 
 | 能力 | Reasonix 载体（原文） | ZCode 载体（已实测） |
 |---|---|---|
-| 并行三方向 / 子代理 | `task` / `fleet` | **ZCode Agent 工具**（单条消息内并发派发多个 `Agent`） |
+| 并行多方向 / 子代理 | `task` / `fleet` | **ZCode Agent 工具**（单条消息内并发派发多个 `Agent`） |
 | 计划模式 | Reasonix Plan | **ZCode plan 权限模式**（`EnterPlanMode`） |
 | 浏览器验证 / 截图 | 内置 browser 工具 | `scripts/verify.py`（需 playwright）或 headless Chromium 直调（见下） |
 | 真实生图 | `huashu-gpt-image` 的 `gen_via_cpa.py` | **`scripts/zcode_image.py`**（本 skill 自带；方法论按已迁移的 `~/.zcode/skills/huashu-gpt-image/` 执行） |

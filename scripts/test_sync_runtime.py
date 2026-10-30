@@ -4,6 +4,7 @@
 运行：python3 scripts/test_sync_runtime.py
 """
 
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -14,6 +15,21 @@ import unittest
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "sync_runtime.py")
+
+
+def load_sync_module():
+    """加载真实实现（不是复刻判定逻辑），用于直接断言 skip_file / manifest。"""
+    spec = importlib.util.spec_from_file_location("sync_runtime_under_test", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def write_file(root, rel, text):
+    path = os.path.join(root, rel)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
 
 
 class SyncRuntimeTests(unittest.TestCase):
@@ -142,6 +158,97 @@ class SyncRuntimeTests(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.dst, ".env.local")))
         self.assertTrue(os.path.exists(
             os.path.join(self.dst, "assets/personal-asset-index.json")))
+
+
+class SyncExclusionContractTests(unittest.TestCase):
+    """分发边界：开发资产不进入运行时副本；运行资产与 LICENSE 照常同步。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = load_sync_module()
+
+    def run_sync(self, src, dst, *args):
+        return subprocess.run(
+            [sys.executable, SCRIPT, "--to", dst, "--force"] + list(args),
+            text=True, capture_output=True, timeout=30,
+        )
+
+    def test_root_agents_md_is_excluded(self):
+        self.assertTrue(self.mod.skip_file("AGENTS.md"))
+
+    def test_scripts_dev_tests_are_excluded(self):
+        for rel in ("scripts/test_x.py", "scripts/test_sync_runtime.py",
+                    "scripts/test_design_gate_hook_hyperframes.py"):
+            self.assertTrue(self.mod.skip_file(rel), rel)
+
+    def test_runtime_scripts_are_not_excluded(self):
+        for rel in ("scripts/design-gate-check.js", "scripts/sync_runtime.py",
+                    "scripts/verify.py", "scripts/check-skill.py",
+                    "scripts/design-gate-hook-hyperframes.sh"):
+            self.assertFalse(self.mod.skip_file(rel), rel)
+
+    def test_license_and_docs_are_not_excluded(self):
+        for rel in ("LICENSE", "SKILL.md", "README.md", "README.en.md",
+                    "SECURITY.md", "references/verification.md"):
+            self.assertFalse(self.mod.skip_file(rel), rel)
+
+    def test_same_name_outside_the_two_paths_is_not_excluded(self):
+        # 只排除根目录 AGENTS.md 与 scripts/ 直接子文件 test_*.py
+        for rel in ("references/AGENTS.md", "scripts/cloud/test_x.py",
+                    "demos/test_x.py", "assets/test_x.py", "scripts/test_x.js"):
+            self.assertFalse(self.mod.skip_file(rel), rel)
+
+    def test_manifest_omits_dev_assets_and_keeps_runtime_files(self):
+        with tempfile.TemporaryDirectory(prefix="sync_manifest_") as tmp:
+            src = os.path.join(tmp, "src")
+            write_file(src, "SKILL.md", "---\nname: designwise\n---\n")
+            write_file(src, "LICENSE", "MIT\n")
+            write_file(src, "AGENTS.md", "rules\n")
+            write_file(src, "scripts/verify.py", "print(1)\n")
+            write_file(src, "scripts/test_verify_status.py", "pass\n")
+            m = self.mod.manifest(src)
+            self.assertNotIn("AGENTS.md", m)
+            self.assertNotIn("scripts/test_verify_status.py", m)
+            self.assertIn("LICENSE", m)
+            self.assertIn("SKILL.md", m)
+            self.assertIn("scripts/verify.py", m)
+
+    def test_legacy_dev_assets_in_target_are_invisible_and_survive_prune(self):
+        """排除生效前已在副本里的开发资产：不报漂移、不被 --prune 删除（清理需单独授权）。"""
+        with tempfile.TemporaryDirectory(prefix="sync_legacy_") as tmp:
+            src = os.path.join(tmp, "src")
+            dst = os.path.join(tmp, "dst")
+            write_file(src, "SKILL.md", "---\nname: designwise\n---\n")
+            write_file(src, "LICENSE", "MIT\n")
+            write_file(src, "scripts/verify.py", "print(1)\n")
+            write_file(src, "AGENTS.md", "rules\n")
+            write_file(src, "scripts/test_a.py", "pass\n")
+            os.makedirs(dst)
+            write_file(dst, "AGENTS.md", "old rules\n")
+            write_file(dst, "scripts/test_legacy.py", "pass\n")
+
+            r = self.run_sync(src, dst, "--apply")
+            self.assertEqual(r.returncode, 0, r.stdout)
+            # 目标里预置的 AGENTS.md 是"历史遗留"：同步不得写入、也不得覆盖它
+            with open(os.path.join(dst, "AGENTS.md"), encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), "old rules\n",
+                                 "AGENTS.md 不得被源仓库版本覆盖")
+            self.assertFalse(os.path.exists(os.path.join(dst, "scripts", "test_a.py")),
+                             "开发测试文件不得写入副本")
+            self.assertTrue(os.path.exists(os.path.join(dst, "LICENSE")),
+                            "LICENSE 必须随分发")
+            self.assertTrue(os.path.exists(os.path.join(dst, "scripts", "verify.py")),
+                            "运行所需脚本必须照常同步")
+
+            r = self.run_sync(src, dst, "--check")
+            self.assertEqual(r.returncode, 0, r.stdout)
+            self.assertIn("一致", r.stdout)
+
+            r = self.run_sync(src, dst, "--apply", "--prune")
+            self.assertEqual(r.returncode, 0, r.stdout)
+            self.assertTrue(os.path.exists(os.path.join(dst, "scripts", "test_legacy.py")),
+                            "排除文件不得被 --prune 删除")
+            self.assertTrue(os.path.exists(os.path.join(dst, "AGENTS.md")))
 
 
 if __name__ == "__main__":

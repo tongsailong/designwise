@@ -13,6 +13,9 @@
 
 退出码：0 = 一致或写入成功；1 = 检测到漂移/写入失败；2 = 参数或目标目录错误。
 不读取、不写入 .env / .env.*；不触碰 .git / node_modules / design-demos / __pycache__。
+不同步开发资产（根目录 AGENTS.md、scripts/test_*.py）：排除对源与副本两侧都生效，所以副本里
+已存在的同类文件不会触发漂移告警，也不会被 --prune 删除——清理它们需单独授权后手工执行。
+LICENSE 属许可证义务，始终随分发（不在任何排除规则内）。
 目标必须含 SKILL.md 的 `name: designwise`（首次安装到空目录时用 --force 跳过该检查）。
 """
 
@@ -28,9 +31,16 @@ SOURCE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXCLUDE_DIRS = {".git", "node_modules", ".reasonix", "design-demos",
                 "__pycache__", ".pytest_cache", ".mypy_cache", ".vscode", ".idea"}
 EXCLUDE_FILES = {".last-update-check", ".DS_Store",
-                 "assets/personal-asset-index.json"}
+                 "assets/personal-asset-index.json",
+                 # 项目维护规则只属于源码仓库，不进入运行时副本
+                 "AGENTS.md"}
 EXCLUDE_PREFIXES = (".sync-", ".video-tmp-", ".seek-tmp-")
 EXCLUDE_SUFFIXES = (".pyc", ".pyo", ".swp", ".tmp")
+
+# 开发测试资产：仅 scripts/ 的直接子文件 scripts/test_*.py。
+# 其它目录（含 scripts 的子目录）中的同名文件不在此列，避免误伤。
+DEV_TEST_DIR = "scripts"
+DEV_TEST_PREFIX = "test_"
 
 
 def sha256(path):
@@ -45,9 +55,19 @@ def skip_dir(name):
     return name in EXCLUDE_DIRS
 
 
+def is_dev_test(rel):
+    """scripts/test_*.py —— 只匹配 scripts/ 的直接子文件。"""
+    if not rel.startswith(DEV_TEST_DIR + "/"):
+        return False
+    name = rel[len(DEV_TEST_DIR) + 1:]
+    return "/" not in name and name.startswith(DEV_TEST_PREFIX) and name.endswith(".py")
+
+
 def skip_file(rel):
     name = os.path.basename(rel)
     if rel in EXCLUDE_FILES:
+        return True
+    if is_dev_test(rel):
         return True
     if name == ".env.example":
         return False          # 模板可以同步

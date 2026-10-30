@@ -198,7 +198,7 @@ GIF 只能 256 色。一次 pass 的 GIF 会把全动画色彩压到 256 色通�
 - [ ] Duration 参数与 HTML 里的实际动画时长匹配
 - [ ] HTML 中 Stage 检测 `window.__recording` 强制 loop=false（手写 Stage 必查；用 `assets/animations.jsx` 自带）
 - [ ] 结尾 Sprite 的 `fadeOut={0}`（视频末帧不淡出）
-- [ ] 水印：默认**不加**任何第三方 Skill 水印；仅用户明确要求署名时才加（详见 SKILL.md §「水印」与本章末节）
+- [ ] 水印：默认**不加**任何第三方 Skill 水印；仅用户明确要求署名时才加（详见 `references/components-and-output.md`「水印（动画产出）」与本章末节）
 
 ## 交付时附带的说明
 
