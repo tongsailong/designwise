@@ -12,7 +12,7 @@
 
 在支持 Skills 的 AI Agent 里打一句话，拿回一份**经得起产品判断的设计交付**——可点击的 App / Web 交互原型、能编辑的 PPTX、产品发布动画、印刷级信息图，或一次专业设计评审。
 
-3–30 分钟。不是「AI 做的还行」那种水平——内置 60 种 HTML 原生风格库、品牌资产协议与反 AI slop 底线；更关键的是，它在设计前后各加了一层普通设计 Skill 没有的东西：**先判产品价值，再做好看的界面**。
+3–30 分钟。不是「AI 做的还行」那种水平——内置 84 种 HTML 原生风格库、品牌资产协议与反 AI slop 底线；更关键的是，它在设计前后各加了一层普通设计 Skill 没有的东西：**先判产品价值，再做好看的界面**。
 
 ```bash
 npx skills add tongsailong/designwise
@@ -35,7 +35,7 @@ npx skills add tongsailong/designwise
 <p align="center"><sub>▲ 25 秒 hero 动画：Terminal → 三方向 → Gallery ripple → 四次 Focus → 品牌显形<br>
 本演示素材来自上游项目 huashu-design（<a href="https://github.com/alchaincyf">@alchaincyf</a>），本分支完整保留该能力。可本地打开 <a href="demos/hero-animation-v10-en.html">demos/hero-animation-v10-en.html</a> 查看交互版。</sub></p>
 
-> ℹ️ **本项目是 [huashu-design](https://github.com/alchaincyf/huashu-design)（作者 [@alchaincyf](https://github.com/alchaincyf)，MIT License）的二次开发分支。** 上游的视觉设计能力、60 种 HTML 原生风格库、资产协议与交付链**完整保留**；本分支在其上叠加**产品价值判断、UX 与易用性评审、Spec 一致性核验与跨 Agent 适配**。安装本分支请用本仓库命令，**不要**用上游命令（上游入口见 [上游项目与致谢](#上游项目与致谢)）。
+> ℹ️ **本项目是 [huashu-design](https://github.com/alchaincyf/huashu-design)（作者 [@alchaincyf](https://github.com/alchaincyf)，MIT License）的二次开发分支。** 上游的视觉设计能力、60 种风格库（本分支已扩到 84 种）、资产协议与交付链**完整保留**；本分支在其上叠加**产品价值判断、UX 与易用性评审、Spec 一致性核验与跨 Agent 适配**。安装本分支请用本仓库命令，**不要**用上游命令（上游入口见 [上游项目与致谢](#上游项目与致谢)）。
 
 ---
 
@@ -50,7 +50,7 @@ npx skills add tongsailong/designwise
 | 范围控制 | 习惯性「顺手做完整一点」 | **Scope 冻结**：不做用户没要求的页面与功能，不把「通常会有」当成「被要求」 |
 | 评审 | 好不好看 | **概念/立意 + 5 维度评审** + **UX 与易用性一层**（产品界面类）+ 有 spec 时跑一层 **Spec 一致性核验** + **生图前的提示词专家评审**；视觉方向判断与阶段门槛**默认由原生自检看真实像素**；**用户明确授权 GPT 评审通道后**才用 `scripts/zcode_vision.py --confirm-gpt-review`，只有明确点名 Copilot 时才走 copilot 正式 REVIEW（Gate 1 在真实候选图之后给推荐、方向仍由你选定；Gate 2 在精修完成后判阶段门槛），**像素级微调不重复送审** |
 | 平台 | 绑定某个 AI 编程工具 | **Agent 无关**：能力 → 载体映射表，弱 runtime 自动降级 |
-| 视觉能力 | 视实现而定 | 上游 60 种 HTML 原生风格库、视觉方向门（默认 1 个最佳方案）、品牌资产协议、反 AI slop 底线（**完整保留**） |
+| 视觉能力 | 视实现而定 | 上游 60 种 HTML 原生风格库（本分支扩到 84 种：+App 12、+中文东亚 12）、视觉方向门（默认 1 个最佳方案）、品牌资产协议、反 AI slop 底线（**完整保留**） |
 
 > 本文中「点名 Copilot」均指：用户**明确点名 Copilot**，或**明确要求使用 `copilot` Skill / Copilot 正式 REVIEW**。未授权时视觉评审走原生自检；外部 GPT（`zcode_vision`）与 Copilot 都不会自动调用。
 
@@ -88,9 +88,18 @@ Skill 是 **agent-agnostic** 的：Claude Code、Codex、Cursor、Trae、OpenCla
 上面四项是**新增判断层**，它们不替代原有能力——上游的视觉产出链路一条不少：
 
 - **视觉方向探索**：**L2 新视觉设计默认只出 1 个最佳方案**——但仍然先出**真实候选图**，由**原生自检**在真实像素上给结论（授权后才用 `zcode_vision --confirm-gpt-review`；Copilot 正式 REVIEW 仅点名时启用），再收敛出最终提示词与正式概念图，然后做**一套** HTML；**只有存在实质性设计分歧、或你明确要多方向时**才出 2–3 个有实质差异的真实方向，由**你看着真实候选图选定**（L1 局部优化直接改现有 UI，不铺方向门；指定风格 / 品牌也不豁免真实视觉证据）
-- **60 种 HTML 原生风格库**（网页 20 + PPT 20 + 信息图 20，纯 CSS 无需生图）
+- **84 种 HTML 原生风格库**（网页 20 + PPT 20 + 信息图 20 + App 12 + 中文东亚 12，纯 CSS 无需生图；App 与中文东亚两区带真实样张）
 - **交互原型**（真 iPhone 机身、可点击、Playwright 验证）/ **动画**（Stage + Sprite 时间轴，导出 MP4 / GIF）/ **可编辑 PPTX**（导出真文本框）/ **信息图**（印刷级排版，可导 PDF / PNG / SVG）
 - **品牌资产协议**（5 步硬流程，绝不从记忆猜品牌色）/ **反 AI slop 底线**
+
+### 六、参考板 · 外观账本 · 素材选择 · 设计体检（全部复用既有通路）
+
+上游有四项能力本分支之前缺一半或全缺，这次补上，但**不新建第二套机制**：
+
+- **参考板（按需，不强制）**：有参考链接或截图时，`scripts/ref_board.py` 用真实 Chrome 截真实像素、出看板（`board.html` / `board.jpg` / `board.json`），再拆成**能落到 Brief 与 prompt 的规则**（栏数、字号比、主色占比、图文关系、母题）。**借方法不抄标识**；没做就直说没做。→ [`references/design-research.md`](references/design-research.md)
+- **外观账本（只提示，不阻断）**：`check-ui.mjs --ledger-add / --ledger-check` 记录并比对设计产物指纹（底色、主色板、字体、骨架），撞族给**黄灯**、不改退出码。它是本机像素指纹记录，**不是记忆系统**——用户偏好走 memory、工程事实走知识库候选。同项目多屏同族是优点，**不为差异化而差异化**。
+- **素材先行**：先定主角素材（真实摄影 / 插画 / 数据可视化 / 程序化材质 / 字即图 / 实物仿制 / 场景人物），再定载体；能力按需探测（`zcode_image.py --health`、Node/Chrome、ffmpeg、Pillow），**探测不到降级不阻断**。→ [`references/materials.md`](references/materials.md)
+- **设计体检（客观项）**：同一个 `check-ui.mjs` 顺带采集**图片加载失败（红灯）、文字/背景计算对比度（正文 <4.5 红灯，大字 ≥3）、相对路径引图（黄灯）、渐变背景上的未知对比度（黄灯）**，并用 `--shot` 出截图。**脚本只出事实，审美归评审**；黄灯永远不改退出码。→ [`references/verification.md`](references/verification.md)
 
 ---
 
@@ -291,9 +300,9 @@ git clone https://github.com/tongsailong/designwise.git ~/.claude/skills/designw
 
 | 依赖 | 用途 |
 |------|------|
-| Node.js | `scripts/render-video.js`（HTML→MP4）、`html2pptx.js`、`export_deck_*.mjs`、`gen_deck_thumbs.mjs`；`scripts/check-ui.mjs`（UI 验收采集：触控/字号/溢出/控制台，无 npm 依赖）；`package.json` 依赖 `playwright` / `pptxgenjs` / `pdf-lib` / `sharp` |
+| Node.js | `scripts/render-video.js`（HTML→MP4）、`html2pptx.js`、`export_deck_*.mjs`、`gen_deck_thumbs.mjs`；`scripts/check-ui.mjs`（UI 验收采集：触控/字号/溢出/控制台/图片/对比度/指纹，`--shot` 截图、`--ledger-*` 账本，无 npm 依赖）；`package.json` 依赖 `playwright` / `pptxgenjs` / `pdf-lib` / `sharp` |
 | ffmpeg | MP4 转 60fps / GIF、拼接 BGM、音视频混流（`convert-formats.sh`、`add-music.sh`、`mix-voiceover.sh`） |
-| Python 3 | `scripts/verify.py`（Playwright 验证）、`fetch_images.py`、`check-skill.py`（结构自检）、`check-contrast.py`（对比度）、`check-assets.py`（素材清单） |
+| Python 3 | `scripts/verify.py`（Playwright 验证）、`fetch_images.py`、`ref_board.py`（参考板采集，需 Chrome）、`check-skill.py`（结构自检）、`check-contrast.py`（对比度）、`check-assets.py`（素材清单）、Pillow（参考板拼图与空白检测，可选） |
 | Playwright | 交付前的浏览器点击测试与截图验证 |
 
 **云能力（完全可选）**：豆包 TTS 配音与 AI 看片评审隔离在 `scripts/cloud/`，需要你自备 API key，首次调用要显式 `--yes` 确认。默认不使用。核心链路（设计 → 渲染 → MP4 / PDF / PPTX 导出）**100% 本地运行，零网络、零 key**，无 telemetry。全部出站域名、密钥处理与删除边界见 [SECURITY.md](SECURITY.md)。
@@ -334,7 +343,9 @@ ai-product-design-skill/          # 仓库更名 designwise（本目录为历史
 │   ├── product-value.md     # 产品价值判断（有用→好懂→舒服→有意义）
 │   ├── critique-guide.md    # 概念/立意+5 维度评审 + 易用性 + Spec 一致性核验 + 生图前 Prompt 级评审
 │   ├── runtime-adapters.md  # 能力 → 载体映射（跨 Agent）
-│   ├── design-styles.md     # 60 种 HTML 原生风格库
+│   ├── design-styles.md     # 84 种 HTML 原生风格库（App / 中文东亚带样张）
+│   ├── design-research.md   # 参考板（真实像素拆规则）+ 外观账本（撞族黄灯）
+│   ├── materials.md         # 主角素材矩阵 + 素材能力分档与探测
 │   ├── app-prototype.md · slide-decks.md · editable-pptx.md
 │   ├── animation-*.md · camera-language.md · storyboard-basics.md
 │   └── ...
@@ -344,6 +355,7 @@ ai-product-design-skill/          # 仓库更名 designwise（本目录为历史
 │   ├── add-music.sh         # MP4 + BGM
 │   ├── export_deck_pdf.mjs · export_deck_pptx.mjs · html2pptx.js
 │   ├── verify.py · check-ui.mjs · check-contrast.py · check-assets.py · check-skill.py
+│   ├── ref_board.py         # 参考板采集（真实截图 + board.html/jpg；需 Chrome）
 │   └── cloud/               # 可选云能力（自备 key + --yes）
 └── demos/                   # 能力演示（中英双版 HTML）+ hero 动画
 ```
@@ -399,6 +411,7 @@ python3 scripts/sync_runtime.py --to ~/.zcode/skills/designwise --apply --prune
 - 上游 Star 趋势：<https://star-history.com/#alchaincyf/huashu-design&Date>
 - 上游作者的案例：鹦鹉进化史网站 · 「聊聊 skill」演讲 deck · [FanBox · Coding Agent 的驾驶舱](https://github.com/alchaincyf/fanbox)
 - 上游作者自述的起源故事：Anthropic 发布 Claude Design 后，作者让 agent 拆解其公开的系统提示词、品牌资产协议与组件机制，蒸馏成结构化 spec 并写成 Skill。
+- **样张资产来源**：`assets/style-specimens/` 的 50 个文件（App 12 + 中文与东亚 12，每种含 `.html` 源码与 `.jpg` 样张；另加 `sheet-app.jpg` / `sheet-east.jpg` 两张分区总览板）取自上游同一路径，与本仓库文件**字节一致**。上游以 MIT License 发布仓库内容，样张是其**原创 HTML/CSS 演绎**（题材与数字虚构）；风格名中的设计师 / 工作室与书名只作**风格参照**，不是其作品的复制，也不代表作者授权或背书。
 
 <table>
 <tr><td>

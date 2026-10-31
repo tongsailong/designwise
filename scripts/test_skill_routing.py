@@ -920,5 +920,128 @@ class DocConsistencyRepairTests(unittest.TestCase):
         self.assertIn("## 参考入口（速查）", self.skill)
 
 
+class ProductPrincipleIntegrationContractTests(unittest.TestCase):
+    """产品价值四层与上游能力整合的文档契约（2026-10-31）。
+
+    守的是「整合」而不是「加段落」：四层必须落到 Brief / prompt / Gate 1 / 验收，
+    参考板与外观账本必须不强制、不阻断，素材与体检必须复用既有通路，计数口径必须一致。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.workflow = read("references/gpt-visual-workflow.md")
+        cls.product_value = read("references/product-value.md")
+        cls.critique = read("references/critique-guide.md")
+        cls.research = read("references/design-research.md")
+        cls.materials = read("references/materials.md")
+        cls.verification = read("references/verification.md")
+        cls.handoff = read("references/design-handoff.md")
+        cls.routing = read("references/routing-table.md")
+
+    # ── 1. 四层在各环节都有落点，且不是形容词 ─────────────────
+    def test_01_four_layers_land_in_each_stage(self):
+        self.assertIn("四层在各环节的落点", self.product_value)
+        for stage in ("Visual Brief 第 3 段", "生图 prompt 正文", "Gate 1（仅产品界面/交互）",
+                      "真实体验验收", "设计评审"):
+            self.assertIn(stage, self.product_value, "四层落点缺环节：%s" % stage)
+        # Brief 要求可检验约束，不是四句好话
+        self.assertIn("每层一条可检验约束", self.workflow)
+        self.assertIn("不写四句好话", self.workflow)
+        # prompt 正文必须带两句可被画面验证的话
+        self.assertIn("价值四层要进 prompt 正文", self.workflow)
+        for needle in ("第一眼聚焦", "系统承担的复杂度", "no shortcut is claimed"):
+            self.assertIn(needle, self.workflow)
+        # Gate 1 四问限定在产品界面类，且明确不新增门槛
+        self.assertIn("产品界面 / 交互类追加四问", self.workflow)
+        self.assertIn("不评分、不新增门槛", self.workflow)
+        # 评审侧补「舒服」层检查点，且不新增维度
+        self.assertIn("视觉噪音与干扰", self.critique)
+        self.assertIn("不新增评分维度", self.critique)
+
+    # ── 2. 四层不越界：不新增评分体系，不强迫加情绪 ───────────
+    def test_02_four_layers_stay_advisory(self):
+        self.assertIn("不新增评分体系", self.workflow)
+        self.assertIn("不新增检查点", self.product_value)
+        self.assertIn("情绪机会只写一处", self.workflow)
+        # 情绪价值不成立时必须允许「本版不加」
+        self.assertIn("本版不加情绪价值", self.workflow)
+
+    # ── 3. 参考板：真实像素、按需、借方法不抄标识 ─────────────
+    def test_03_reference_board_is_optional_and_honest(self):
+        self.assertIn("不强制", self.research)
+        self.assertIn("借方法，不抄标识", self.research)
+        self.assertIn("scripts/ref_board.py", self.research)
+        h1 = self.research.splitlines()[0]
+        self.assertIn("参考板", h1)
+        # 不能把参考截图当产出
+        self.assertIn("参考截图**永远不是**本项目的产出", self.research)
+        # 脚本入口真实存在且在路由表里可发现
+        self.assertTrue(os.path.isfile(os.path.join(ROOT, "scripts", "ref_board.py")))
+        self.assertIn("scripts/ref_board.py", self.routing)
+
+    # ── 4. 外观账本：只提示、不阻断、不是记忆系统 ─────────────
+    def test_04_ledger_warns_never_blocks(self):
+        self.assertIn("--ledger-check", self.research)
+        self.assertIn("只提示，从不改退出码", self.research)
+        self.assertIn("不为差异化而差异化", self.research)
+        self.assertIn("它不是记忆系统", self.research)
+        self.assertIn("本机私有", self.research)
+        # 账本不得被描述成第二个记忆/知识系统
+        self.assertNotIn("长期记忆", self.research)
+        # 体检文档同步说明黄灯不改退出码
+        self.assertIn("审美提示不得变成阻断条件", self.verification)
+        self.assertIn("--ledger-check", self.verification)
+
+    # ── 5. Design Lint 复用既有通路，不新建 playwright 链路 ────
+    def test_05_design_lint_reuses_existing_scripts(self):
+        self.assertIn("设计体检", self.verification)
+        self.assertIn("contrast.unknown", self.verification)
+        self.assertIn("images.broken", self.verification)
+        self.assertIn("--shot", self.verification)
+        self.assertIn("脚本只出事实", self.verification)
+        # 不引入新的采集依赖
+        self.assertNotIn("design_lint.py", self.verification)
+
+    # ── 6. 素材先行：主角素材 + 能力分档，探测不到不阻断 ──────
+    def test_06_materials_tiers_do_not_block(self):
+        for needle in ("主角素材", "真图诚实性测试", "探测不到不阻断", "--health"):
+            self.assertIn(needle, self.materials)
+        self.assertIn("## §4 素材三态：参考 / 概念 / 正式", self.materials)
+        # 三态权威仍在 gpt-visual-workflow，素材文档只给指针
+        self.assertIn("§3.6.4", self.materials)
+        self.assertIn("references/materials.md", self.skill)
+        self.assertIn("references/materials.md", self.routing)
+
+    # ── 7. 经验回流：四类证据去向不同，不新建系统 ─────────────
+    def test_07_experience_loop_has_four_states(self):
+        for needle in ("preference", "observed", "verified", "superseded"):
+            self.assertIn(needle, self.handoff)
+        self.assertIn("不为回流新建第三个记录系统", self.handoff)
+        self.assertIn("经验不扩大授权", self.handoff)
+
+    # ── 8. 参考入口与计数口径 ─────────────────────────────────
+    def test_08_reference_entries_and_counts(self):
+        entry = section(self.skill, "参考入口（速查）", level=2)
+        self.assertIn("references/design-research.md", entry)
+        self.assertIn("references/materials.md", entry)
+        # 风格库计数统一为 84，SKILL.md 里不得残留 60
+        self.assertNotIn("60 种", self.skill)
+        self.assertIn("84 种", self.skill)
+        self.assertIn("84 种", self.routing)
+        # 新文档必须在 check-skill 的引用扫描下可解析（路径形如 references/xxx.md 且文件存在）
+        for rel in ("references/design-research.md", "references/materials.md"):
+            self.assertTrue(os.path.isfile(os.path.join(ROOT, rel)), rel)
+
+    # ── 9. 不因整合而放宽既有硬规则 ───────────────────────────
+    def test_09_existing_hard_rules_untouched(self):
+        self.assertIn("默认产出 **1 个**", self.skill)
+        self.assertIn("效力关系按职责分层判断", self.skill)
+        self.assertIn("Copilot 正式 REVIEW 仅用户点名", self.skill)
+        # L1 仍是四步，不因新增参考板/账本变成五步
+        self.assertIn("理解现状", self.skill)
+        self.assertIn("针对性验证", self.skill)
+
+
 if __name__ == "__main__":
     unittest.main()

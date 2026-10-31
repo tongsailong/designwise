@@ -53,6 +53,37 @@
 
 **采集**：`node scripts/check-ui.mjs --url <file:///...|http://...> [--url ...] --tap 48 --font-min 12` 输出 JSON 与退出码，JSON 标注 `unit: css-px`；多字体档用多个 `--url`（如 `?fs=13`）各跑一次。它只做**页面级客观采集**，不替代视觉评审。**边界**：只检查当前 URL 的可见状态；弹层、空态、错误态、折叠区需要先导航/展开，或用项目交互脚本覆盖，不能只看首页。
 
+### 设计体检（客观项）：机械能测的交给脚本，审美留给评审
+
+同一份采集里还有几项**能算出确定答案**的检查（`check-ui.mjs` 一次跑完，JSON 里分别列出）：
+
+| 检查 | 结果形态 | 说明 |
+|---|---|---|
+| 图片加载失败 | 🔴 红灯（进 `images.broken`，退出码 1） | `complete && naturalWidth > 0`，破图就是破图 |
+| 文字/背景**计算**对比度 | 🔴 红灯（`contrast.failures`） | WCAG 公式算，正文 ≥4.5:1、大字（≥24px 或 ≥18.66px 加粗）≥3:1，按 `content-guidelines.md` 三档 |
+| 对比度**无法判定** | 🟡 黄灯（`contrast.unknown`） | 文字压在渐变/图片背景上——脚本不算，**必须人工或 DevTools 读实测值** |
+| 相对路径引图 | 🟡 黄灯（`warnings[].code = relative-asset`） | 单文件 HTML 交付会 404；多文件项目确认整目录一起交付即可 |
+| 外观指纹 / 账本撞族 | 🟡 黄灯（`ledger-family`） | 只提示「与历史交付同族」，见 `references/design-research.md` §5 |
+
+```bash
+# 截图（参考采集与人工验收共用）：加 --shot，整页加 --full
+node scripts/check-ui.mjs --url file:///path/index.html --shot /tmp/shot.png --full
+
+# 定稿后记账本；新方向开工前查是否撞族（黄灯不改退出码）
+node scripts/check-ui.mjs --url file:///path/index.html --ledger-add 项目名
+node scripts/check-ui.mjs --url file:///path/new.html --ledger-check 10
+```
+
+**分工红线**：
+
+- **脚本只出事实，不出结论**：它不能判「焦点是否在核心任务」「视觉噪音是否过多」「情绪价值是否成立」
+  ——这些交 `references/critique-guide.md` 的评审与 Gate 1。
+- **审美提示不得变成阻断条件**：黄灯（相对路径、unknown 对比度、账本撞族）**不改变退出码**，
+  也不能因为「想让检查全绿」就去改设计。
+- **档位归属仍需人判**：脚本把每个文字节点按像素大小判大字/正文；图标、边框、分割线属「重要图形（≥3:1）」
+  还是「纯装饰（无硬门）」，脚本不判——按 `content-guidelines.md` 的三档定义人工归类。
+- 门槛仍来自项目规格；**执行方不得为了让检查通过而下调**（与上表同一条红线）。
+
 ### 🔴 业务断言必须独立推导
 
 - 测试从**规格 + fixture** 重新计算期望值，**不得复制 UI 里手写的顺序 / 数值 / 文案**当预期。

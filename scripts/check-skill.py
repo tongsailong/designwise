@@ -73,6 +73,7 @@ REQUIRED_SCRIPTS = [
     "scripts/design-gate-hook.sh",
     "scripts/design-gate-check.js",
     "scripts/check-ui.mjs",
+    "scripts/ref_board.py",
 ]
 
 # ── 引用扫描 ──────────────────────────────────────────────────────────────

@@ -45,10 +45,13 @@
 | **动画的正向设计语法**（Anthropic 级叙事/运动/节奏/表达风格）| `references/animation-best-practices.md`（5 段叙事+Expo easing+运动语言 8 条+3 种场景配方）|
 | **带解说的长动画 / 长概念视频**（5-20 分钟带配音、解说驱动画面、TTS 实测时长生成 timeline）| `references/voiceover-pipeline.md`（铁律：连续运动叙事、禁 PowerPoint 切换）+ `assets/narration_stage.jsx` + `scripts/cloud/tts-doubao.mjs`（可选云TTS，自备key，见SECURITY.md）+ `scripts/narrate-pipeline.mjs` + `scripts/{mix-voiceover,render-narration}.sh` |
 | 做Tweaks实时调参 | `references/tweaks-system.md` |
-| 没有design context怎么办 | `references/design-context.md`（薄 fallback） 或 `references/design-styles.md`（厚 fallback：HTML 原生 60 种风格库，网页 20+PPT 20+信息图 20，按温度分级） |
-| **需求模糊要推荐风格方向** | `references/design-styles.md`（60 种 HTML 原生风格库，含还原度/温度/开源字体）+ `assets/showcases/INDEX.md`（预制截图画廊） |
+| 没有design context怎么办 | `references/design-context.md`（薄 fallback） 或 `references/design-styles.md`（厚 fallback：HTML 原生 84 种风格库，网页 20+PPT 20+信息图 20+App 12+中文东亚 12，按温度分级；App / 中文东亚带样张） |
+| **需求模糊要推荐风格方向** | `references/design-styles.md`（84 种 HTML 原生风格库，含还原度/温度/开源字体与两区样张）+ `assets/showcases/INDEX.md`（预制截图画廊） |
+| **要照着真实优秀产品做 / 用户给了参考链接或截图** | `references/design-research.md`（参考板：采集 → 拆规则 → 借方法不抄标识）+ `scripts/ref_board.py`（真实网址/本地图 → 截图 + 看板；**不强制每单都做**） |
+| **判断新方向是否与历史交付撞外观家族** | `references/design-research.md` §5（外观账本）+ `scripts/check-ui.mjs --ledger-check`（黄灯提示，不阻断；**不是记忆系统**） |
+| **判断素材该取真图、生成还是程序化画** | `references/materials.md`（主角素材矩阵 + 内容必需判据 + 素材能力分档与探测） |
 | **按输出类型查场景模板**（封面/PPT/信息图） | `references/scene-templates.md` |
-| 输出完后验证 | `references/verification.md` + `scripts/verify.py`（渲染/控制台）+ `scripts/check-ui.mjs`（触控 / 字号 / 溢出 / 控制台采集；输出 CSS px，不等同 Android dp）+ `scripts/check-contrast.py`（对比度三档机械校验）+ `scripts/check-assets.py`（素材清单可追踪/可复现/可引用） |
+| 输出完后验证 | `references/verification.md`（含「设计体检」客观项分工）+ `scripts/verify.py`（渲染/控制台）+ `scripts/check-ui.mjs`（触控 / 字号 / 溢出 / 控制台 / 图片加载失败 / 计算对比度 / 外观指纹；`--shot` 截图、`--ledger-*` 账本；输出 CSS px，不等同 Android dp）+ `scripts/check-contrast.py`（对比度三档机械校验）+ `scripts/check-assets.py`（素材清单可追踪/可复现/可引用） |
 | **设计评审/打分**（设计完成后可选；**含生图前的提示词专家评审**） | `references/critique-guide.md`（**概念/立意（第 0 位，权重最高）+ 5 维度评分** + 常见问题清单；+产品界面类「用户价值与易用性」、+有 spec 时「Spec 一致性与范围核验」、+GPT 通路「视觉还原检查」、+**生图前「Prompt 级创意评审」**（文字可判 / 不可判边界，**不决定视觉方向**）四项附加检查）。🔴 **视觉方向判断与阶段门槛默认由原生自检承担；外部 GPT 仅用户授权后**（Gate 1 / Gate 2，见「视觉评审门」大节；**Copilot 正式 REVIEW 仅用户点名**）——本行是 DesignWise 自主的专家评审，两者职责不同、不互相替代 |
 | **动画导出MP4/GIF/加BGM** | `references/video-export.md` + `scripts/render-video.js`（默认25fps）/ `scripts/render-video-seek.js`（真60fps·确定性·无黑帧，走Stage时钟时用）+ `scripts/convert-formats.sh` + `scripts/add-music.sh` |
 | **动画加音效SFX**（苹果发布会级，37个预制） | `references/sfx-library.md` + `assets/sfx/<category>/*.mp3` |

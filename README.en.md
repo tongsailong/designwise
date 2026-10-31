@@ -12,7 +12,7 @@
 
 Say one sentence to a skills-capable AI agent and get back a **design deliverable that survives product scrutiny** — a clickable App/Web prototype, an editable PPTX deck, a product launch animation, a print-grade infographic, or a professional design review.
 
-3–30 minutes. Not "decent for AI" work: it ships a 60-style HTML-native library, a brand-asset protocol and an anti-AI-slop floor. More importantly, it adds the layer ordinary design skills skip — **judge product value first, then make the screen look good.**
+3–30 minutes. Not "decent for AI" work: it ships an 84-style HTML-native library, a brand-asset protocol and an anti-AI-slop floor. More importantly, it adds the layer ordinary design skills skip — **judge product value first, then make the screen look good.**
 
 ```bash
 npx skills add tongsailong/designwise
@@ -35,7 +35,7 @@ npx skills add tongsailong/designwise
 <p align="center"><sub>▲ 25-second hero animation: terminal → three directions → gallery ripple → four focus passes → brand reveal<br>
 This footage comes from the upstream project huashu-design (<a href="https://github.com/alchaincyf">@alchaincyf</a>); this branch preserves the capability in full. Open <a href="demos/hero-animation-v10-en.html">demos/hero-animation-v10-en.html</a> locally for the interactive version.</sub></p>
 
-> ℹ️ **This repository is a fork of [huashu-design](https://github.com/alchaincyf/huashu-design) (by [@alchaincyf](https://github.com/alchaincyf), MIT License).** The upstream visual capabilities, 60-style HTML-native library, asset protocol and delivery pipeline are **preserved in full**; this branch layers **product value judgment, UX & usability review, spec conformance checking and cross-agent adaptation** on top. Install *this* fork with the command above, **not** the upstream one (upstream links are in [Upstream & credits](#upstream--credits)).
+> ℹ️ **This repository is a fork of [huashu-design](https://github.com/alchaincyf/huashu-design) (by [@alchaincyf](https://github.com/alchaincyf), MIT License).** The upstream visual capabilities, 60 styles (this fork extends it to 84), HTML-native library, asset protocol and delivery pipeline are **preserved in full**; this branch layers **product value judgment, UX & usability review, spec conformance checking and cross-agent adaptation** on top. Install *this* fork with the command above, **not** the upstream one (upstream links are in [Upstream & credits](#upstream--credits)).
 
 ---
 
@@ -50,7 +50,7 @@ Most "design skills" answer one question: **how do I make this look good?** This
 | Scope control | Habitually "fills it out a bit more" | **Scope freeze**: no pages or features the user didn't ask for; "a real product would have this" is not a requirement |
 | Review | Looks good or not | **Concept (highest weight) + 5-dimension critique** **plus a UX/usability layer** (product UIs) **plus spec conformance when a spec exists** **plus a pre-generation prompt-expert review**; **visual-direction and stage-gate judgment defaults to native self-check (the main model reads the real pixels); the external `scripts/zcode_vision.py --confirm-gpt-review` is used only when the user explicitly authorizes the GPT review channel; the formal `copilot` REVIEW only when the user explicitly names Copilot or explicitly requests the `copilot` Skill / formal REVIEW** (Gate 1 recommends after the real candidate images exist — you still choose the direction; Gate 2 judges the stage gate after polish) — **pixel-level tweaks are not re-submitted** |
 | Platform | Bound to one AI coding tool | **Agent-agnostic**: a capability→carrier map, with automatic degradation on weak runtimes |
-| Visual power | Varies | Upstream's 60-style HTML-native library, visual-direction gate (one best scheme by default), brand-asset protocol and anti-slop floor (**all preserved**) |
+| Visual power | Varies | Upstream's 60-style library (extended to 84 here: +12 app, +12 Chinese/East-Asian), visual-direction gate (one best scheme by default), brand-asset protocol and anti-slop floor (**all preserved**) |
 
 ### 1. Product value judgment (useful → understandable → comfortable → meaningful)
 
@@ -86,9 +86,18 @@ The skill is **agent-agnostic**: Claude Code, Codex, Cursor, Trae, OpenClaw, Her
 The four items above are an **added judgment layer**, not a replacement. Upstream's visual output pipeline is intact:
 
 - **Direction exploration — one best scheme by default, on real pixels**: every **L2** task (new visual language or major structural change) **defaults to a single best scheme** — but it still starts from a **real candidate image** (a named style or brand narrows the interpretation, it never waives real visual evidence); **L1 local optimization edits the existing UI directly, with no direction gate**; the **prompt is reviewed first** (pre-generation, text-decidable items only, **not a direction decision**), then the approved prompt produces **one real candidate image**; by default **native self-check** runs **Gate 1 on that real pixel evidence** and returns a **verdict + rationale + risks** (external `scripts/zcode_vision.py --confirm-gpt-review` only with explicit GPT-review authorization; the formal `copilot` REVIEW only when the user explicitly names Copilot or explicitly requests the `copilot` Skill / formal REVIEW). **Only when there is a substantive design disagreement, or the user explicitly asks for multiple directions,** do you produce **2–3 genuinely different directions, one real candidate image each**, and hand the choice back to the user (multi-direction branch). A converged final prompt and the production concept image follow in both branches
-- **60-style HTML-native library** (20 web + 20 deck + 20 infographic, pure CSS, no image generation)
+- **84-style HTML-native library** (20 web + 20 deck + 20 infographic + 12 app + 12 Chinese/East-Asian, pure CSS, no image generation; the app and East-Asian zones ship real specimens)
 - **Interactive prototypes** (real iPhone bezel, clickable, Playwright-verified) / **motion** (Stage + Sprite timeline, MP4/GIF export) / **editable PPTX** (real text frames) / **infographics** (print-grade, PDF/PNG/SVG)
 - **Brand-asset protocol** (5 hard steps — never guess brand colors from memory) and an **anti-AI-slop floor**
+
+### 6. Reference board · appearance ledger · material choice · design lint (all reuse existing paths)
+
+Four upstream capabilities were missing or half-missing in this fork. They are added here **without a second mechanism**:
+
+- **Reference board (on demand, never mandatory)**: when the user supplies links or screenshots, `scripts/ref_board.py` captures **real pixels** with real Chrome and builds a board (`board.html` / `board.jpg` / `board.json`), then you distil it into rules that can land in the Brief and the prompt (columns, type ratios, accent share, image-text relation, motif). **Borrow methods, not marks**; if you skip it, say you skipped it. → [`references/design-research.md`](references/design-research.md)
+- **Appearance ledger (a hint, never a gate)**: `check-ui.mjs --ledger-add / --ledger-check` records and compares design fingerprints (base color, top palette, fonts, skeleton) and turns a same-family match into a **yellow warning that never changes the exit code**. It is a local pixel-fingerprint record, **not a memory system** — preferences go to memory, engineering facts to the knowledge base. Screens of the same product *should* look related; **never differentiate just to beat the ledger**.
+- **Materials first**: pick the hero material (real photography / illustration / data viz / procedural texture / type-as-image / physical mockup / scene) before picking the vehicle; probe capabilities only as needed (`zcode_image.py --health`, Node/Chrome, ffmpeg, Pillow) and **degrade instead of blocking** when a probe fails. → [`references/materials.md`](references/materials.md)
+- **Design lint (objective items)**: the same `check-ui.mjs` run now also reports **broken images (red), computed text/background contrast (body <4.5 = red, large text ≥3)**, relative-path images (yellow) and contrast it cannot compute over gradients/images (yellow), and `--shot` captures screenshots. **Scripts report facts; aesthetics stay with the review**; yellow never changes the exit code. → [`references/verification.md`](references/verification.md)
 
 ---
 
@@ -289,9 +298,9 @@ Avoid the visual common denominator of AI output (purple gradients / emoji icons
 
 | Requirement | Used for |
 |---|---|
-| Node.js | `scripts/render-video.js` (HTML→MP4), `html2pptx.js`, `export_deck_*.mjs`, `gen_deck_thumbs.mjs`; `package.json` deps: `playwright` / `pptxgenjs` / `pdf-lib` / `sharp` |
+| Node.js | `scripts/render-video.js` (HTML→MP4), `html2pptx.js`, `export_deck_*.mjs`, `gen_deck_thumbs.mjs`; `scripts/check-ui.mjs` (UI acceptance: tap / font / overflow / console / images / contrast / fingerprint; `--shot` screenshots, `--ledger-*` ledger, **zero npm dependencies**); `package.json` deps: `playwright` / `pptxgenjs` / `pdf-lib` / `sharp` |
 | ffmpeg | MP4 → 60fps / GIF, adding BGM, mixing narration (`convert-formats.sh`, `add-music.sh`, `mix-voiceover.sh`) |
-| Python 3 | `scripts/verify.py` (Playwright verification), `fetch_images.py`, `check-skill.py` (structure), `check-contrast.py` (contrast), `check-assets.py` (asset manifest) |
+| Python 3 | `scripts/verify.py` (Playwright verification), `fetch_images.py`, `ref_board.py` (reference-board capture, needs Chrome), `check-skill.py` (structure), `check-contrast.py` (contrast), `check-assets.py` (asset manifest), Pillow (board montage + blank detection, optional) |
 | Playwright | Pre-delivery click tests and screenshot verification |
 
 **Cloud features (fully optional)**: Doubao TTS narration and AI video review live in `scripts/cloud/`, need your own API key, and require an explicit `--yes` on first call. Off by default. The core pipeline (design → render → MP4 / PDF / PPTX export) runs **100% locally, zero network calls, zero keys**, with no telemetry. Every outbound host, credential touchpoint and deletion boundary is declared in [SECURITY.md](SECURITY.md).
@@ -332,7 +341,9 @@ ai-product-design-skill/          # repo renamed to designwise (this is the hist
 │   ├── product-value.md     # Product value judgment (useful→understandable→comfortable→meaningful)
 │   ├── critique-guide.md    # concept + 5-dimension critique + usability + spec conformance + pre-generation prompt review
 │   ├── runtime-adapters.md  # Capability → carrier map (cross-agent)
-│   ├── design-styles.md     # 60-style HTML-native library
+│   ├── design-styles.md     # 84-style HTML-native library (specimens for app/East-Asian)
+│   ├── design-research.md   # Reference board (rules from real pixels) + appearance ledger (same-family yellow)
+│   ├── materials.md         # Hero-material matrix + material capability tiers and probing
 │   ├── app-prototype.md · slide-decks.md · editable-pptx.md
 │   ├── animation-*.md · camera-language.md · storyboard-basics.md
 │   └── ...
@@ -341,7 +352,8 @@ ai-product-design-skill/          # repo renamed to designwise (this is the hist
 │   ├── convert-formats.sh   # MP4 → 60fps + GIF
 │   ├── add-music.sh         # MP4 + BGM
 │   ├── export_deck_pdf.mjs · export_deck_pptx.mjs · html2pptx.js
-│   ├── verify.py · check-contrast.py · check-assets.py · check-skill.py
+│   ├── verify.py · check-ui.mjs · check-contrast.py · check-assets.py · check-skill.py
+│   ├── ref_board.py         # Reference board capture (real screenshots → board.html/jpg; needs Chrome)
 │   └── cloud/               # Optional cloud features (own key + --yes)
 └── demos/                   # Capability demos (Chinese + English HTML) + hero animation
 ```
@@ -365,6 +377,7 @@ The visual capabilities, methodology lineage and the following materials come fr
 - Upstream star history: <https://star-history.com/#alchaincyf/huashu-design&Date>
 - Upstream author's case studies: parrot-evolution site · the "talking about skills" deck · [FanBox · a cockpit for coding agents](https://github.com/alchaincyf/fanbox)
 - The origin story as told by the upstream author: after Anthropic shipped Claude Design, the author had an agent deconstruct its publicly circulating system prompts, brand-asset protocol and component mechanics into a structured spec, then wrote it as a skill.
+- **Specimen assets**: the 50 files under `assets/style-specimens/` (App 12 + Chinese/East-Asian 12, each with `.html` source and `.jpg` specimen, plus the `sheet-app.jpg` / `sheet-east.jpg` overview sheets) come from the same path upstream and are **byte-identical**. Upstream publishes the repository under the MIT License; the specimens are its **original HTML/CSS interpretations** (subjects and numbers are fictional). Designer / studio names and book titles in style labels are **style references only** — they are not reproductions of those works and imply no endorsement or authorization.
 
 <table>
 <tr><td>

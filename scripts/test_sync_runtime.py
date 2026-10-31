@@ -213,6 +213,37 @@ class SyncExclusionContractTests(unittest.TestCase):
             self.assertIn("SKILL.md", m)
             self.assertIn("scripts/verify.py", m)
 
+    def test_host_workspace_dir_is_excluded(self):
+        """`.zcode/` 是宿主工作区（会话计划/命令/本地 skill），不得随分发。"""
+        self.assertTrue(self.mod.skip_dir(".zcode"))
+        with tempfile.TemporaryDirectory(prefix="sync_zcode_") as tmp:
+            src = os.path.join(tmp, "src")
+            write_file(src, "SKILL.md", "---\nname: designwise\n---\n")
+            write_file(src, "scripts/verify.py", "print(1)\n")
+            write_file(src, ".zcode/plans/plan-sess_123.md", "会话计划\n")
+            write_file(src, ".zcode/settings.json", "{}\n")
+            write_file(src, ".zcode/skills/local/SKILL.md", "local skill\n")
+            m = self.mod.manifest(src)
+            self.assertEqual([k for k in m if k.startswith(".zcode/")], [],
+                             f".zcode/ 下的内容不得进入同步清单：{sorted(m)}")
+            self.assertIn("SKILL.md", m)
+            self.assertIn("scripts/verify.py", m)
+
+    def test_apply_does_not_write_host_workspace_dir(self):
+        with tempfile.TemporaryDirectory(prefix="sync_zcode_apply_") as tmp:
+            src = os.path.join(tmp, "src")
+            dst = os.path.join(tmp, "dst")
+            write_file(src, "SKILL.md", "---\nname: designwise\n---\n")
+            write_file(src, "scripts/verify.py", "print(1)\n")
+            write_file(src, ".zcode/plans/plan-sess_123.md", "会话计划\n")
+            os.makedirs(dst)
+            r = self.run_sync(src, dst, "--apply")
+            self.assertEqual(r.returncode, 0, r.stdout)
+            self.assertFalse(os.path.exists(os.path.join(dst, ".zcode")),
+                             ".zcode/ 不得写入运行时副本")
+            self.assertTrue(os.path.isfile(os.path.join(dst, "scripts", "verify.py")))
+            self.assertEqual(self.run_sync(src, dst, "--check").returncode, 0)
+
     def test_legacy_dev_assets_in_target_are_invisible_and_survive_prune(self):
         """排除生效前已在副本里的开发资产：不报漂移、不被 --prune 删除（清理需单独授权）。"""
         with tempfile.TemporaryDirectory(prefix="sync_legacy_") as tmp:
