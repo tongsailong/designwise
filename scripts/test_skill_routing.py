@@ -1043,5 +1043,151 @@ class ProductPrincipleIntegrationContractTests(unittest.TestCase):
         self.assertIn("针对性验证", self.skill)
 
 
+class ComplexityTranslationContractTests(unittest.TestCase):
+    """复杂度转译（Complexity Translation）的文档契约（2026-11-01）。
+
+    守的是「转译」而不是「再加一段话」：产品价值判断里要说清系统承担什么，
+    生图前要有信息架构推导，推导要真的进 prompt 正文，Gate 1 / 设计评审要能判复杂度转嫁；
+    同时守住三条边界——不把「信息少」当好、不为简化减信息、不新增维度或 Gate。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.workflow = read("references/gpt-visual-workflow.md")
+        cls.product_value = read("references/product-value.md")
+        cls.critique = read("references/critique-guide.md")
+
+    # ── 1. 原则进了产品价值判断，且是四层的实现方法 ────────────
+    def test_01_principle_lives_in_product_value(self):
+        pv = self.product_value
+        self.assertIn("## 0.7 系统承担复杂度（Complexity Translation）", pv)
+        # 四层各自的要求，都落到可判定的句子上
+        for needle in ("区分**核心信息 / 辅助信息 / 专业信息**",
+                       "把专业指标转成**自然语言结论与解释**",
+                       "控制信息密度与视觉干扰",
+                       "视觉表达服务内容理解与产品辨识度"):
+            self.assertIn(needle, pv)
+        # 五条边界一条不少
+        for needle in ("信息优先级由用户任务与产品价值决定",
+                       "先定内容与信息层级，再定视觉布局",
+                       "结论 / 解释 / 行动建议不得虚构",
+                       "不为简化而隐藏用户必须知道的重要信息",
+                       "允许合理提高信息密度",
+                       "「信息少」不等于「设计好」"):
+            self.assertIn(needle, pv)
+        # 四层呈现参考模型是参考，不是模板
+        for needle in ("**结果层**", "**行动层**", "**解释层**", "**专业层**"):
+            self.assertIn(needle, pv)
+        self.assertIn("参考，不是页面模板", pv)
+        # 不是第五层、不新增检查点
+        self.assertIn("不是第五层", pv)
+        self.assertIn("不新增检查点", pv)
+        # 落点接到 workflow / critique
+        self.assertIn("`references/gpt-visual-workflow.md` §2.0.1", pv)
+        self.assertIn("复杂度转嫁四问（§0.7 的实现检查）", pv)
+        self.assertIn("把专业指标 / 趋势图当首屏主视觉", pv)
+
+    # ── 2. 生图前先推导信息架构，且不新增文档 ─────────────────
+    def test_02_information_architecture_precedes_brief(self):
+        wf = self.workflow
+        self.assertIn("### 2.0.1", wf)
+        for question in ("为什么打开这个页面", "第一眼最需要看到什么",
+                         "可以由系统承担", "需要解释", "辅助信息",
+                         "是否需要保留"):
+            self.assertIn(question, wf, "信息架构推导缺少追问：%s" % question)
+        # 优先级来源：任务与产品价值，不是数据复杂度或设计者偏好
+        self.assertIn("不由数据复杂程度、也不由设计者偏好决定", wf)
+        # 不产出独立文档；L1 不加码
+        self.assertIn("不产出独立的信息架构文档", wf)
+        self.assertIn("L1 不写 Brief", wf)
+        self.assertIn("第 3 段还要带一行「信息优先级」", wf)
+        # 与既有能力分工不重复
+        self.assertIn("Form Reasoning", wf)
+        self.assertIn("Materials First", wf)
+        self.assertIn("Appearance Ledger", wf)
+
+    # ── 3. 推导必须真正进入 prompt 正文 ───────────────────────
+    def test_03_architecture_reaches_prompt_body(self):
+        wf = self.workflow
+        self.assertIn("信息架构要进 prompt 正文", wf)
+        for needle in ("槽位 2（Core action）", "槽位 3（Layout & hierarchy）",
+                       "the professional detail", "禁止的三种写法"):
+            self.assertIn(needle, wf, "prompt 层缺少：%s" % needle)
+        # 专业信息下沉是**条件性**要求：指标本身是核心任务时它就该在第一层
+        self.assertIn("句子 A 的补充（条件性）", wf)
+        self.assertIn("仅当该指标不是第一眼对象时", wf)
+        self.assertIn("写它就在第一层", wf)
+        self.assertIn("数据分析工具、专业工具、专业页", wf)
+        # 反机械：不许写成「越少越好」
+        self.assertIn("越少越好", wf)
+
+    # ── 4. Gate 1 能判复杂度转嫁，但不新增 Gate / 门槛 ─────────
+    def test_04_gate_one_detects_complexity_transfer(self):
+        wf = self.workflow
+        self.assertIn("复杂度转嫁四问", wf)
+        for check in ("A. 信息优先级", "B. 理解成本", "C. 系统责任",
+                      "D. 信息完整性与控制权"):
+            self.assertIn(check, wf, "Gate 1 缺复杂度转嫁判据：%s" % check)
+        self.assertIn("不带着这个问题进入 §3.5 视觉转译", wf)
+        self.assertIn("不是新 Gate", wf)
+        # Gate 1 的执行时机与数量口径没被改动
+        self.assertIn("在真实图产生之前不得执行 Gate 1", wf)
+        self.assertNotIn("Gate 3", wf + self.skill + self.critique)
+        # 视觉转译侧要接住信息优先级，而不是重新铺回首屏
+        self.assertIn("信息优先级没被抹平", wf)
+
+    # ── 5. 设计评审补判据 + 回归案例，且不把案例写成布局规则 ───
+    def test_05_critique_has_checks_and_regression_case(self):
+        block = section(self.critique, "复杂度转嫁（信息架构向 · 四条追问）")
+        for check in ("A. 信息优先级", "B. 理解成本", "C. 系统责任",
+                      "D. 信息完整性与控制权"):
+            self.assertIn(check, block)
+        # 原有三条检查没被替换
+        for keep in ("理解成本", "操作成本", "容错", "视觉噪音与干扰"):
+            self.assertIn(keep, self.critique)
+        # 不新增评分维度 / 不新增 Gate
+        self.assertIn("不新增评分维度、不新增 Gate", block)
+        # 回归案例：真实背景 + 只作识别线索
+        self.assertIn("2026-10-31", block)
+        self.assertIn("不是「首页禁止专业指标」", block)
+        self.assertIn("问题不在专业数据本身", block)
+        self.assertIn("不得这样读", block)
+
+    # ── 6. 三份文档都不接受两种机械极端 ───────────────────────
+    def test_06_no_mechanical_extremes(self):
+        for rel, text in (("references/product-value.md", self.product_value),
+                          ("references/gpt-visual-workflow.md", self.workflow),
+                          ("references/critique-guide.md", self.critique)):
+            stripped = text.replace("不是「首页禁止专业指标」", "")
+            self.assertNotIn("首页禁止专业指标", stripped,
+                             "%s 把案例固化成了布局规则" % rel)
+            self.assertNotIn("一律不得出现趋势图", stripped, rel)
+            self.assertNotIn("信息越少越好", stripped, rel)
+        # 高密度可以是正当的（三份文档各有一处反机械口径）
+        self.assertIn("允许合理提高信息密度", self.product_value)
+        self.assertIn("信息密度高本身不是缺陷", self.workflow)
+        self.assertIn("信息密度高不是缺陷", self.critique)
+
+    # ── 7. 不新增 Reference / 脚本 / 路由入口 ────────────────
+    def test_07_no_new_reference_or_script(self):
+        self.assertFalse(os.path.exists(
+            os.path.join(ROOT, "references", "complexity-translation.md")))
+        for entry in ("references/product-value.md",
+                      "references/gpt-visual-workflow.md",
+                      "references/critique-guide.md"):
+            self.assertIn(entry, self.skill, "既有路由入口被改动：%s" % entry)
+
+    # ── 8. 既有硬规则与轻量口径不变 ──────────────────────────
+    def test_08_baseline_rules_unchanged(self):
+        self.assertIn("默认 1 个", self.workflow)
+        self.assertIn("默认单一最佳方案", self.product_value)
+        # L1 仍然只写一行、不进生图
+        self.assertIn("L1 只在 HTML 头部 assumptions 写一行", self.product_value)
+        # 授权口径不因新增判据变化
+        self.assertIn("不恢复逐次付费生图授权 Gate", self.workflow)
+        self.assertIn("48dp", self.skill)
+
+
 if __name__ == "__main__":
     unittest.main()
