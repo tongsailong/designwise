@@ -1189,5 +1189,88 @@ class ComplexityTranslationContractTests(unittest.TestCase):
         self.assertIn("48dp", self.skill)
 
 
+class ProductMeaningAndGamificationContractTests(unittest.TestCase):
+    """v5.2.0 产品设计原则对齐的文档契约（2026-11-08）。
+
+    守的是「补定义、不造功能清单」：有意义的完整含义含三体验；游戏化是可选手段；
+    反操纵与长期价值有明确边界；入口与验收场景同步。只锁字面锚点，不评判自然语言
+    改写是否优雅，也不把文档契约当成真实设计行为验证。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.product_value = read("references/product-value.md")
+        cls.critique = read("references/critique-guide.md")
+        cls.workflow = read("references/gpt-visual-workflow.md")
+        cls.readme_zh = read("README.md")
+        cls.readme_en = read("README.en.md")
+        cls.prompts = read("test-prompts.json")
+
+    # ── 1. 有意义的完整含义：三体验是判断视角，不是功能清单 ─────
+    def test_01_meaning_includes_three_experiences_as_lenses(self):
+        pv = self.product_value
+        for needle in ("自主感", "掌控感", "成长感",
+                       "不是功能清单、配置清单或逐项达标要求",
+                       "不要求每个产品、每个页面、每个版本同时提供三者",
+                       "自主感不等于选项越多",
+                       "掌控感不等于让用户自己管理复杂流程",
+                       "成长感不等于等级、积分、勋章或持续使用",
+                       "情绪专属的真假检验与投入标准只约束这类可选情绪设计"):
+            self.assertIn(needle, pv)
+        self.assertIn("不要把「没有目标选择器 / 没有进度条 / 没有成长页」当成缺陷", pv)
+        # §0.7 的近旁解释同步，不再只写视觉 / 情感
+        self.assertIn("在适用场景下让用户理解目标、掌握过程、看到真实进步", pv)
+
+    # ── 2. 游戏化是可选手段，不是产品目标 ───────────────────
+    def test_02_gamification_is_optional_not_a_goal(self):
+        pv = self.product_value
+        for needle in ("游戏化：可选手段，不是产品目标",
+                       "不采用游戏化可以是更好的设计",
+                       "不把积分、勋章、排行榜、签到或任务体系当默认配置",
+                       "不为游戏化而游戏化",
+                       "只在**确实有助于真实用户目标、且收益与成本合理**时采用"):
+            self.assertIn(needle, pv)
+        # 不写成更窄、更容易变成形式门槛的条件
+        self.assertNotIn("只在目标 / 进度 / 反馈确实需要结构化时", pv)
+
+    # ── 3. 反操纵与长期价值 ────────────────────────────────
+    def test_03_anti_manipulation_and_long_term_value(self):
+        pv = self.product_value
+        for needle in ("强制任务", "损失焦虑", "虚假稀缺", "惩罚性连续", "过度竞争",
+                       "短期活跃", "使用时长", "长期价值",
+                       "机制服务用户自己的目标"):
+            self.assertIn(needle, pv)
+        self.assertIn("基于真实约束的必要步骤或真实期限不因此被一概禁止", pv)
+
+    # ── 4. 证据口径，不是新增数据硬门槛 ─────────────────────
+    def test_04_evidence_caliber_is_not_a_data_gate(self):
+        pv = self.product_value
+        for needle in ("真实使用、反馈、留存、推荐或付费证据",
+                       "没有时明确当前判断仍属假设",
+                       "点击率、短期转化和视觉效果只是**局部指标**",
+                       "不要求每项齐备",
+                       "不要求为设计任务新增埋点、研究报告或上线验证流程"):
+            self.assertIn(needle, pv)
+
+    # ── 5. 入口与验收场景同步，SKILL 只带指针 ────────────────
+    def test_05_entry_points_and_acceptance_scenario_synced(self):
+        self.assertIn("自主感、掌控感、成长感", self.skill)
+        self.assertIn("游戏化是可选手段，不是产品目标", self.skill)
+        self.assertNotIn("| **自主感** | 用户能否理解自己的目标", self.skill)
+
+        self.assertIn("自主感 / 掌控感 / 成长感（条件性）", self.critique)
+        self.assertIn("不相关不展开", self.critique)
+        self.assertIn("不新增评分维度、不新增 Gate", self.critique)
+
+        self.assertIn("不得从单张图推断长期成长、留存或信任已经成立", self.workflow)
+        self.assertNotIn("本版不加情绪价值（或：只用一句进度文案", self.workflow)
+
+        self.assertIn("自主感 / 掌控感 / 成长感", self.readme_zh)
+        self.assertIn("autonomy, mastery and growth", self.readme_en)
+        self.assertIn("游戏化是可选设计手段，不是产品目标", self.prompts)
+        self.assertIn("不采用游戏化也可以是更好的设计", self.prompts)
+
+
 if __name__ == "__main__":
     unittest.main()

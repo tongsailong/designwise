@@ -61,7 +61,9 @@ Product UI / interactive-prototype tasks get a lightweight layer of judgment by 
 | **Useful** | Does it solve a real user problem, or one we assumed? | Pretty but unneeded = polished slop |
 | **Understandable** | How much effort does a user spend understanding it? Who carries the complexity? | The feature exists but can't be found or read = it doesn't exist |
 | **Comfortable** | Pointless steps, or interactions that fight existing habits? | One extra step and one extra thought, every single time |
-| **Meaningful** | Once the function works, is a little aesthetics / emotion / identity warranted? | Too early = decoration over function; never = purely instrumental |
+| **Meaningful** | Once the function works, can the user understand the goal, master the process, and see real progress — and is a little aesthetics / emotion / identity warranted? | Too early = decoration over function; points / badges / animation in place of real value = feature checklist |
+
+Meaningful does not mean piling on gamification: **autonomy, mastery and growth** are lenses, not a feature checklist; gamification is an **optional means** — no forced points, badges, leaderboards or task systems, and opting out can be the better design.
 
 Three **testable** checks back it up (shared by self-check and critique): **comprehension cost** (can someone say what this screen is for within seconds) / **operation cost** (how many steps, and how many of them the system should be doing) / **error tolerance** (what happens on a wrong tap — undo, explanation). Any red flag is a spot to fix.
 
