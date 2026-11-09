@@ -1,63 +1,100 @@
-# References 路由表（完整版）
+# 任务路由 · App UI 单入口
 
-> **ZCode 适配（自 Reasonix 迁移 · 2026-10-24）**：本文件是 `SKILL.md`「参考入口（速查）」与任务路由表的**展开版**（含迁入后的增补），不是逐字副本。
-> `SKILL.md` 正文只保留压缩后的导航表（因 ZCode 读取 SKILL.md 有
-> 100,000 字节上限，超限会静默截断尾部）；路由权威在 `SKILL.md`，本表与之冲突时以 `SKILL.md` 为准。
-> **何时读本文件**：正文压缩表找不到对应任务、或需要该行的完整约束描述时。
-> **路径约定**：下表里所有 `references/xxx.md`、`assets/xxx`、`scripts/xxx` 均相对本 skill 根目录。
+> **读这份文档的时机**：收到任务，先确定走哪条线、要不要走完整流程、哪些请求不在范围内。
+> **权威**：流程阶段与 Gate 以 `SKILL.md` 为准；本文只做**入口判定**，不另立流程。App UI 只有一条标准流程，没有 L1/L2/L3 分层。
 
-> **任务分层优先（2026-10-29）**：**L2** 默认走 GPT 视觉概念通路；HTML fallback 仅限 `SKILL.md`「L2 的候选形态」列出的三种例外；**L1** 直接改现有 UI，按 `SKILL.md`「L1 四步流程」执行（理解现状 → 直接修改 → 针对性验证 → 交付），**不进入设计方向顾问 Phase 1-5**、不套多方向门、概念图或 Gate 1；**L3** 走各自专业工作流。**方案数量统一口径**：默认单一最佳方案（见 `SKILL.md`「项目规则优先」），实质分歧或用户明确要求时才 2–3 个方向。**设计方向数量与交付物数量相互独立**：方向默认 1 个，但页面、尺寸适配、状态、组件变体、平台素材尺寸与导出文件均按任务范围完整交付。任务路由以 `SKILL.md`「任务路由」与「任务分层」为准，本表只负责 references 入口。
+---
 
-## 工具路由（与全局 `AGENTS.md` §5《委派与独立复核》一致）
+## 1. 第一判断：是不是 App UI
 
-1. **常规独立编码、修复、测试** → 默认由 **ZCode 主控使用原生工具直接完成**；只有确实可拆分、并行有收益时才派原生子智能体。
-2. **用户明确要求的独立复核，以及全局风险分档触发的复核** → 使用 **ZCode 原生子智能体的独立上下文**（只读）。
-3. **DesignWise Gate 1 / Gate 2 视觉评审** → 默认 **原生视觉自检**（主模型直接读真实图片，结论标注「自检」）；**用户明确授权 GPT 评审通道后**才可用 `scripts/zcode_vision.py --confirm-gpt-review`（直连 CPA、只收真实图片；不是 copilot 正式 REVIEW）。未授权时不得用它绕过 Copilot 的启用限制。
-4. **Copilot 正式 REVIEW** → 仅在用户**明确点名 Copilot** / **明确要求使用 `copilot` Skill** / **明确要求正式 REVIEW** 时调用；任务复杂度、风险高低、是否需要独立复核、其他通道是否可用，均不构成授权。
-5. **普通第二视角、并行探索、一般协作** → 遵循全局规则，用原生子智能体，**不强制**走独立复核通道。
-6. **用户明确指定其他工具** → 遵循用户指定。
-7. **Pi 已卸载（2026-10-27）** → 无 Pi 路由。
+| 任务信号 | 入口 |
+|---|---|
+| App / 移动应用 / iOS / Android 的界面、改版、多页面视觉体系 | **完整流程 0–7** |
+| App 的 HTML 高保真原型 / 可交互原型 / 设计方向探索 | **完整流程 0–7** |
+| App 原生 UI 实现 / 设计交付 / 真机验收 | 从阶段 4 或 6 进入（已有方向记录则复用） |
+| App 图片素材生成/处理/复用 / 素材清单 | 从阶段 5 进入（已有方向记录则复用） |
+| App 设计评审 / 打分 / 视觉方向判断 | 评审线（见 §4），不替代方向选择 |
+| 幻灯片 / PPT / deck | **不在范围**：说明并转交相应工具 |
+| 视频 / 动画成片 / 宣传片 | **不在范围**：说明并转交相应工具 |
+| 配音 / 音频 / 音乐 / SFX | **不在范围**：说明并转交相应工具 |
+| 信息图 / 海报 / 封面 / 纯平面 | **不在范围**：说明并转交相应工具 |
+| 生产级 Web App / 后端系统 / SEO 站 | **不在范围**：说明边界 |
+| 纯代码重构 / 图层级可编辑 PPTX | **不在范围** |
 
-## 路由表（原文完整表）
+**不确定时**：问一句「这是 App 界面任务，还是其他载体？」不要猜。
 
-根据任务类型深入读对应references：
+---
 
-| 任务 | 读 |
-|------|-----|
-| 开工前问问题、定方向 | `references/workflow.md` |
-| 🎨 **GPT 视觉概念生图**（阶段 2 · **L2 默认前置**：Visual Brief（含约束分层）/ 能力探测 / **生成范围与成本控制 §1.5** / 方案数量与英文 prompt 自动生成（**默认单一最佳方案**；实质分歧或用户明确要求时 2–3 个；图标 §2.3.1）/ **提示词专家评审 §2.6（生图前，不决定方向）** / 🔴 **Gate 1 视觉方向评审 §2.6.1（真实候选图之后；默认原生自检，授权后才用 `zcode_vision --confirm-gpt-review`；Copilot 仅点名）** / **候选方向的取舍（多方案分支由用户选定；单一方案由 agent 决策并标注）§2.7** / **收敛型最终提示词与决策记录 §2.8（用户选定后）** / **用户介入边界 §2.9** / **生成结果质量自检 §2.4** / **禁止静默回退为代码绘图**）→ **第一次评审：真实图专家评审 + 用户确认方向**（阶段 3）→ **概念图→视觉规范转译 §3.5** → **按需单套 HTML 原型 §3.6**（**图片素材规则 §3.6.3** / 素材三态 §3.6.4）→ **第二次评审与定向迭代 §3.7** → **验证素材处置 §5.1** / **正式图片素材 §4.6** / **开发期按需生成 §4.7** → 验证闭环 §6.2 / 费用治理 / 降级 | `references/gpt-visual-workflow.md` |
-| 📦 **设计交付契约**（DesignWise → **Web / Android / PPT**：七件套 = 页面结构 / 设计 token / 状态与交互 / 真实文案与数据 / 素材清单 / 适配与无障碍 / 验收基准图；三平台共用一套 + 平台适配层；含交付包自检、红线、**§8 真实实现反馈闭环**） | `references/design-handoff.md` |
-| ⭐ **产品价值判断**（产品界面/交互原型：谁在用·核心行为·关键取舍·易用性；含「要不要用」的适用边界判定） | `references/product-value.md` |
-| **App/iOS 原型完整守则**（架构表/取图代码/AppPhone骨架/ios_frame用法） | `references/app-prototype.md` |
-| 反AI slop、内容规范、scale | `references/content-guidelines.md` |
-| 字体排印/字体配对/中文排印 | `references/typography.md` |
-| React+Babel项目setup | `references/react-setup.md` |
-| 做幻灯片 | `references/slide-decks.md` + `assets/deck_index.html`（默认多文件概览墙）+ `scripts/gen_deck_thumbs.mjs`（画廊缩略图）+ `assets/deck_stage.js`（仅 ≤10 页单文件） |
-| 导出可编辑 PPTX · 路线 A（HTML 还没写，按 4 条硬约束写） | `references/editable-pptx.md` + `scripts/html2pptx.js` |
-| 导出可编辑 PPTX · 路线 B（**HTML 已写好的视觉稿**、**甲方要求用他们的模板**、或 A 转不出来） | `references/pptx-from-rendered-html.md` + `scripts/pptx_from_rendered.py` |
-| **验证 PPTX/渲染产物时「先验证验证工具」** | `references/pptx-from-rendered-html.md` 的「验证」节 + `references/verification.md` |
-| 做动画/motion（**先读 pitfalls**）| `references/animation-pitfalls.md` + `references/animations.md` + `assets/animations.jsx` |
-| ⭐ **动画分镜/画面构图**（任何动画开工前；每一镜先是一张会动的封面：定格帧十一律+景别体系+能量骨架+轻量分镜卡） | `references/storyboard-basics.md`（launch-film 导演稿是它的重装版） |
-| ⭐ **镜头语言/运镜**（zoom/pan/orbit/parallax/转场；预算制+镜间语法+PageCam 相机数学+CSS zoom 栅格化） | `references/camera-language.md`（设计判断）+ `gsap-recipes.md` §9 Camera Rig（实现） |
-| ⭐ **产品UI展示动画**（画面主角是一个界面：截图vs重建决策树+UI展示八式+typing+光标+3D巡览） | `references/ui-demo-animation.md` + `assets/cursor.jsx` |
-| **HyperFrames 渲染后端**（新动画默认；选型边界/合成契约/老demo迁移/check流程） | `references/hyperframes-backend.md` |
-| **设计语言的 GSAP 实现配方**（easing 映射/运动语言8条/五段叙事骨架/seek 安全规则） | `references/gsap-recipes.md` |
-| **动画的正向设计语法**（Anthropic 级叙事/运动/节奏/表达风格）| `references/animation-best-practices.md`（5 段叙事+Expo easing+运动语言 8 条+3 种场景配方）|
-| **带解说的长动画 / 长概念视频**（5-20 分钟带配音、解说驱动画面、TTS 实测时长生成 timeline）| `references/voiceover-pipeline.md`（铁律：连续运动叙事、禁 PowerPoint 切换）+ `assets/narration_stage.jsx` + `scripts/cloud/tts-doubao.mjs`（可选云TTS，自备key，见SECURITY.md）+ `scripts/narrate-pipeline.mjs` + `scripts/{mix-voiceover,render-narration}.sh` |
-| 做Tweaks实时调参 | `references/tweaks-system.md` |
-| 没有design context怎么办 | `references/design-context.md`（薄 fallback） 或 `references/design-styles.md`（厚 fallback：HTML 原生 84 种风格库，网页 20+PPT 20+信息图 20+App 12+中文东亚 12，按温度分级；App / 中文东亚带样张） |
-| **需求模糊要推荐风格方向** | `references/design-styles.md`（84 种 HTML 原生风格库，含还原度/温度/开源字体与两区样张）+ `assets/showcases/INDEX.md`（预制截图画廊） |
-| **要照着真实优秀产品做 / 用户给了参考链接或截图** | `references/design-research.md`（参考板：采集 → 拆规则 → 借方法不抄标识）+ `scripts/ref_board.py`（真实网址/本地图 → 截图 + 看板；**不强制每单都做**） |
-| **判断新方向是否与历史交付撞外观家族** | `references/design-research.md` §5（外观账本）+ `scripts/check-ui.mjs --ledger-check`（黄灯提示，不阻断；**不是记忆系统**） |
-| **判断素材该取真图、生成还是程序化画** | `references/materials.md`（主角素材矩阵 + 内容必需判据 + 素材能力分档与探测） |
-| **按输出类型查场景模板**（封面/PPT/信息图） | `references/scene-templates.md` |
-| 输出完后验证 | `references/verification.md`（含「设计体检」客观项分工）+ `scripts/verify.py`（渲染/控制台）+ `scripts/check-ui.mjs`（触控 / 字号 / 溢出 / 控制台 / 图片加载失败 / 计算对比度 / 外观指纹；`--shot` 截图、`--ledger-*` 账本；输出 CSS px，不等同 Android dp）+ `scripts/check-contrast.py`（对比度三档机械校验）+ `scripts/check-assets.py`（素材清单可追踪/可复现/可引用） |
-| **设计评审/打分**（设计完成后可选；**含生图前的提示词专家评审**） | `references/critique-guide.md`（**概念/立意（第 0 位，权重最高）+ 5 维度评分** + 常见问题清单；+产品界面类「用户价值与易用性」、+有 spec 时「Spec 一致性与范围核验」、+GPT 通路「视觉还原检查」、+**生图前「Prompt 级创意评审」**（文字可判 / 不可判边界，**不决定视觉方向**）四项附加检查）。🔴 **视觉方向判断与阶段门槛默认由原生自检承担；外部 GPT 仅用户授权后**（Gate 1 / Gate 2，见「视觉评审门」大节；**Copilot 正式 REVIEW 仅用户点名**）——本行是 DesignWise 自主的专家评审，两者职责不同、不互相替代 |
-| **动画导出MP4/GIF/加BGM** | `references/video-export.md` + `scripts/render-video.js`（默认25fps）/ `scripts/render-video-seek.js`（真60fps·确定性·无黑帧，走Stage时钟时用）+ `scripts/convert-formats.sh` + `scripts/add-music.sh` |
-| **动画加音效SFX**（苹果发布会级，37个预制） | `references/sfx-library.md` + `assets/sfx/<category>/*.mp3` |
-| **动画音频配置规则**（SFX+BGM双轨制、黄金配比、ffmpeg模板、场景配方） | `references/audio-design-rules.md` |
-| **Apple画廊展示风格**（3D倾斜+悬浮卡片+缓慢pan+焦点切换，v9实战同款） | `references/apple-gallery-showcase.md` |
-| **Gallery Ripple + Multi-Focus 场景哲学**（当素材 20+ 同质+场景需表达「规模×深度」时优先用；含前置条件、技术配方、5 个可复用模式）| `references/hero-animation-case-study.md`（huashu-design hero v9 蒸馏）|
-| ⭐ **Launch Film 工作流**（30 秒级品牌宣传片 / launch trailer / superbowl-tier ad / Apple 级别预期）：先写**万字 director's notes** 再做动画。含 5 大部分结构 + 触发判断 + 多视角并行策略 + 关键帧验证流程 | `references/launch-film-director-notes.md`（huashu-md-html v2.0 launch film 蒸馏）|
-| ⭐ **多视角并行实验**（用户说「再做几个版本」「想看不同方向」/ 多平台分发 / 客户拍不了板）：6 位艺术家视角同时启动 subagent 各做独立版本 + 完成后 5 维度审校 | `references/multi-perspective-parallel-case-study.md`（huashu-md-html v2.0 6 视角实战）|
-| ⚠️ **不确定当前环境有没有某能力**（网络检索 / 子代理 / 截图 / 命令执行 → 用什么载体顶上） | `references/runtime-adapters.md`（能力映射，平台无关） |
+## 2. 第二判断：完整流程还是局部迭代
+
+| 信号 | 走法 |
+|---|---|
+| 新界面 / 改版 / 新核心流程 / 新页面类型 | **完整 0–7**（含三方向 + Copilot） |
+| 新增/替换设计 token 或视觉母题 | **完整 0–7** |
+| 信息架构/导航变化 | **完整 0–7** |
+| 跨多页面视觉体系 / 品牌探索 | **完整 0–7** |
+| 已有 `direction-approved.md`，只改文案/间距/圆角/单组件状态/Bug/适配/替换已登记素材 | **局部迭代**：复用 brief + 三图 + 方向记录，从阶段 4 继续 |
+| 用户明确说「沿用上次已确认的方向」 | **局部迭代**：记录原话，复用方向记录 |
+| 用户要求「再探索几个方向」 | **重新走阶段 2–3**（三方向 + Copilot），不是局部迭代 |
+
+判不准 → 按完整流程。**局部迭代不降低质量门。**
+
+---
+
+## 3. 特殊入口
+
+### 3.1 涉及具体品牌/产品
+
+- 先做**事实验证**（产品存在性、版本、规格、发布状态），再取品牌资产（logo/产品图/UI 截图/色板/字体）。
+- 具名产品/品牌必须取官方 logo；设计里出现几个就取几个。
+- 生成图不得冒充真实产品/品牌资产。
+- 完整协议 → `references/brand-asset-protocol.md`。
+
+### 3.2 已有设计系统 / 代码 / 截图
+
+- 从现有 token、组件、页面结构长出来；**「沿用现有体系」不等于必须继承上一版信息架构**。
+- 设计自由度（IA、页面数量、导航、交互、视觉语言）属常规范围；业务规则、隐私、安全、商业化边界不因设计自由度放宽。
+
+### 3.3 需求模糊 / 用户不可达
+
+- 需求模糊：先按 best judgment 补齐假设（标 `ASSUMPTION`），用真实视觉建立判断；只问阻塞正确实施的必要问题。
+- 用户不可达：可以完成 0–2 与 Copilot 方向选择，但**不得把 Copilot 推荐写成用户选择**；业务事实类假设必须标 `ASSUMPTION`，交付时说明风险。
+- 涉及权限/安全/发布/生产数据：按全局与项目规则，不因「自主推进」获得新授权。
+
+### 3.4 只做评审
+
+- 视觉方向判断：看真实图片，按 `SKILL.md` 阶段表 **G0–G7 证据门**逐项给结论（缺哪一项就写缺哪一项）；**不替代阶段 3 的 Copilot 方向选择**。
+- 设计评审：走 `references/critique-guide.md` 的评分与 Keep/Fix；有 spec 时加跑 Spec 一致性核验。
+- 代码/变更独立复核：按全局 §5 用独立上下文；**没有视觉能力，不得冒充视觉评审**。
+
+### 3.5 只做素材/生图
+
+- 先判断是否内容必需、能否复用；再按 `references/image-generation.md` 写 prompt、生成、校验、登记。
+- 素材必须进 `asset-manifest.json`；概念图不得当正式素材。
+- 不因「只做素材」跳过来源、许可、裁切与消费者记录。
+
+### 3.6 只做原生实现/验收
+
+- 需要 `handoff/`、`baselines/`、`asset-manifest.json`；缺规格先补，不靠猜。
+- 真机装包只走宿主授权入口；没有真机 → `PARTIAL`/`BLOCKED`，不编造。
+- 验收矩阵见 `references/app-visual-workflow.md` 阶段 7。
+
+---
+
+## 4. 评审线（与方向选择分开）
+
+| 类型 | 做什么 | 不做什么 |
+|---|---|---|
+| **方向选择** | Copilot 基于三张真实图选最佳方向 | 不是评审打分、不是正式 REVIEW、不替代用户 |
+| **设计评审** | 按 `critique-guide.md` 打分、Keep/Fix、Quick Wins | 不重新探索方向、不改代码 |
+| **视觉阶段门** | 看真实渲染/真机截图判断是否继续 | 不替代真机验收矩阵 |
+| **代码复核** | 独立上下文检查 diff/证据 | 无视觉能力，不冒充视觉评审 |
+
+---
+
+## 5. 一句话路由
+
+- **新 App UI → 0–7，三方向 + Copilot，一个都不能少。**
+- **已定方向的局部改动 → 复用记录，从 4 继续。**
+- **非 App 载体 → 明确说明不在范围，不硬套。**
+- **不确定 → 问一句载体，再按完整流程。**

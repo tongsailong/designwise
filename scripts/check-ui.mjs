@@ -3,7 +3,7 @@
  * check-ui.mjs — 页面级 UI 验收采集（无第三方依赖）
  *
  * 只做客观采集：触控尺寸、叶子文本字号、横向溢出、控制台错误、图片完整性、
- * 文字/背景计算对比度、外观指纹。不做视觉判断，也不替代 Gate 1 / Gate 2。
+ * 文字/背景计算对比度、外观指纹。不做视觉判断，也不替代 G3 方向选择与 G4 原型门。
  *
  * 用法：
  *   node scripts/check-ui.mjs --url file:///path/index.html --tap 48 --font-min 12

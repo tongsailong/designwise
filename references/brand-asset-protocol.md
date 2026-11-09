@@ -227,7 +227,7 @@ curl -A "Mozilla/5.0" -L "<hero-image-url>" -o assets/<brand>-brand/product-hero
 | **Logo 完全找不到** | **停下问用户**，不要硬做（logo 是品牌识别度的根基） |
 | **产品图（实体产品）找不到** | 优先 nano-banana-pro AI 生成（以官方参考图为基底）→ 次选向用户索取 → 最后才是诚实 placeholder（灰块+文字标签，明确标注"产品图待补"） |
 | **UI 截图（数字产品）找不到** | 向用户索取自己账号的截屏 → 官方演示视频截帧。不用 mockup 生成器凑 |
-| **色值完全找不到** | **L2 / 无既有 design system**：按设计方向顾问模式出自己的最佳方案（默认 1 个，见 `SKILL.md`「项目规则优先」）；**L1 局部优化：停下确认既有 token 或按现有 spec 取色，不铺方向门** |
+| **色值完全找不到** | 有既有 design system → 停下确认既有 token 或按现有 spec 取色；**没有既有体系 → 按设计方向顾问模式出自己的最佳方案，写进 `design-brief.md` 的可探索约束，并在方向图里体现**（方向数量与流程见 `SKILL.md`，固定三方向） |
 
 **禁止**：找不到资产就静默用 CSS 剪影/通用渐变硬做——这是协议最大的反 pattern。**宁可停下问，也不要凑**。
 
@@ -237,7 +237,7 @@ curl -A "Mozilla/5.0" -L "<hero-image-url>" -o assets/<brand>-brand/product-hero
 - **Lovart 设计**：把产品截图里演示品牌的喜茶红当成 Lovart 自己的色——差点毁整个设计
 - **DJI Pocket 4 发布动画（2026-04-20，触发本协议升级的真实案例）**：走了旧版只抽色值的协议，没下载 DJI logo、没找 Pocket 4 产品图，用 CSS 剪影代替产品——做出来是「通用黑底+橙 accent 的科技动画」，没有大疆识别度。花叔原话：「否则，我们在表达什么呢？」→ 协议升级。
 - 抽完色没写进 brand-spec.md，第三页就忘了主色数值，临场加了个「接近但不是」的 hex——品牌一致性崩溃
-- **五大 Coding Agent 对比 PPT（2026-06-06，触发触发条件扩展的真实案例）**：agent 把任务判成「PPT + 没风格参考」走 Fallback 设计方向顾问，只抽了五家品牌色就 spawn 三套设计逻辑，**五个产品 logo（Claude Code / Cursor / Codex / Copilot / Trae）一个没取**——被花叔抓现行「我们为什么没去取这些产品的 logo」。根因：把「对比 / 榜单 deck」误判为不触发 §1.a（以为 §1.a 只管「为单一客户做物料」），且 Fallback 路径里没有任何 logo 检查点。→ 修复：①触发条件扩成两类（含「设计里点名/并列真实产品」）②Fallback 不豁免取 logo ③Phase 3.5 加「具名产品 logo 子门」spawn 前必过 ④Step 3.1 补 svgl/simpleicons/Google favicon 可靠取图链。
+- **五大 Coding Agent 对比 PPT（2026-06-06，触发触发条件扩展的真实案例）**：agent 把任务判成「多产品对比页 + 没风格参考」走 Fallback 设计方向顾问，只抽了五家品牌色就 spawn 三套设计逻辑，**五个产品 logo（Claude Code / Cursor / Codex / Copilot / Trae）一个没取**——被花叔抓现行「我们为什么没去取这些产品的 logo」。根因：把「对比 / 榜单页」误判为不触发 §1.a（以为 §1.a 只管「为单一客户做物料」），且 Fallback 路径里没有任何 logo 检查点。→ 修复：①触发条件扩成两类（含「设计里点名/并列真实产品」）②Fallback 不豁免取 logo ③方向探索前加「具名产品 logo 子门」 ④Step 3.1 补 svgl/simpleicons/Google favicon 可靠取图链。
 
 ##### 协议代价 vs 不做代价
 

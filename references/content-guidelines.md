@@ -150,26 +150,21 @@ Asymmetric、不同大小的cards、有的带image有的只有文字、有的跨
 
 ## Scale 规范
 
-### 幻灯片（1920×1080）
+### App（iOS / Android）
 
-- 正文最小 **24px**，理想 28-36px
-- 标题 60-120px
-- Section title 80-160px
-- Hero headline 可以用 180-240px 的大字
-- 永远不要用 <24px 的字放幻灯片
+- 正文基准 **15–17pt/sp**（iOS body 17pt，Android body 14–16sp）；低于 12 只能用于辅助标注
+- 标题按层级 20 / 28 / 34+；大标题不要再叠加多重装饰
+- 触控目标：Android **≥48dp**，iOS **≥44pt**；图标视觉尺寸小不代表触控区小
+- 行高：iOS 约 1.2–1.4 倍字号；中文正文 1.6–1.8
+- 字体缩放：系统放大到 1.3 及更大档时不得截断、重叠、遮挡（见 `references/design-handoff.md` ⑥）
 
-### 印刷文档
+### 规范单位
 
-- 正文最小 **10pt**（≈13.3px），理想 11-12pt
-- 标题 18-36pt
-- Caption 8-9pt
-
-### Web和移动端
-
-- 正文最小 **14px**（老年人友好用16px）
-- 移动端正文 **16px**（避免iOS自动缩放）
-- Hit target（可点击元素）最小 **44×44px**
-- 行高 1.5-1.7（中文1.7-1.8）
+| 平台 | 字号 | 间距 | 触控 |
+|---|---|---|---|
+| Android | `sp` | `dp`（4/8 栅格） | ≥48dp |
+| iOS | `pt`（Dynamic Type） | `pt` | ≥44pt |
+| HTML 原型 | CSS px（按 1x 设计基准） | px | ≥44px |
 
 ### 对比度（三档判定 · 不得混为一谈）
 
@@ -280,6 +275,5 @@ p {
 |------|------|------|
 | 图标 | **装饰性** icon 每处都配（撞 slop）| **承载差异化信息**的密度元素必须保留——不要把产品特色也一并减掉 |
 | 填充 | 编造stats/quotes装饰 | 留白，或问用户要真内容 |
-| 动画 | 散落的微交互 | 一次well-orchestrated的page load |
-| 动画-伪chrome | 画面内画底部进度条/时间码/版权署名条（与 Stage scrubber 撞车） | 画面只放叙事内容，进度/时间交给 Stage chrome（详见 `references/animation-pitfalls.md` §11） |
-| 动画-PowerPoint 切换 | 每个 scene 独立 layout + cue 用 fade-up + scene 切换整页 opacity 切换（= 带配音的 PowerPoint）| **整片是一个连续的运动叙事**：选 1-2 个 hero element 跨 scene 持续存在，每段是 hero 的状态变化（位置/大小/形态），scene 之间 morph 不切（详见 `references/voiceover-pipeline.md` 「铁律」章节）|
+| 动画 | 散落的微交互、每次点击都弹一下 | 一次有编排的页面进入 + 必要的状态反馈；尊重 `prefers-reduced-motion` |
+| 动效落地 | 只在 HTML 里成立、原生实现不了或太贵的效果 | 用原生可达的转场/缓动重述；写进 `design-handoff.md` 的动效规格 |

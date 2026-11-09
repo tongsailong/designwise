@@ -1,4 +1,4 @@
-# App / iOS 原型专属守则 · 完整操作手册
+# App 原型专属守则（iOS / Android）· 完整操作手册
 
 > 从 SKILL.md 下沉的完整版。SKILL.md 保留 7 条硬规则速查，本文件是每条规则的展开：架构选型、取图渠道与代码、AppPhone JSX 骨架、ios_frame 三步用法、品位锚点全表。
 
@@ -7,7 +7,7 @@
 
 ### 0. 架构选型（必先决定）
 
-**默认单文件 inline React**——所有 JSX/data/styles 直接写进主 HTML 的 `<script type="text/babel">...</script>` 标签，**不要**用 `<script src="components.jsx">` 外部加载。原因：`file://` 协议下浏览器把外部 JS 当跨 origin 拦截，强制用户起 HTTP server 违反「双击就能开」的原型直觉。引用本地图片必须 base64 内嵌 data URL，别假设有 server。
+**默认单页 inline React**——所有屏组件/data/styles 直接写进主 HTML 的 `<script type="text/babel">...</script>` 标签，**不要**把屏代码拆成 `<script src="components.jsx">` 外部加载。React/Babel 这类第三方库可用本地 `vendor/` 副本（同样的库文件内联会让单个脚本超 500KB，Babel 会告警）。原因：`file://` 协议下浏览器把外部 JS 当跨 origin 拦截，强制用户起 HTTP server 违反「双击就能开」的原型直觉。引用本地图片必须 base64 内嵌 data URL，别假设有 server。
 
 **拆外部文件只在两种情况**：
 - (a) 单文件 >1000 行难维护 → 拆成 `components.jsx` + `data.js`，同时明确交付说明（`python3 -m http.server` 命令 + 访问 URL）
@@ -17,7 +17,7 @@
 
 | 场景 | 架构 | 交付方式 |
 |------|------|----------|
-| 单人做 4-6 屏原型（主流） | 单文件 inline | 一个 `.html` 双击开 |
+| 单人做 4-6 屏原型（主流） | 单页 inline（库可本地 vendor） | 一个 `.html` 双击开 |
 | 单人做大型 App（>10 屏） | 多 jsx + server | 附启动命令 |
 | 多 agent 并行 | 多 HTML + iframe | `index.html` 聚合，每屏独立可开 |
 
@@ -154,10 +154,10 @@ Screen 组件接 callback props（`onTabChange`、`onOpen`、`onClose`、`onTogg
 
 做移动 app 原型时（触发：「app 原型」「iOS mockup」「移动应用」「做个 app」），以下硬规则**覆盖**通用 placeholder 原则——app 原型是 demo 现场，静态摆拍没有说服力。完整操作细节（架构选型表 / 取图渠道与代码 / AppPhone JSX 骨架 / ios_frame 三步用法 / 品位锚点全表）见本文档正文 §0–§4：
 
-1. **架构默认单文件 inline React**：`file://` 双击就能开，本地图片 base64 内嵌；仅 >1000 行难维护或多 agent 并行写不同屏才拆多文件（拆了必须附 `python3 -m http.server` 启动说明）
-2. **先找真图再设计**：渠道同 Phase 3.5 取图表；取图前过**真图诚实性测试**——「去掉这张图信息是否有损？」无损 = 装饰 = slop，不加
+1. **架构默认单页 inline React**：屏代码、样式、图片都在同一页（React/Babel 等库可用本地 `vendor/` 副本），`file://` 双击就能开；仅 >1000 行难维护或多 agent 并行写不同屏才按屏拆文件（拆了必须附 `python3 -m http.server` 启动说明）
+2. **先找真图再设计**：渠道见本文 §1 与 `references/image-assets.md`；取图前过**真图诚实性测试**——「去掉这张图信息是否有损？」无损 = 装饰 = slop，不加
 3. **交付形态默认「平铺 4-6 主屏 + 每台可交互」**，不要问用户二选一；每台是独立迷你状态机（tab 可切 / 按钮可点 / 能弹 modal），仅用户明确说「只要静态」或「单流程 demo」才偏离
-4. 🔴 **iOS 设备框必须用 `assets/ios_frame.jsx`**：禁止手写 Dynamic Island / status bar / home indicator / bezel——自己写 99% 撞位置 bug（岛是固定 124×36，两侧 status bar 空间极窄）
+4. 🔴 **设备框必须用现成组件**：iOS 用 `assets/ios_frame.jsx`，Android 用 `assets/android_frame.jsx`；禁止手写 Dynamic Island / status bar / home indicator / bezel / 导航栏——自己写 99% 撞位置 bug（iOS 岛是固定 124×36，两侧 status bar 空间极窄；Android 系统栏高度随版本与手势模式变化）
 5. **信息密度分型**：默认克制型（少一层容器 / 少一个 border / 少一个装饰 icon）；产品卖点是 AI / 数据 / 上下文感知时走**高密度型**——每屏 ≥3 处**有内容的**差异化信息，装饰 icon 照样忌讳
 6. **交付前 Playwright 跑 3 项点击测试**（进详情 / 关键标注点 / tab 切换），`pageerror` 为 0 再交付
 7. **品位锚点**：衬线 display（Newsreader/Source Serif/EB Garamond）+ `-apple-system` body；一个有温度的底色 + 单 accent 贯穿；留一处「值得截图」的 120% 细节签名

@@ -972,7 +972,7 @@
   const startAnim = () => {
     requestAnimationFrame((ts) => {
       startTs = ts;
-      window.__ready = true; // signal for render-video.js
+      window.__ready = true; // signal for external recorders
       requestAnimationFrame(tick);
     });
   };

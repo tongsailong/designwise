@@ -10,7 +10,7 @@ Tweaks是这个skill里很核心的能力——让用户不改代码就能实时
 - 设计有多个variations需要对比时
 - 用户没明说，但你主观判断**加几个有启发性的tweaks能帮用户看到可能性**
 
-默认**不新增用户未要求的 tweaks**（范围冻结优先，见 `product-value.md`）。只在用户要求对比、或 L2 方案需要让用户看清关键变量时，加 **1-3 个**与当前决策直接相关的 tweaks；不用 tweaks 代替方向选择。
+默认**不新增用户未要求的 tweaks**（范围冻结优先，见 `product-value.md`）。只在用户要求对比、或方向已定后需要让用户看清关键变量时，加 **1-3 个**与当前决策直接相关的 tweaks；不用 tweaks 代替方向选择。
 
 ## 实现方式（纯前端版）
 
@@ -216,27 +216,23 @@ button.cta {
 - 字型（select：display font vs body font）
 - 暗黑模式（toggle）
 
-### 幻灯片deck
-- 主题（light/dark/brand）
-- 背景样式（solid/gradient/image）
-- 字体对比（更装饰 vs 更克制）
-- 信息密度（minimal/standard/dense）
-
-### 产品原型
+### App 原型
 - 布局变体（layout A / B / C）
-- 交互速度（animation speed 0.5x-2x）
-- 数据量（mock数据条数 5/20/100）
-- 状态（empty/loading/success/error）
+- 主题（light / dark / brand）
+- 信息密度（minimal / standard / dense，按用户专业程度）
+- 交互速度（animation speed 0.5x–2x）
+- 数据量（mock 数据条数 5/20/100）
+- 状态（empty / loading / success / error）
 
-### 动画
-- 速度（0.5x-2x）
-- 循环（once/loop/ping-pong）
-- Easing（linear/easeOut/spring）
+### 单屏 / 组件
+- 字号层级（按 token，不自由滑到规范外）
+- 圆角与阴影（品牌质感档位）
+- 主色与强调色（仅当项目允许；品牌 token 不随意改）
 
-### Landing page
-- Hero风格（image/gradient/pattern/solid）
-- CTA文案（几种变体）
-- 结构（single column / two column / sidebar）
+### 动效
+- 速度（0.5x–2x）
+- 循环（once / loop / ping-pong）
+- Easing（linear / easeOut / spring）
 
 ## Tweaks设计原则
 

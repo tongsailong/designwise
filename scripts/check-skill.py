@@ -29,51 +29,45 @@ REQUIRED_FILES = [
     "README.en.md",
     "LICENSE",
     "SECURITY.md",
+    "THIRD_PARTY_NOTICES.md",
     "package.json",
     "test-prompts.json",
-    # GPT-first 通路的核心载体：缺了「概念图→实现」的转译就断链，故列为必需
-    "references/gpt-visual-workflow.md",
+    # 单流程的关键载体：缺了任一条，0–7 阶段就断链
+    "references/app-visual-workflow.md",
+    "references/image-generation.md",
+    "references/image-assets.md",
     "references/design-handoff.md",
+    "references/routing-table.md",
+    "references/workflow.md",
+    "references/product-value.md",
 ]
 
 REQUIRED_DIRS = ["references", "assets", "scripts", "demos"]
 
 # 被 SKILL.md / references 反复引用的关键资产与脚本——缺了会静默降级成坏经验
 REQUIRED_ASSETS = [
-    "assets/animations.jsx",
     "assets/ios_frame.jsx",
     "assets/android_frame.jsx",
-    "assets/macos_window.jsx",
-    "assets/browser_window.jsx",
     "assets/design_canvas.jsx",
-    "assets/cursor.jsx",
-    "assets/narration_stage.jsx",
-    "assets/deck_index.html",
-    "assets/deck_stage.js",
-    "assets/showcases/INDEX.md",
+    "assets/style-specimens/sheet-app.jpg",
+    "assets/style-specimens/sheet-east.jpg",
+    "assets/personal-asset-index.example.json",
 ]
 
 REQUIRED_SCRIPTS = [
-    "scripts/render-video.js",
-    "scripts/render-video-seek.js",
-    "scripts/convert-formats.sh",
-    "scripts/add-music.sh",
-    "scripts/export_deck_pdf.mjs",
-    "scripts/export_deck_pptx.mjs",
-    "scripts/export_deck_stage_pdf.mjs",
-    "scripts/html2pptx.js",
-    "scripts/pptx_from_rendered.py",
-    "scripts/gen_deck_thumbs.mjs",
+    "scripts/zcode_image.py",
+    "scripts/zcode_vision.py",
     "scripts/verify.py",
-    "scripts/check-contrast.py",
-    "scripts/check-assets.py",
-    "scripts/fetch_images.py",
-    "scripts/narrate-pipeline.mjs",
-    "scripts/render-narration.sh",
-    "scripts/design-gate-hook.sh",
-    "scripts/design-gate-check.js",
     "scripts/check-ui.mjs",
+    "scripts/check-contrast.py",
     "scripts/ref_board.py",
+    "scripts/fetch_images.py",
+    "scripts/extract_grid.py",
+    "scripts/contact_sheet.py",
+    "scripts/chroma_key.py",
+    "scripts/asset_manifest.py",
+    "scripts/check-skill.py",
+    "scripts/sync_runtime.py",
 ]
 
 # ── 引用扫描 ──────────────────────────────────────────────────────────────
@@ -83,7 +77,7 @@ SCAN_DOCS = [
     "README.md",
     "README.en.md",
     "SECURITY.md",
-    "assets/showcases/INDEX.md",
+    "THIRD_PARTY_NOTICES.md",
 ]
 SCAN_GLOB_DIRS = ["references"]  # 该目录下所有 *.md 一并扫描
 

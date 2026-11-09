@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """zcode_image.py — ZCode 宿主的真实图像生成适配器
 
-为什么有它：本 skill 原本依赖 `huashu-gpt-image` 的方法论走 CPA 生图。ZCode 侧现在
-装了 `huashu-gpt-image` skill（方法论与提示词规则），但实际出图仍需一条稳定的脚本通路：
-ZCode 自己配置的 CPA 代理已经暴露 `gpt-image-*` 模型。这个脚本把那条通路
+为什么有它：生图方法论已并入本 skill（见 `references/image-generation.md`），不依赖任何
+外部生图 skill。ZCode 自己配置的 CPA 代理已暴露 `gpt-image-*` 模型，这个脚本把那条通路
 收窄成一条命令，只做一件事：**真的调用图像接口，拿回真的 PNG 字节**。
 
 它不搜索图片、不写提示词交差、不用占位图——拿不到图就非零退出并说明原因。

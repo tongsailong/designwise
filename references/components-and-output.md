@@ -1,83 +1,71 @@
-# Starter Components · 产出要求 · 水印 · 版本自检
+# 组件与产物规范
 
-> **ZCode 适配（自 Reasonix 迁移 · 2026-10-24）**：本文件收纳 `SKILL.md` 原「Starter Components」
-> 「产出要求」「水印」「版本自检」四节，**内容逐字保留**。迁入 ZCode 时因 SKILL.md 有 100,000 字节
-> 读取上限，这四节整体搬到此处，正文留指针。
-> **不变的部分**：组件用法、产出命名规范、不加水印的立场、版本自检逻辑全部照原样生效。
-> **新增（2026-10-30）**：「产出要求」下新增「交付物数量」小节，只解释设计方向数量与实际交付物数量的区别，口径引用 `SKILL.md`「项目规则优先」，不改上面任何原有约定。
+> **读这份文档的时机**：要选起手组件、决定产物命名与目录、或做交付前自检时。
 > **路径约定**：`assets/`、`scripts/` 均相对本 skill 根目录。
 
 ---
 
-## Starter Components（assets/下）
-
-造好的起手组件，直接copy进项目使用：
+## 1. 起手组件（`assets/`）
 
 | 文件 | 何时用 | 提供 |
-|------|--------|------|
-| `deck_index.html` | **幻灯片的默认基础产物** | **直接复制为 `index.html`、编辑 MANIFEST 即用，不要重写概览逻辑**（三个坑已内建解决）。自带两种自适应概览（网格 iframe 60% / 画廊 40%，画廊需 `thumb` 字段 + 先跑 `scripts/gen_deck_thumbs.mjs`）+ 键盘翻页 + scale + 计数器 + 打印合并。要改先读 `references/slide-decks.md` 三条硬约束 |
-| `scripts/gen_deck_thumbs.mjs` | **给无限画廊概览生成缩略图**（网格 iframe 模式不需要）| playwright 截每页 + sharp 降采样 1600px JPEG：`npm i playwright sharp && node gen_deck_thumbs.mjs --slides slides --out thumbs`，再给 MANIFEST 每项加 `thumb`。分辨率别 <1000px 否则 hover 发虚 |
-| `deck_stage.js` | 做幻灯片（单文件架构，≤10页） | web component：auto-scale + 键盘导航 + slide counter + localStorage + speaker notes ⚠️ **script 必须放在 `</deck-stage>` 之后，section 的 `display: flex` 必须写到 `.active` 上**，详见 `references/slide-decks.md` 的两个硬约束 |
-| `scripts/export_deck_pdf.mjs` | **HTML→PDF 导出（多文件架构）** · 每页独立 HTML 文件，playwright 逐个 `page.pdf()` → pdf-lib 合并。文字保留矢量可搜。依赖 `playwright pdf-lib` |
-| `scripts/export_deck_stage_pdf.mjs` | **HTML→PDF 导出（单文件 deck-stage 架构专用）** · 2026-04-20 新增。处理 shadow DOM slot 导致的「只出 1 页」、absolute 子元素溢出等坑。详见 `references/slide-decks.md` 末节。依赖 `playwright` |
-| `scripts/export_deck_pptx.mjs` | **HTML→可编辑 PPTX（路线 A：HTML 还没写时用）** · 调 `html2pptx.js` 导出原生可编辑文本框。**HTML 必须符合 4 条硬约束**（见 `references/editable-pptx.md`）。已经写好的视觉稿别硬跑它，改走下面一行。依赖 `playwright pptxgenjs sharp` |
-| `scripts/pptx_from_rendered.py` | **HTML→可编辑 PPTX（路线 B：HTML 已写好、或要继承甲方模板）** · 读浏览器渲染后的 `getBoundingClientRect`，视觉驱动的 HTML（flex/居中/裸文字/背景图/SVG）零改造直接转；能以甲方 `.pptx` 为基底继承母版与版式，让他们改母版对全部页面生效（pptxgenjs 做不到）。见 `references/pptx-from-rendered-html.md`。依赖 `playwright python-pptx Pillow` |
-| `scripts/html2pptx.js` | **HTML→PPTX 元素级翻译器** · 读 computedStyle 把 DOM 逐元素翻译成 PowerPoint 对象（text frame / shape / picture）。`export_deck_pptx.mjs` 内部调用。要求 HTML 严格满足 4 条硬约束 |
-| `design_canvas.jsx` | 并排展示≥2个静态variations | 带label的网格布局 |
-| `animations.jsx` | 任何动画HTML | Stage + Sprite + useTime + Easing + interpolate |
-| `ios_frame.jsx` | iOS App mockup | iPhone bezel + 状态栏 + 圆角 |
-| `android_frame.jsx` | Android App mockup | 设备bezel |
-| `macos_window.jsx` | 桌面App mockup | 窗口chrome + 红绿灯 |
-| `browser_window.jsx` | 网页在浏览器里的样子 | URL bar + tab bar |
-| `cursor.jsx` | 产品UI演示里的光标操作叙事 | macOS光标4形状 + CursorSprite弧线轨迹（Catmull-Rom+收敛手抖）+ ClickRipple双圈解耦 + hover联动 + GSAP/Stage双驱动，帧确定性 |
+|---|---|---|
+| `ios_frame.jsx` | iOS App 原型 | iPhone 15 Pro 精确规格：bezel、Dynamic Island（124×36）、status bar、Home Indicator、content 安全区 |
+| `android_frame.jsx` | Android App 原型 | 设备 bezel、状态栏、导航栏、圆角与安全区 |
+| `design_canvas.jsx` | 并排展示 ≥2 个静态变体 | 带 label 的网格布局 |
 
-用法：读取对应 assets 文件内容 → inline 进你的 HTML `<script>` 标签 → slot 进你的设计。
+**动效不依赖组件库**：加载、过渡、反馈用 CSS transition/animation 或平台原生动效实现；必须尊重 `prefers-reduced-motion`，不引入时间轴引擎。
+
+**用法**：Read 对应资产文件 → 整段 inline 进 HTML 的 `<script type="text/babel">` → 你的屏组件放进设备框。
+
+**硬规则**：iOS / Android 设备框**必须**用对应组件，**禁止手写** Dynamic Island、status bar、home indicator、bezel 与圆角外壳；自己写 99% 会撞位置 bug（详见 `references/app-prototype.md` §5）。
+
+**范围**：本 skill 只服务 App UI。浏览器窗口、macOS 窗口、光标叙事组件不在此列。
 
 ---
 
-## 产出要求
+## 2. 产物与命名
 
-- HTML文件命名描述性：`Landing Page.html`、`iOS Onboarding v2.html`
-- 大改版时copy一份旧版保留：`My Design.html` → `My Design v2.html`
-- 避免>1000行的大文件，拆成多个JSX文件import进主文件
-- 幻灯片、动画等固定尺寸内容，**播放位置**存localStorage——刷新不丢
-- HTML放项目目录，不要散落到`~/Downloads`
-- 最终产出用浏览器打开检查或用Playwright截图
+- 原型主文件：`prototype/index.html`；命名描述性（`onboarding-v2.html`），不用 `final-final`。
+- 大改版保留旧版：`index.html` → `index-v1.html`，便于并排比较。
+- 单文件超过 ~1000 行再拆 `components.jsx` + `data.js`，并在交付说明里给启动命令。
+- 产物放项目目录，不散落到 `~/Downloads`。
+- 状态位置（当前屏、Tab、开关）需要刷新不丢时存 `localStorage`。
+- 交付前必须真实渲染并截图（`scripts/verify.py` 或 Playwright），**不靠读源码判断视觉效果**。
 
-### 交付物数量（与设计方向数量无关）
+### 2.1 交付物数量与设计方向数量无关
 
-> 口径来源：`SKILL.md`「项目规则优先」。**方案数量只约束「设计方向」**（默认 1 个），**不约束实际交付物**。交付多少由**任务范围、载体、平台与验收要求**决定——方向数为 1 不等于交付一个页面、一个文件或一个尺寸。
+方向固定 **3 个**（流程要求），方向选定后的交付物数量由**任务范围与验收要求**决定：
 
-一个设计方向可以（也常常必须）包含：
+- 多个页面与完整流程：入口、列表、详情、状态页、异常页
+- 多尺寸与多设备适配：手机 / 平板 / 折叠屏，按真实断点
+- 多个状态：加载、空、错误、禁用、选中、超长文本、键盘弹出
+- 组件与变体：按钮/输入/卡片的实际使用档位
+- 素材导出：图标多尺寸、商店素材、各端切图
+- 交付格式：HTML 原型 / PNG 基准图 / 交付包（`handoff/`）
 
-- **多个页面与完整页面流程**：入口、列表、详情、状态页、异常页等，按任务范围交付，不因方向数为 1 只交首屏
-- **多尺寸与多设备适配稿**：手机 / 平板 / 桌面 / 巨屏，各自按真实断点交付必要的适配稿
-- **多个页面状态与交互状态**：加载、空态、错误、禁用、选中、展开、超长文本、键盘弹出等真实状态
-- **必要组件及组件变体**：按钮/输入/卡片等在实际页面里被使用的变体与尺寸档，按用途交付
-- **各平台所需素材尺寸与导出文件**：图标多尺寸、商店素材、favicon、OG 图、各端切图，按平台规范输出
-- **同一方向的多种交付格式**：HTML / PDF / PNG / SVG / 可编辑 PPTX / MP4 等，按验收与实现需要输出
-
-**反向约束同样成立**：不要因为「方向只有一个」就自动扩大范围——交付物清单仍受 Scope 冻结与任务范围约束，**不加用户没要求的页面与格式**；也不要把多页面、多尺寸、多状态当成「多个设计方向」——方向数量与交付物数量是两件事。
-
-## 水印（动画产出）
-
-**默认不加任何第三方 Skill 水印。** 动画（HTML 动画 → MP4 / GIF）、幻灯片、信息图、原型、网页的产出，默认都是**干净的成品**，不附加「Created by Huashu-Design」或任何技能 / 工具署名——那是交付污染。
-
-- 仅在用户**明确要求署名**时才加（加用户自己的品牌 / 作者名，或要求标注来源）；模板见 `references/video-export.md` 末节。
-- 第三方品牌的非官方致敬作品，加「非官方出品 · 」前缀防 IP 争议——这同样属用户决策，不默认加。
-- **版权与许可信息不受影响**：本 skill 自身的署名与 MIT 许可见 `LICENSE` 与 README 致谢一节；产出物版权归用户，不因本条改变。
+**反向约束**：不因方向多就扩大范围，也不把多页面、多状态当成「多个设计方向」。
 
 ---
 
-## 版本自检（静默）
+## 3. 水印
 
-本节给 AI agent：每次使用本 skill 前，先做一个不联网的判断——读本 skill 目录（SKILL.md 所在目录）下的 `.last-update-check` 文件（内容为一行日期 YYYY-MM-DD）。文件存在且距今不足 30 天，跳过本节直接干活，不向用户提任何更新相关的话。
+**默认不加任何第三方 skill 水印。** 原型、截图、素材默认是干净成品，不附加「Created by …」或工具署名——那是交付污染。
 
-到期或文件不存在时，且仅在此时：
+- 仅用户明确要求署名时才加（用户自己的品牌/作者名）。
+- 第三方品牌的非官方致敬作品，可加「非官方出品 ·」前缀防 IP 争议——属用户决策，不默认。
+- 版权与许可信息不受影响：本 skill 的 MIT 与致谢见 `LICENSE` / `README.md`；产出物版权归用户。
 
-1. 本目录不是 git 克隆（无 `.git` 或无任何 remote）→ 写入今天日期后跳过本节
-2. 对比版本：`git -C <本目录> rev-parse HEAD` 与**上游** HEAD——
-   - 存在 `upstream` remote（本仓库是 fork，属于这种情况）→ `git -C <本目录> ls-remote upstream HEAD`
-   - 无 `upstream` → `git -C <本目录> ls-remote origin HEAD`
-3. 无论结果如何，把今天日期写入 `.last-update-check`
-4. 两者一致 → 什么都不说；确认落后 → 先完成用户当前任务，结束后附一句「上游有更新，可用 `git -C <本目录> fetch upstream && git -C <本目录> merge upstream/master` 同步（本分支有本地二次开发提交，可能需处理冲突）」。是否更新由用户决定，不要主动执行更新
+---
+
+## 4. 版本自检（静默）
+
+读本 skill 目录下的 `.last-update-check`（一行 `YYYY-MM-DD`）。存在且距今 <30 天 → 直接干活，不提更新。
+
+到期或不存在时：
+
+1. 本目录不是 git 克隆 → 写入今天日期，跳过。
+2. 只检查**本仓库**状态：`git -C <本目录> status --short` 与 `git -C <本目录> rev-parse HEAD`。
+3. 把今天日期写入 `.last-update-check`。
+4. **不做上游版本对比、不提示合并上游**——本 skill 独立维护，无上游同步关系；发现对外部仓库的隐式依赖按缺陷处理。
+
+> 运行时副本的同步状态由 `scripts/sync_runtime.py --check` 判定，与本自检无关。
