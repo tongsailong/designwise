@@ -10,7 +10,7 @@
 [![Agent](https://img.shields.io/badge/Agent-Agnostic-blueviolet)](https://skills.sh)
 [![skills.sh](https://img.shields.io/badge/skills.sh-Compatible-green)](https://skills.sh)
 
-One job, end to end: take an App UI requirement from **product understanding** to **on-device acceptance** — GPT generates three real concept directions, Copilot picks the best one from real pixels, an HTML high-fidelity prototype validates the experience, and the result is translated into a native app and verified on a real device.
+One job, end to end: take an App UI requirement from **whole-app product understanding** to **dual engineering/design acceptance on a real device** — prompts are pre-reviewed with Copilot, GPT generates three real concept directions, Copilot decides adopt / fuse / reject from real pixels, an HTML high-fidelity prototype passes a design-quality review on real screenshots, and the design intent (not just its colours) lands in a native app, verified with an old ↔ HTML ↔ new three-way comparison.
 
 ```bash
 npx skills add tongsailong/designwise
@@ -22,8 +22,8 @@ npx skills add tongsailong/designwise
 
 > **TL;DR**
 > **What it is** — a design skill that serves **App UI only**: information architecture, navigation, layout, visual and interaction specs, HTML high-fidelity prototype, native translation, image asset generation and reuse, on-device acceptance.
-> **How it runs** — one standard flow, no L1/L2/L3 tiers: product understanding → 3 GPT concept directions → Copilot direction selection → HTML prototype → assets → native implementation → on-device acceptance.
-> **What cannot be skipped** — the three real concept images and Copilot's selection based on real pixels. Local iteration reuses the chosen direction and does not re-explore.
+> **How it runs** — one standard flow, no L1/L2/L3 tiers: whole-app understanding → prompt pre-review → 3 GPT concept directions → Copilot direction decision → HTML prototype and design review → assets → native implementation → three-way on-device comparison and separate engineering/design acceptance.
+> **What cannot be skipped** — the page map for whole-app redesigns, the pre-generation prompt review, the three real concept images, Copilot's decision based on real pixels, the real-screenshot design review, and the native landing map. Local iteration reuses the chosen direction and does not re-explore.
 > **What it does not do** — slides, video, audio, infographics, posters, production web apps, backend systems.
 
 > ℹ️ **This project is an independent fork of [huashu-design](https://github.com/alchaincyf/huashu-design) (by [@alchaincyf](https://github.com/alchaincyf), MIT License).** It keeps the upstream visual methodology, style library, asset protocol and delivery chain, and preserves `LICENSE` and attribution as MIT requires (see [Upstream & credits](#upstream-project-and-credits) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)). **The fork is maintained independently**: it does not follow upstream releases, and at runtime it depends on neither upstream nor any other skill.
@@ -36,20 +36,24 @@ npx skills add tongsailong/designwise
 
 | Stage | Goal | Evidence gate |
 |---|---|---|
-| **0 Intake & product understanding** | Pin down the real need and constraints | Facts and constraints have sources; native feasibility recorded |
-| **1 Design goal & assumptions** | Fix the inputs for direction exploration | Three directions can be generated from it; no unlabelled assumptions |
-| **2 Three GPT concept directions** | Explore 3 structurally different directions in real pixels | 3 real, decodable, same-ratio images with distinguishable structure and unbroken hard constraints |
-| **3 Copilot direction selection** | Pick the best direction from real pixels | All 3 images in the request; identity check passed; verdict includes per-image differences and rationale |
-| **4 HTML high-fidelity prototype** | Turn the chosen direction into real interactive visuals | Real render; zero console errors; states/contrast/touch targets pass |
+| **0 Intake & product understanding** | Pin down the real need, the whole product scope and the constraints | Facts and constraints have sources; native feasibility recorded; whole-app redesigns have a page map covering every page/sheet |
+| **1 Design goal & assumptions** | Fix the inputs for direction exploration | Goals map to identified problems or justified keep-items; no unlabelled assumptions |
+| **2 Three GPT concept directions** | Pre-review the prompts, then explore 3 structurally different directions in real pixels | Pre-review happened and is bound to the generated version; 3 real, decodable, same-ratio images with distinguishable structure and unbroken hard constraints |
+| **3 Copilot direction selection** | Judge eligibility from real pixels, then adopt / fuse / reject | All 3 images in the request; identity check passed; one target plan or a full rejection; fusion has unified logic |
+| **4 HTML high-fidelity prototype** | Turn the chosen direction into real interactive visuals and pass the design review | Real render; zero console errors; states/contrast/touch targets pass; real-screenshot review fixed and re-verified |
 | **5 Design refinement & asset generation** | Complete the visual assets, keep them reusable | Every asset has provenance, sha256, consumers; no unresolved temp images |
-| **6 Native App implementation** | Translate the design into native UI | Build succeeds, install succeeds, app launches, key flows work |
-| **7 On-device acceptance** | Prove the result on a real device | Every acceptance item has fresh real evidence; verdict is one of three states |
+| **6 Native App implementation** | Land the design intent in native UI, not a reskin | Build/install/launch/key flows pass; key structure/hierarchy/interaction landed or justifiably kept; three-way comparison started |
+| **7 On-device acceptance** | Dual engineering and design acceptance on a real device | Every acceptance item has fresh real evidence; both lines must pass for PASS |
 
-### Three rules that never bend
+### Rules that never bend
 
-1. **The three directions must be real, structurally different, and share one set of product constraints.** All three prompts reuse the same **task block** (product / users / the page's core problem / hard constraints / prohibitions) and the same **principle translation block** (turning "useful → understandable → comfortable → meaningful" into checkable requirements for this page, not restating the principle names); only the direction block differs — layout skeleton / information organisation / visual motif. Swapping colours, spacing or corner radii is not a direction, and neither is adding or removing business behaviour. One prompt per direction, one real generation each, portrait `1024x1536` by default for App, same ratio/size/model across the three so they can be compared side by side.
-2. **Copilot judges eligibility first, then selects the direction from real pixels.** The executing agent may not pick a direction and then claim a Copilot verdict, and may not substitute text summaries, filenames or thumbnails for real images. The evidence bridge puts all three images inside the request; `CONSULT` first returns a pass/fail eligibility verdict per direction, then recommends one of the eligible directions with per-image differences, rationale, opportunity cost and risks. If all three violate key product principles or necessary constraints, Copilot **may reject them all** and give concrete prompt fixes; ZCode then regenerates only the affected directions. **Fail closed** — missing image, image not actually in the request, failed identity check, a reply admitting it cannot see the images, a generic non-committal evaluation, or picking "the least bad" without an eligibility check is not a verdict.
-3. **HTML is a prototype, not the product.** The prototype covers only the selected direction and exists to judge visuals and interaction; the final implementation must be a native app, and the prototype HTML must never be embedded into the app as the implementation.
+1. **Whole-app redesigns build a page map first; counting pages and collecting screenshots is not understanding.** For every page/sheet record the user goal, main functions, key information and data definitions, business rules, applicable states, current problems, mature experience worth keeping (with evidence) and what must be rebuilt, plus navigation and key task paths. Counts and screenshots alone do not prove understanding.
+2. **The three directions must be real, structurally different, and share one set of product constraints.** All three prompts reuse the same **task block** (product / users / the page's core problem / hard constraints / prohibitions) and the same **principle translation block** (turning "useful → understandable → comfortable → meaningful" into checkable requirements for this page, not restating the principle names); only the direction block differs — layout skeleton / information organisation / visual motif. Swapping colours, spacing or corner radii is not a direction, and neither is adding or removing business behaviour. One prompt per direction, one real generation each, portrait `1024x1536` by default for App, same ratio/size/model across the three so they can be compared side by side.
+3. **Pre-review the prompts before generating.** The three directions and their full prompts go through Copilot `CONSULT` as text evidence first: do they answer the identified product problems, do they depend on assets that do not exist, are the differences only cosmetic, does the shared block over-constrain the solution. Record "reviewed version → generated version" in `concept-prompts.md`; **generating first and reviewing afterwards is not allowed**. If CONSULT is unavailable, generation pauses (reviewed prompts can be handed to the user for external real generation).
+4. **Copilot decides from real pixels, with three exits.** The executing agent may not pick a direction and then claim a Copilot verdict, and may not substitute text summaries, filenames or thumbnails for real images. The evidence bridge puts all three images inside the request; `CONSULT` first returns a pass/fail eligibility verdict per direction, then gives **adopt / fuse into one plan / reject all**: fusion states what is kept, what is dropped and the unified hierarchy and interaction logic, and a structural fusion needs a real merged image; reject-all gives concrete prompt fixes and only the affected directions are regenerated. **Fail closed** — missing image, image not actually in the request, failed identity check, a reply admitting it cannot see the images, a generic non-committal evaluation, or picking "the least bad" without an eligibility check is not a verdict.
+5. **A green mechanical check is not a finished design.** Stage 4 also reviews the current real render screenshots (sheets, empty/error, large font) via `CONSULT`: functional expression, IA and hierarchy, core operations, the four principles, page/state/component completeness, direction intent, and pretty-but-impractical issues; fixes are re-verified with new screenshots.
+6. **HTML is a prototype, not the product; it is the design target, not a colour reference.** The final implementation must be a native app, and the prototype HTML must never be embedded into the app as the implementation. Native work may rewrite page structure, component hierarchy, IA and interaction; **minimal diff is not a design reason**, and swapping tokens is not landing the design. Keeping an old structure is valid only with real grounds (user task, readability, platform convention, mature experience) — "the code is reusable / tests lock it" is not a design reason.
+7. **Acceptance has two lines and a three-way comparison.** Engineering acceptance (behaviour, business rules, tests, build, real run) and design acceptance (product goals, page completeness, principles, prototype intent, on-device experience) get separate conclusions; both must pass for an overall PASS. Old app ↔ HTML ↔ new device real evidence checks improvement and regression. **Code volume, visual-change percentage, page counts and test counts may never substitute for design success.**
 
 **Local iteration** (copy, spacing, a single component state, bug, adaptation, replacing a registered asset) reuses `design-brief.md` + the three-image record + `direction-approved.md` and resumes at stage 4 without re-exploring directions. **Substantive change** (new/replaced design tokens or visual motif, IA or navigation change, cross-screen visual system, brand exploration, new core flow) is treated as a new task and runs 0–7 again.
 
@@ -92,13 +96,13 @@ Image generation is built in and depends on no other skill: `scripts/zcode_image
 
 | Capability | Deliverables |
 |---|---|
-| Product understanding & design goal | `design-brief.md` (need, constraint tiers, success criteria, non-goals, assumptions) |
-| Direction exploration | 3 real concept images + `concept-prompts.md` + `concept-index.json` (with sha256) |
-| Direction verdict | `direction-approved.md` (Copilot recommendation, per-image differences, rationale, risks, adopted direction) |
-| High-fidelity prototype | `prototype/index.html` (single-page inline React, libraries vendored locally, real device frame, clickable), baseline screenshots, `prototype-notes.md` |
+| Product understanding & design goal | `design-brief.md` (page map, goal → problem mapping, constraint tiers, success criteria, non-goals, assumptions) |
+| Direction exploration | Prompt pre-review record + 3 real concept images + `concept-prompts.md` + `concept-index.json` (with sha256) |
+| Direction verdict | `direction-approved.md` (per-image eligibility, adopt / fuse / reject, target plan, rationale, risks) |
+| High-fidelity prototype | `prototype/index.html` (single-page inline React, libraries vendored locally, real device frame, clickable), baseline screenshots, design review record, `prototype-notes.md` |
 | Asset system | `assets/`, `asset-manifest.json`, generation and reuse log |
 | Native handoff | Native package (structure / tokens / states / assets / adaptation / accessibility / baselines) |
-| Native implementation & acceptance | Build and install logs, on-device screenshots/recordings, `verification-report.md` |
+| Native implementation & acceptance | Build and install logs, on-device screenshots/recordings, landing map, `verification-report.md` (separate engineering and design verdicts) |
 
 **In scope**: iOS / Android mobile app interface and interaction design, and carrying it through to a native app.
 
@@ -164,8 +168,9 @@ git clone https://github.com/tongsailong/designwise.git ~/.claude/skills/designw
 
 - **App UI only.** For slides, video, audio, infographics or a production web app, this is not the right tool.
 - **Concept images are not UI truth.** Text, fake controls and impossible effects in them must be corrected against real product and platform rules, with corrections recorded in `prototype-notes.md`.
+- **A green mechanical check is not design acceptance.** All scripts passing only proves nothing broke; design quality needs the real-screenshot review, and landing needs the real three-way comparison.
 - **CSS px in the HTML prototype cannot prove Android 48dp.** dp/sp must be measured natively against density and font scaling.
-- **On-device evidence cannot be substituted.** If the device is offline or the toolchain is missing, mark `PARTIAL` / `BLOCKED` — never "passed".
+- **On-device evidence cannot be substituted.** If the device is offline or the toolchain is missing, mark `PARTIAL` / `BLOCKED` — never "passed". A missing old-version baseline is reported as a gap; never downgrade-install, clear data or restore an old package to fabricate one.
 - **A completely blank brand designed from nothing will lose quality.** Drawing hi-fi out of thin air is a last resort.
 
 ---

@@ -13,8 +13,12 @@
 6. **产品原则**：四层顺序、游戏化可选、专业密度正当、自主感三视角不是功能清单。
 7. **质量与证据**：真实证据、dp/sp 与 48dp、业务断言独立、三态结论、真机装包入口。
 8. **角色边界**：本 skill 是方法与质量规范，ZCode 原生 Agent 是执行主体。
+9. **V2 五项升级**：整机页面地图（数量与截图不算理解）、生图前提示词预审、方向三出口与融合逻辑、
+   原型真实截图设计评审、原生落地映射与旧版↔HTML↔新版三方对照、工程/设计双验收。
 
 这些是文档契约测试：读真实文件、检查真实规则内容与跨文档一致性，不执行渲染、不调模型。
+**它们只能证明规则被写下、关键依赖没有被删掉，不能证明真实设计质量**——设计是否真的变好，
+只能由真实概念图、真实截图评审、真实三方对照与真机证据判断，不能拿本文件的绿色当设计效果验证。
 """
 import os
 import re
@@ -123,6 +127,18 @@ def doc_paths():
     return paths
 
 
+def stage_block(skill, num):
+    """Text of one stage detail block in SKILL.md, ending at the next stage or section."""
+    lines = skill.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith("**阶段 %d " % num))
+    end = len(lines)
+    for i in range(start + 1, len(lines)):
+        if lines[i].startswith("**阶段 ") or lines[i].startswith("## "):
+            end = i
+            break
+    return "\n".join(lines[start:end])
+
+
 def stage_table_rows(skill):
     """Stage rows of the flow table in §2."""
     body = skill[skill.index("## 2. 唯一标准流程"):skill.index("### 2.1")]
@@ -174,12 +190,11 @@ class SingleFlowContractTests(unittest.TestCase):
         workflow = read("references/app-visual-workflow.md")
         self.assertIn("| G3 方向 |", workflow)
         self.assertIn("| G4 原型 |", workflow)
-        for stale in ("不替代 G4", "不声称 G4"):
-            self.assertNotIn(stale, self.skill, "Gate 编号残留：%s" % stale)
+        # G4 现在是原型设计评审门，「不得声称 G4 通过」是正确用法；旧编号残留只查路径级引用。
+        self.assertIn("**不得声称 G4 通过**", self.skill)
         for path in doc_paths():
             text = read(path)
-            for stale in ("不替代 G4", "不声称 G4", "design-demos/concepts/"):
-                self.assertNotIn(stale, text, "%s 残留：%s" % (path, stale))
+            self.assertNotIn("design-demos/concepts/", text, "%s 残留旧产物路径" % path)
 
     def test_05_new_task_cannot_skip_stage_2_or_3(self):
         block = section(self.skill, "2.1 完整流程 vs 局部迭代")
@@ -653,6 +668,310 @@ class DocConsistencyContractTests(unittest.TestCase):
         for gone in ("references/gpt-visual-workflow.md", "references/materials.md",
                      "scripts/render-video.js", "scripts/design-gate-check.js"):
             self.assertNotIn(gone, checker, "check-skill 仍要求已下线文件：%s" % gone)
+
+
+class WholePageUnderstandingContractTests(unittest.TestCase):
+    """整机重设计必须从全页面产品理解开始，数量与截图不构成理解。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.workflow = read("references/app-visual-workflow.md")
+        cls.routing = read("references/routing-table.md")
+
+    def test_01_whole_app_redesign_requires_page_map(self):
+        block = stage_block(self.skill, 0)
+        self.assertIn("**整机 / 多页面系统级重设计：先建页面地图，再谈方向**", block)
+        self.assertIn("页面 `P1…`、弹层/状态 `S1…`", block)
+        self.assertIn("范围内全部用户可见页面、弹窗、底部弹层、Widget/通知与重要交互状态", block)
+        self.assertIn("**数量与截图不能单独证明理解完成**", block)
+
+    def test_02_page_map_has_per_page_judgement_fields(self):
+        block = stage_block(self.skill, 0)
+        for needle in ("用户目标", "主要功能", "关键信息与数据口径", "业务规则",
+                       "值得保留的成熟体验（附依据）", "确认要重构的部分",
+                       "导航与信息架构、关键任务路径", "空 / 加载 / 错误 / 权限 / 大字体"):
+            self.assertIn(needle, block, "页面地图缺少：%s" % needle)
+
+    def test_03_missing_facts_are_graded(self):
+        block = stage_block(self.skill, 0)
+        self.assertIn("关键事实缺失为 `PARTIAL`", block)
+        self.assertIn("无法取得且影响方向判断为 `BLOCKED`", block)
+
+    def test_04_gate_zero_rejects_count_as_understanding(self):
+        row = next(r for r in stage_table_rows(self.skill) if r.startswith("| **0 "))
+        self.assertIn("数量与截图不能单独证明理解", row)
+
+    def test_05_workflow_has_page_map_template(self):
+        block = section(self.workflow, "1.4 页面地图（整机 / 多页面重设计必需）")
+        self.assertIn("只有数量和截图不能证明理解完成", block)
+        # 模板表格位于 fenced markdown 块内，标题行会提前截断 section()，因此全文匹配。
+        self.assertIn("| id | 用户目标 | 主要功能 | 关键信息与数据口径 | 业务规则 | 适用状态 | 当前主要问题 | 值得保留（依据） | 要重构 |", self.workflow)
+
+    def test_06_routing_sends_whole_app_designs_to_page_map(self):
+        self.assertIn("整机 / 多页面系统级重设计", self.routing)
+        self.assertIn("不得用页面数量与截图代替理解", self.routing)
+
+
+class PromptPreReviewContractTests(unittest.TestCase):
+    """阶段 2 的提示词预审是生图前硬前置，只审文本、不选方向。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.workflow = read("references/app-visual-workflow.md")
+        cls.routing = read("references/routing-table.md")
+        cls.adapters = read("references/runtime-adapters.md")
+
+    def test_01_pre_review_is_mandatory_before_generation(self):
+        block = stage_block(self.skill, 2)
+        self.assertIn("**生图前必须先做提示词预审（阶段内动作顺序，不新增 Gate）**", block)
+
+    def test_02_pre_review_uses_text_evidence_only(self):
+        block = stage_block(self.skill, 2)
+        self.assertIn("**不得伪造图片证据**", block)
+        self.assertIn("bridge_evidence.py", block)
+        self.assertIn("call_gpt.py --mode CONSULT", block)
+
+    def test_03_pre_review_does_not_select_direction(self):
+        block = stage_block(self.skill, 2)
+        self.assertIn("**本步不选方向**", block)
+        self.assertIn("不得要求 Copilot 在生图前定方向", block)
+
+    def test_04_review_is_bound_to_generated_version(self):
+        block = stage_block(self.skill, 2)
+        self.assertIn("「预审版本 → 实际生成版本」", block)
+        self.assertIn("**过度锁死解法**", block)
+        row = next(r for r in stage_table_rows(self.skill) if r.startswith("| **2 "))
+        self.assertIn("预审已发生且修订绑定生成版本", row)
+
+    def test_05_unavailable_pre_review_pauses_generation(self):
+        block = stage_block(self.skill, 2)
+        self.assertIn("暂停本任务概念图生成并报 `BLOCKED`", block)
+        self.assertIn("已预审", block)
+        self.assertIn("阶段 2 提示词预审", self.adapters)
+        self.assertIn("预审不可用则暂停生成", self.adapters)
+
+    def test_06_generating_before_review_is_forbidden(self):
+        block = section(self.workflow, "3.4 生图前 CONSULT 预审（硬前置）")
+        self.assertIn("**不允许先出图再补审**", block)
+        self.assertIn("不新增 Gate", block)
+
+    def test_07_review_line_is_not_formal_review(self):
+        review_section = self.routing.split("## 4. 评审线")[1]
+        self.assertIn("提示词预审", review_section)
+        self.assertIn("不是正式 REVIEW", review_section)
+
+
+class DirectionExitContractTests(unittest.TestCase):
+    """方向决策支持采用 / 融合 / 全部拒绝，融合必须有统一逻辑与补图条件。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.workflow = read("references/app-visual-workflow.md")
+        cls.adapters = read("references/runtime-adapters.md")
+
+    def test_01_three_exits_are_explicit(self):
+        block = stage_block(self.skill, 3)
+        self.assertIn("三种出口", block)
+        for needle in ("**直接采用**", "**融合**", "**全部拒绝**", "**单一目标方案**"):
+            self.assertIn(needle, block)
+
+    def test_02_fusion_states_kept_dropped_and_unified_logic(self):
+        block = stage_block(self.skill, 3)
+        for needle in ("说明取用哪些元素、舍弃哪些", "融合后的层级与交互逻辑",
+                       "**保留 / 舍弃 / 整体逻辑**"):
+            self.assertIn(needle, block)
+
+    def test_03_structural_fusion_requires_real_merged_image(self):
+        block = stage_block(self.skill, 3)
+        self.assertIn("**融合的补图条件**", block)
+        self.assertIn("**必须补一张真实整合概念图并再次送检**", block)
+        self.assertIn("不为仪式强制重出图", block)
+
+    def test_04_collage_is_not_fusion(self):
+        self.assertIn("拼图式堆叠", self.skill)
+        self.assertIn("视为方向未定", self.skill)
+        self.assertIn("不允许把三个方向的元素拼成无逻辑的拼图", self.workflow)
+        self.assertIn("不得把拼图当融合", self.adapters)
+        self.assertIn("拼图不算融合", read("references/workflow.md"))
+
+
+class PrototypeDesignReviewContractTests(unittest.TestCase):
+    """阶段 4 的设计质量评审必须基于真实截图，渲染成功不等于通过。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.workflow = read("references/app-visual-workflow.md")
+        cls.critique = read("references/critique-guide.md")
+
+    def test_01_design_review_is_required_after_render(self):
+        block = stage_block(self.skill, 4)
+        self.assertIn("**设计质量评审（渲染之后、交付之前，CONSULT）**", block)
+        self.assertIn("机械校验通过不等于设计完成", block)
+
+    def test_02_review_checks_expression_hierarchy_and_completeness(self):
+        block = stage_block(self.skill, 4)
+        for needle in ("产品功能是否正确表达", "信息架构、视觉层级与核心操作",
+                       "关键页面、状态、组件是否完整", "是否遵循已定目标方案"):
+            self.assertIn(needle, block)
+
+    def test_03_review_catches_pretty_but_impractical(self):
+        block = stage_block(self.skill, 4)
+        for needle in ("漂亮但不实用", "信息被过度隐藏", "无价值的装饰"):
+            self.assertIn(needle, block)
+
+    def test_04_render_success_is_not_gate_pass(self):
+        block = stage_block(self.skill, 4)
+        self.assertIn("不得声称 G4 通过", block)
+        row = next(r for r in stage_table_rows(self.skill) if r.startswith("| **4 "))
+        self.assertIn("渲染成功本身不算通过", row)
+
+    def test_05_no_fixed_rounds_and_review_is_recorded(self):
+        block = stage_block(self.skill, 4)
+        self.assertIn("不设固定轮次", block)
+        self.assertIn("送入截图清单与 sha256", block)
+
+    def test_06_workflow_and_critique_expand_the_review(self):
+        block = section(self.workflow, "5.7 设计质量评审（CONSULT，渲染之后）")
+        self.assertIn("真实渲染截图", block)
+        self.assertIn("机械校验", block)
+        review = section(self.critique, "原型设计评审（阶段 4 · CONSULT）", level=2)
+        self.assertIn("真实渲染截图", review)
+        section(self.critique, "三方落地对照（阶段 6–7）", level=2)
+
+
+class NativeLandingContractTests(unittest.TestCase):
+    """HTML 是设计目标，不是配色参考；落地要有映射与三方真实对照。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.workflow = read("references/app-visual-workflow.md")
+        cls.handoff = read("references/design-handoff.md")
+        cls.verification = read("references/verification.md")
+        cls.routing = read("references/routing-table.md")
+
+    def test_01_html_is_the_design_target_not_a_colour_reference(self):
+        block = stage_block(self.skill, 6)
+        self.assertIn("**设计落地不是换皮**", block)
+        self.assertIn("不是配色参考", block)
+        for needle in ("最小代码改动", "旧页面现成可复用", "契约测试锁住了"):
+            self.assertIn(needle, block)
+
+    def test_02_landing_map_is_per_page_or_shared_structure(self):
+        block = stage_block(self.skill, 6)
+        self.assertIn("**落地映射（逐页 / 逐公共结构）**", block)
+        self.assertIn("**构建成功、token 替换、全局换圆角或底色都不能替代这张表。**", block)
+        row = next(r for r in stage_table_rows(self.skill) if r.startswith("| **6 "))
+        self.assertIn("token 替换与构建成功不能替代落地证明", row)
+
+    def test_03_three_way_comparison_is_mandatory(self):
+        block = stage_block(self.skill, 6)
+        self.assertIn("**三方真实视觉对照（旧版 App ↔ HTML 目标原型 ↔ 新版真机 App）**", block)
+        self.assertIn("不得只看首页就推断次级页已落地", block)
+        self.assertIn("不得为补基线擅自降级安装、清数据或恢复旧包", block)
+
+    def test_04_retention_needs_real_grounds(self):
+        block = stage_block(self.skill, 6)
+        self.assertIn("保留必须有依据（用户任务、可读性、平台惯例、成熟体验）", block)
+
+    def test_05_workflow_has_the_landing_table(self):
+        block = section(self.workflow, "7.2 设计落地映射（不是 token 替换）")
+        self.assertIn("| 页面/状态或公共结构 | 原有问题或保留依据 | HTML 目标意图 | 原生实现/保留/平台适配 | 旧/HTML/新证据引用 | 结果、偏差与修复 |", block)
+        self.assertIn("token", block)
+
+    def test_06_handoff_and_routing_carry_the_landing_rule(self):
+        self.assertIn("**落地不是换皮**", self.routing)
+        section(self.handoff, "3.4 设计目标 vs 实现自由")
+        three = section(self.handoff, "6.2 三方真实对照（旧版 App ↔ HTML 目标原型 ↔ 新版真机 App）")
+        self.assertIn("旧版", three)
+        self.assertIn("构建/安装/启动成功不等于设计落地", self.verification)
+
+
+class DualAcceptanceContractTests(unittest.TestCase):
+    """验收分工程与设计两条线，两项都达标才 PASS。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.workflow = read("references/app-visual-workflow.md")
+        cls.verification = read("references/verification.md")
+        cls.readme_zh = read("README.md")
+        cls.readme_en = read("README.en.md")
+
+    def test_01_two_verdicts_in_one_report(self):
+        block = stage_block(self.skill, 7)
+        self.assertIn("**同一份报告分别给两条结论，两项都达标才算整体通过**", block)
+        self.assertIn("**工程验收**", block)
+        self.assertIn("**设计验收**", block)
+
+    def test_02_design_acceptance_has_product_criteria(self):
+        block = stage_block(self.skill, 7)
+        for needle in ("产品目标达成", "页面与状态覆盖完整", "四原则落实",
+                       "原型设计意图正确实现", "真机体验达到目标"):
+            self.assertIn(needle, block)
+
+    def test_03_vanity_metrics_are_forbidden(self):
+        block = stage_block(self.skill, 7)
+        self.assertIn(
+            "**不得用代码修改量、视觉变化百分比、页面改动数量、测试数量替代设计成功**", block)
+
+    def test_04_matrix_adds_intent_and_old_comparison(self):
+        block = stage_block(self.skill, 7)
+        self.assertIn("| 设计意图落地 |", block)
+        self.assertIn("| 旧版对照与改善 |", block)
+
+    def test_05_workflow_and_verification_split_acceptance(self):
+        block = section(self.workflow, "8.1 工程与设计双验收")
+        self.assertIn("工程验收", block)
+        self.assertIn("设计验收", block)
+        v = section(self.verification, "5.1 工程验收与设计验收分开")
+        self.assertIn("两项都达标", v)
+
+    def test_06_readmes_state_the_split(self):
+        self.assertIn("工程验收", self.readme_zh)
+        self.assertIn("设计验收", self.readme_zh)
+        self.assertIn("Engineering acceptance", self.readme_en)
+        self.assertIn("design acceptance", self.readme_en)
+
+
+class ForbiddenSubstitutionContractTests(unittest.TestCase):
+    """六条负向规则：每种「廉价替代物冒充完成」都必须在文档里被显式写死。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.workflow = read("references/app-visual-workflow.md")
+        cls.routing = read("references/routing-table.md")
+
+    def test_01_page_count_cannot_prove_understanding(self):
+        self.assertIn("数量与截图不能单独证明理解", self.skill)
+
+    def test_02_review_cannot_come_after_generation(self):
+        self.assertIn("**不允许先出图再补审**", self.workflow)
+
+    def test_03_collage_cannot_stand_in_for_fusion(self):
+        self.assertIn("不允许把三个方向的元素拼成无逻辑的拼图", self.workflow)
+
+    def test_04_green_render_cannot_stand_in_for_design_review(self):
+        self.assertIn("渲染成功本身不算通过", self.skill)
+        self.assertIn("机械校验通过不等于设计完成", self.skill)
+
+    def test_05_token_swap_cannot_stand_in_for_landing(self):
+        self.assertIn("token 替换与构建成功不能替代落地证明", self.skill)
+        self.assertIn("构建成功、token 替换不算落地", self.routing)
+
+    def test_06_test_count_cannot_stand_in_for_design_success(self):
+        self.assertIn("测试数量替代设计成功", self.skill)
+
+    def test_07_these_tests_carry_their_own_limit(self):
+        # 只证明规则被写下；设计效果必须由真实概念图/截图/真机证据判断。
+        text = read("scripts/test_skill_routing.py")
+        self.assertIn("只能证明规则被写下", text)
+        self.assertIn("不能证明真实设计质量", text)
 
 
 if __name__ == "__main__":
