@@ -4,10 +4,10 @@
 守的是「流程真的只有一条、三方向与 Copilot 裁决真的不可跳过、范围真的只剩 App UI」：
 
 1. **单一流程**：`SKILL.md` 只有 0–7 八个阶段，没有任务分层，阶段表与阶段细则一一对应。
-2. **三方向**：恰好 3 个、结构性差异、一方向一 prompt、同比例同尺寸同模型、真实生图、
-   不得用 HTML/SVG/占位图冒充、单张失败只重出该方向。
-3. **Copilot 裁决**：三张图全部进入请求、`CONSULT` 而非正式 REVIEW、失败关闭五条件、
-   `direction-approved.md` 字段齐全、裁决前不得创建该文件。
+2. **三方向**：恰好 3 个、结构性差异、共用任务块与原则转译块（差异只在方向块）、一方向一 prompt、
+   同比例同尺寸同模型、真实生图、不得用 HTML/SVG/占位图冒充、单张失败只重出该方向。
+3. **Copilot 裁决**：三张图全部进入请求、`CONSULT` 而非正式 REVIEW、先判逐方向合格性再比较、
+   允许全部拒绝并重出受影响方向、失败关闭六条件、`direction-approved.md` 字段齐全、裁决前不得创建该文件。
 4. **流程分支**：局部迭代复用既有记录不重跑方向；实质变化重走 0–7。
 5. **范围**：只做 App UI；已下线的载体文档与脚本不得再被引用。
 6. **产品原则**：四层顺序、游戏化可选、专业密度正当、自主感三视角不是功能清单。
@@ -280,6 +280,40 @@ class ThreeDirectionContractTests(unittest.TestCase):
         self.assertIn("素材三态", self.assets)
         self.assertIn("概念图不得直接当生产素材", self.skill)
 
+    def test_11_prompt_carries_shared_task_and_translation_blocks(self):
+        block = self.stage2()
+        for needle in ("共用任务块与原则转译块", "**任务块**", "**原则转译块**", "只在方向块不同",
+                       "不得只写原则名称或口号", "本页核心问题"):
+            self.assertIn(needle, block, "阶段 2 缺少共用块要求：%s" % needle)
+        self.assertIn("差异只允许出现在方向块", self.workflow)
+        self.assertIn("共用块不得改写", self.workflow)
+        self.assertIn("**共用块逐字一致**", self.gen)
+
+    def test_12_history_styles_are_not_fixed_defaults(self):
+        self.assertIn("不把历史任务的风格", self.stage2())
+        self.assertIn("不构成以后任务的默认三方向", self.workflow)
+        styles = read("references/design-styles.md")
+        self.assertIn("温度不是配方", styles)
+        self.assertNotIn("C 强制注入大胆款", styles)
+        self.assertIn("不把任何历史案例固化成以后任务的默认三方向", styles)
+
+    def test_13_prompt_selfcheck_covers_shared_blocks_and_fake_data(self):
+        self.assertIn("任务块与原则转译块在三张 prompt 中逐字一致", self.workflow)
+        self.assertIn("没有「有用 / 好懂」单独成句", self.workflow)
+        self.assertIn("没有编造计数", self.workflow)
+        self.assertIn("转译块不要复述「有用/好懂/舒服/有意义」四个词本身", self.gen)
+
+    def test_14_prompt_template_has_five_parts(self):
+        for needle in ("任务块（三方向逐字共用）", "原则转译块（三方向逐字共用",
+                       "载体与比例", "方向块", "不出现外文 nameplate"):
+            self.assertIn(needle, self.gen, "生图模板缺少：%s" % needle)
+
+    def test_15_placement_requirements_are_structural(self):
+        # 2026-11-10 实测：只给纵向百分比，模型会把主按钮上提；用底部固定操作区才稳定。
+        self.assertIn("位置类要求用结构表达", self.workflow)
+        self.assertIn("固定在底部的操作区", self.workflow)
+        self.assertIn("以可见像素为准", self.workflow)
+
 
 class CopilotSelectionContractTests(unittest.TestCase):
     @classmethod
@@ -359,6 +393,37 @@ class CopilotSelectionContractTests(unittest.TestCase):
         self.assertIn("call_gpt.py", self.adapters)
         self.assertIn("不能降级的能力", self.adapters)
         self.assertIn("阶段 3 Copilot 基于真实图像裁决", self.adapters)
+
+    def test_12_eligibility_before_comparison(self):
+        text = self.stage3()
+        for needle in ("**先判合格性**", "**只在合格方向里比较**", "**允许全部拒绝**",
+                       "不得选「最不差」", "合格 / 不合格 + 具体依据"):
+            self.assertIn(needle, text, "阶段 3 缺少合格性判断要求：%s" % needle)
+
+    def test_13_all_rejected_has_a_next_step(self):
+        text = self.stage3()
+        self.assertIn("只重出受影响方向", text)
+        self.assertIn("不设固定重试轮次", text)
+        block = section(self.skill, "8. 失败处理与降级", level=2)
+        self.assertIn("三个方向全部不合格（Copilot 拒绝）", block)
+        self.assertIn("不重复无信息增量的生成", block)
+
+    def test_14_image_evidence_boundary(self):
+        text = self.stage3()
+        self.assertIn("**证据边界**", text)
+        self.assertIn("图片只能证明可见的设计表达", text)
+        self.assertIn("不因静态图无法证明运行时行为就无条件否决全部方向", text)
+
+    def test_15_request_and_record_carry_translated_constraints(self):
+        text = self.stage3()
+        self.assertIn("与三张 prompt 共用的**任务块**与**原则转译块**", text)
+        self.assertIn("未做合格性判断就直接挑「最不差」", text)
+        self.assertIn("逐方向合格性结论", text)
+        self.assertIn("需在 HTML/原生阶段验证的项", text)
+        workflow = read("references/app-visual-workflow.md")
+        self.assertIn("## 本页设计目标", workflow)
+        self.assertIn("转译块一致性", workflow)
+        self.assertIn("未做合格性判断、直接挑「最不差」", workflow)
 
 
 class ProductPrincipleContractTests(unittest.TestCase):
