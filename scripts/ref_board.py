@@ -107,7 +107,7 @@ def capture_url(url: str, shot_path: str, chrome: str, width: int, height: int,
     cmd = [
         node, CHECK_UI, "--url", url, "--shot", shot_path,
         "--width", str(width), "--height", str(height),
-        "--font-min", "10", "--chrome", chrome,
+        "--font-min", "12", "--chrome", chrome,
     ]
     if full:
         cmd.append("--full")

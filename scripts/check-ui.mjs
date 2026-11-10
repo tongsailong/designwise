@@ -6,7 +6,9 @@
  * 文字/背景计算对比度、外观指纹。不做视觉判断，也不替代 G3 方向选择与 G4 原型门。
  *
  * 用法：
- *   node scripts/check-ui.mjs --url file:///path/index.html --tap 48 --font-min 12
+ *   node scripts/check-ui.mjs --url file:///path/index.html --tap 48          # 正文档：默认 --font-min 14
+ *   node scripts/check-ui.mjs --url file:///path/index.html --font-min 12     # 标签档复核（不得低于 12）
+ *   node scripts/check-ui.mjs --url ... --font-ignore .device-status-bar      # 非产品文本单独排除并留痕
  *   node scripts/check-ui.mjs --url "file:///...?fs=13" --url "file:///...?fs=15" --tap 48
  *   node scripts/check-ui.mjs --url file:///path/index.html --shot /tmp/ref.png [--full]
  *   node scripts/check-ui.mjs --url file:///path/index.html --ledger-add 项目名 [--ledger-check 10]
@@ -31,7 +33,8 @@ const args = process.argv.slice(2);
 const urls = [];
 let tap = 48;
 let tapWidth = null;
-let fontMin = 12;
+let fontMin = 14;
+const fontIgnore = [];
 let width = 460;
 let height = 960;
 let settle = 300;
@@ -54,6 +57,7 @@ for (let i = 0; i < args.length; i += 1) {
   else if (a === '--tap') tap = Number(next());
   else if (a === '--tap-width') tapWidth = Number(next());
   else if (a === '--font-min') fontMin = Number(next());
+  else if (a === '--font-ignore') fontIgnore.push(next());
   else if (a === '--width') width = Number(next());
   else if (a === '--height') height = Number(next());
   else if (a === '--settle') settle = Number(next());
@@ -76,7 +80,10 @@ if (!urls.length && !ledgerQuery) usage(2);
 if (!Number.isFinite(tap) || tap <= 0) fail('--tap 必须是正数');
 if (tapWidth === null) tapWidth = tap;
 if (!Number.isFinite(tapWidth) || tapWidth < 0) fail('--tap-width 必须是 >= 0 的数');
-if (!Number.isFinite(fontMin) || fontMin <= 0) fail('--font-min 必须是正数');
+if (!Number.isFinite(fontMin) || fontMin < 12) {
+  fail('--font-min 不得低于 12（低于 12 一律不合格）。设备状态栏/外框等非产品文本请用 '
+    + '--font-ignore <选择器> 单独排除，不要下调全局阈值；正文档用默认 14，标签档才显式传 12');
+}
 if (shotPath && urls.length !== 1) fail('--shot 只支持单个 --url（多页请逐个调用）');
 if (fullPage && !shotPath) fail('--full 只与 --shot 一起使用');
 if (!Number.isFinite(ledgerWindow) || ledgerWindow <= 0) fail('账本窗口必须是正整数');
@@ -85,7 +92,8 @@ if (typeof WebSocket === 'undefined') fail('需要 Node >= 22（原生 WebSocket
 function usage(code) {
   process.stderr.write(
     'Usage: node scripts/check-ui.mjs --url <url> [--url <url>...] [--tap 48] [--tap-width 48] '
-    + '[--font-min 12] [--width 460] [--height 960] [--settle 300] [--chrome <path>]\n'
+    + '[--font-min 14] [--font-ignore <selector>]... [--width 460] [--height 960] '
+    + '[--settle 300] [--chrome <path>]\n'
     + '       [--shot <png> [--full]] [--ledger-add <项目名>] [--ledger-check [N]] [--ledger [N]]\n',
   );
   process.exit(code);
@@ -224,6 +232,23 @@ const EVALUATE = `(() => {
     if (r.height + 0.5 < TAP || r.width + 0.5 < minW) tapFailures.push(rec);
   }
   const fontFailures = [];
+  // 非产品文本（设备状态栏/外框等）用选择器单独排除，并回传命中项，避免「悄悄下调全局阈值」
+  const ignoreSelectors = FONT_IGNORE;
+  const fontIgnored = [];
+  const ignoredRoots = [];
+  for (const sel of ignoreSelectors) {
+    let nodes = [];
+    try {
+      nodes = Array.from(document.querySelectorAll(sel));
+    } catch {
+      nodes = [];
+    }
+    for (const n of nodes) {
+      ignoredRoots.push(n);
+      fontIgnored.push({ selector: sel, tag: n.tagName.toLowerCase(), label: label(n) });
+    }
+  }
+  const isIgnored = (el) => ignoredRoots.some((root) => root === el || root.contains(el));
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const seenFont = new Set();
   while (walker.nextNode()) {
@@ -232,6 +257,7 @@ const EVALUATE = `(() => {
     if (!text) continue;
     const el = node.parentElement;
     if (!el || !isVisible(el)) continue;
+    if (isIgnored(el)) continue;
     const cs = getComputedStyle(el);
     const size = parseFloat(cs.fontSize);
     if (!Number.isFinite(size) || size + 0.01 >= FONT_MIN) continue;
@@ -491,6 +517,7 @@ const EVALUATE = `(() => {
     title: document.title,
     tapFailures,
     fontFailures,
+    fontIgnored,
     images,
     brokenImages,
     contrastFailures,
@@ -594,7 +621,8 @@ async function checkUrl(chrome, url) {
     const params = {
       expression: EVALUATE.replaceAll('TAP_WIDTH', String(tapWidth))
         .replaceAll('TAP', String(tap))
-        .replaceAll('FONT_MIN', String(fontMin)),
+        .replaceAll('FONT_MIN', String(fontMin))
+        .replaceAll('FONT_IGNORE', JSON.stringify(fontIgnore)),
       returnByValue: true,
       awaitPromise: false,
     };
@@ -648,7 +676,11 @@ async function checkUrl(chrome, url) {
       loadError,
       loadTimedOut,
       tap: { min: tap, minWidth: tapWidth, failures: data.tapFailures || [] },
-      font: { min: fontMin, failures: data.fontFailures || [] },
+      font: {
+        min: fontMin,
+        failures: data.fontFailures || [],
+        ignored: data.fontIgnored || [],
+      },
       images: {
         total: images.length,
         broken: brokenImages.length,

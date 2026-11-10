@@ -21,8 +21,8 @@
 
 | 项 | HTML 原型（CSS px） | Android 原生（dp / 真机） |
 |---|---|---|
-| 触控目标 | `getBoundingClientRect` 覆盖 `button, a, input, textarea, select, summary, [role=button], [onclick]`，阈值按项目规格（无规格 ≥44px） | `adb shell wm density` 取密度，`uiautomator dump` 读 bounds 换算 **dp**；实际可点区域 ≥ **48×48dp** |
-| 字号 | 叶子文本节点 computed `font-size`，按项目下限；1.0 / 1.3（项目要求时 1.5）各跑一次 | `sp` + 系统 `fontScale`；真机调大字体后复看关键屏 |
+| 触控目标 | `getBoundingClientRect` 覆盖 `button, a, input, textarea, select, summary, [role=button], [onclick]`；阈值按项目规格，无规格时按目标平台取 **Android 原型 ≥48 CSS px / iOS 原型 ≥44 CSS px** | `adb shell wm density` 取密度，`uiautomator dump` 读 bounds 换算 **dp**；实际可点区域 ≥ **48×48dp** |
+| 字号 | 叶子文本节点 computed `font-size`：正文 ≥14、标签/注释 ≥12，两档分别跑（见下方命令）；1.0 / 1.3（项目要求时 1.5）各跑一次 | `sp` + 系统 `fontScale`；真机调大字体后复看关键屏 |
 | 对比度 | `scripts/check-contrast.py` 三档（装饰项单独标注） | 同一 token 值；关键项用真机截图复核 |
 | 横向溢出 | `scrollWidth <= clientWidth + 1` | 真机确认无截断、无被导航栏/键盘遮挡 |
 | 交互 | 真实点击/输入 + 结果断言；控制台 0 error、0 未捕获异常 | 真机点击/返回/滚动；崩溃、ANR、回退栈证据 |
@@ -32,10 +32,21 @@
 
 ```bash
 # 页面级客观采集：触控/字号/对比度/溢出/破图
+# ① 正文档（默认 14）：正文、列表项、说明文字都不得低于此值
+node scripts/check-ui.mjs --url <file:///...> --tap 48
+# ② 标签档（12）：只在 ① 报出 12–13px 的文本时复核，确认它确实是标签/注释而不是正文
 node scripts/check-ui.mjs --url <file:///...> --tap 48 --font-min 12
+# 非产品文本（设备状态栏/导航条，由设备框渲染）单独排除，命中项会写进 JSON 的 font.ignored
+node scripts/check-ui.mjs --url <file:///...> --tap 48 --font-ignore '[data-dw-chrome]'
 ```
 
+**两档的关系**：② 通过只证明「没有低于 12 的文本」，**不构成正文 ≥14 的证明**；① 报出的正文级失败不得用 ② 洗掉。**低于 12 一律不合格**，不存在「标签可以到 11」的档位。正文档与标签档的实际判定要在报告里分开写（`fontMin` 与报出的文本清单一起留档）。
+
+🔴 **非产品文本不计入产品字号，但不得用「下调全局阈值」处理**：设备状态栏、电池百分比、导航条由 `assets/*_frame.jsx` 渲染，属于设备外框而不是产品文案（`batteryText` 本身就是 11px）。这类文本用 `--font-ignore <选择器>` 排除——脚本会拒绝 `--font-min < 12`，并把命中的选择器与文字回传到 `font.ignored`；报告里必须列出排除项，**只写「阈值 11 通过」不成立**，因为它同时也放过了 11px 的产品正文。
+
 **边界**：只检查当前 URL 的可见状态；弹层、空态、错误态、折叠区要先导航/展开，或用项目交互脚本覆盖，不能只看首页。
+
+**历史原型（本规则生效前产出）实测不通过时按发现记录**：写进报告并标注产出时间，不追认为通过，也不为消红下调阈值；只有该原型仍是当前任务的交付物时才做字号定向修复（直接改字号，不重跑整套流程）。
 
 ### 1.1 设计体检（客观项）
 
@@ -107,6 +118,15 @@ context.close()  # 关闭 context 后才落盘视频
 ### 2.4 状态覆盖
 
 至少覆盖：默认、加载、空、错误、数据不足；输入类页面加键盘弹出、校验错误、提交中、提交失败。只截首屏等于没验。
+
+### 2.5 产物一致性自检（只读，不替代设计判断）
+
+```bash
+python3 scripts/check-deliverables.py --task-dir design-demos/<task> --stage 7
+python3 scripts/check-deliverables.py --task-dir design-demos/<task> --stage 4 --skip-artifacts   # 局部迭代：只校验已存在记录
+```
+
+检查：阶段产物是否存在（`asset-manifest.json` 按「有素材才必需」处理，存在才校验）、`concept-index.json` / `direction-approved.md` 里的路径与 sha256 是否对应真实文件、决策出口与基线状态是否合法（实施基线唯一性**按当前任务判定**：同一任务含嵌套记录只能有一个「实施基线」，不同任务各自有基线不互斥）、`asset-manifest.json`（复用 `asset_manifest.py verify`）、`prototype-notes.md` 记录的截图指纹、阶段 7 是否分开给出双验收结论。退出码 0 只表示**机械一致**：一致 ≠ 设计通过，脚本不判断语义、不裁定对比度例外、不按修改时间猜「过期」；发现不一致由执行方改产物或记录，脚本不改任何文件。
 
 ---
 

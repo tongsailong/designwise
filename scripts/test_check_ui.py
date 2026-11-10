@@ -347,6 +347,54 @@ class CheckUiTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2, proc.stderr)
         self.assertIn("--shot", proc.stderr)
 
+    def test_font_min_floor_and_default(self):
+        """正文档默认 14；低于 12 的全局阈值是用法错误，只能按选择器排除非产品文本。"""
+        thirteen = self.clean_page("f13.html", "<p class='l'>13px 正文档不该出现</p>",
+                                   ".l{font-size:13px}")
+        default_proc, default_data = self.run_check_default_min(thirteen)
+        self.assertEqual(default_proc.returncode, 1, default_proc.stderr)
+        self.assertEqual(default_data["reports"][0]["font"]["min"], 14)
+        self.assertEqual(len(default_data["reports"][0]["font"]["failures"]), 1)
+
+        label_proc, label_data = self.run_check(thirteen)
+        self.assertEqual(label_proc.returncode, 0, label_proc.stderr)
+        self.assertEqual(label_data["reports"][0]["font"]["min"], 12)
+
+        bad = subprocess.run(
+            [NODE, SCRIPT, "--url", thirteen, "--font-min", "11", "--chrome", CHROME],
+            capture_output=True, text=True, timeout=180,
+        )
+        self.assertEqual(bad.returncode, 2, bad.stderr)
+        self.assertIn("不得低于 12", bad.stderr)
+        self.assertIn("--font-ignore", bad.stderr)
+
+    def test_font_ignore_scopes_device_chrome_and_leaves_trace(self):
+        """设备栏等非产品文本按选择器排除并回传命中项；产品文本仍按阈值判。"""
+        url = self.clean_page(
+            "chrome.html",
+            "<div data-dw-chrome='status-bar'><span class='bat'>100%</span></div>"
+            "<p class='body'>正文</p>",
+            ".bat{font-size:11px}",
+        )
+        plain, plain_data = self.run_check(url)
+        self.assertEqual(plain.returncode, 1, plain.stderr)
+        self.assertEqual(len(plain_data["reports"][0]["font"]["failures"]), 1)
+
+        scoped, data = self.run_check(url, extra=["--font-ignore", "[data-dw-chrome]"])
+        self.assertEqual(scoped.returncode, 0, scoped.stderr)
+        font = data["reports"][0]["font"]
+        self.assertEqual(font["failures"], [])
+        self.assertEqual(len(font["ignored"]), 1)
+        self.assertEqual(font["ignored"][0]["selector"], "[data-dw-chrome]")
+        self.assertIn("100%", font["ignored"][0]["label"])
+
+    def run_check_default_min(self, url):
+        cmd = [NODE, SCRIPT, "--url", url, "--tap", "48", "--chrome", CHROME]
+        env = dict(os.environ)
+        env["DESIGNWISE_HOME"] = os.path.join(self.tmp, "home")
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=180, env=env)
+        return proc, json.loads(proc.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

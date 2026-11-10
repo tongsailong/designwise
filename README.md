@@ -158,7 +158,7 @@ git clone https://github.com/tongsailong/designwise.git ~/.claude/skills/designw
 | 依赖 | 用途 |
 |---|---|
 | Node.js | `scripts/check-ui.mjs`（结构/溢出/图片/对比度采集，`--shot` 截图，`--ledger-*` 外观账本；无 npm 依赖）、Playwright 浏览器验证 |
-| Python 3 | `scripts/zcode_image.py`（真实生图）、`scripts/verify.py`（Playwright 渲染与截图）、`scripts/check-contrast.py`、`scripts/asset_manifest.py`、`scripts/ref_board.py`（参考板，需 Chrome）、`scripts/extract_grid.py` / `contact_sheet.py` / `chroma_key.py`（图片处理）、`scripts/check-skill.py`；Pillow（图片读写，可选但推荐） |
+| Python 3 | `scripts/zcode_image.py`（真实生图）、`scripts/verify.py`（Playwright 渲染与截图）、`scripts/check-contrast.py`、`scripts/asset_manifest.py`、`scripts/check-deliverables.py`（产物一致性只读自检）、`scripts/ref_board.py`（参考板，需 Chrome）、`scripts/extract_grid.py` / `contact_sheet.py` / `chroma_key.py`（图片处理）、`scripts/check-skill.py`；Pillow（图片读写，可选但推荐） |
 | Playwright + Chromium | HTML 原型真实渲染、点击测试与基准截图 |
 | Android SDK / Xcode | 原生构建；真机装包只走宿主授权的安装入口（见 [SECURITY.md](SECURITY.md)） |
 

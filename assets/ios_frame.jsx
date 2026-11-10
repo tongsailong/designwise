@@ -142,7 +142,7 @@ function IosFrame({
         background: darkMode ? '#000' : '#fff',
       }}>
         {showStatusBar && (
-          <div style={{ ...iosFrameStyles.statusBar, color: textColor }}>
+          <div data-dw-chrome="status-bar" style={{ ...iosFrameStyles.statusBar, color: textColor }}>
             <span>{time}</span>
             <div style={iosFrameStyles.statusIcons}>
               <div style={iosFrameStyles.signalIcon}>
@@ -170,7 +170,7 @@ function IosFrame({
           </div>
         )}
 
-        {showDynamicIsland && <div style={iosFrameStyles.dynamicIsland} />}
+        {showDynamicIsland && <div data-dw-chrome="dynamic-island" style={iosFrameStyles.dynamicIsland} />}
 
         <div style={iosFrameStyles.content}>
           {children}

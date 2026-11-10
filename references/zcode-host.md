@@ -48,19 +48,19 @@ python3 scripts/zcode_vision.py --confirm-gpt-review \
 
 ---
 
-## 3. 本机能力现状（2026-11-09 实测）
+## 3. 能力核验方式（现场探测，不记录快照）
 
-| 能力 | 状态 |
-|---|---|
-| 真实生图 | ✅ 已验证出图（PNG 经 sha256 与完整性校验） |
-| Copilot CONSULT | ✅ 已验证返回（模型身份核验通过，审计日志落盘） |
-| HTML 渲染 | ✅ 本机有 `~/.cache/ms-playwright/chromium-1243`；系统 python **缺 playwright**，`/tmp/dw-venv/bin/python` 与仓库 `node_modules/playwright` 可用 |
-| 图片处理 | ✅ Pillow 10.2.0 |
-| 对比度校验 | ✅ 纯 stdlib，`scripts/check-contrast.py` |
-| 真机 | ⚠️ 按 `adb devices` 现场核实；本次检查时无在线设备。装包只走 `adb-auto-install.sh` |
-| 视频/音频/PPT 导出 | ❌ 已移出范围，相关脚本不再随本 skill 分发 |
+本文件**不记录任何机器的能力快照**：路径、Python 环境、浏览器版本与设备连接状态都随机器与时间变化，写进分发文档会在其他机器上直接误导。执行前按下表核验，结论以当场输出为准。
 
-> 状态随环境变化，执行前用 `--health` / `adb devices` / 实际渲染现场核实，不沿用本文快照。
+| 能力 | 核验命令 | 失败时 |
+|---|---|---|
+| 真实生图 | `python3 scripts/zcode_image.py --health`，再真实出一张 | 报告限制并暂停生图，不换链路冒充 |
+| Copilot CONSULT | 证据桥接 + `call_gpt.py` 一次真实调用，看审计 `model_identity_ok` | 停用该判断，按失败关闭处理 |
+| HTML 渲染 | `node scripts/check-ui.mjs <file>`；需要 Playwright 时先 `import playwright` 试导入 | 用可用的解释器/浏览器路径，或报告渲染缺口 |
+| 图片处理 | `python3 -c "import PIL; print(PIL.__version__)"` | 用 `scripts/` 里不依赖 Pillow 的路径，或报告缺口 |
+| 对比度 | `python3 scripts/check-contrast.py <pairs>`（纯 stdlib） | 视为验证工具缺失，不声称已测 |
+| 真机 | `adb devices` 现场核对 | 无设备 → `PARTIAL` / `BLOCKED`；装包只走 `adb-auto-install.sh` |
+| 视频/音频/PPT 导出 | 不需要核验 | 已移出范围，相关脚本不随本 skill 分发 |
 
 ---
 

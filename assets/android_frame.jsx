@@ -108,7 +108,7 @@ function AndroidFrame({
         height,
         background: darkMode ? '#000' : '#fff',
       }}>
-        <div style={{ ...androidFrameStyles.statusBar, color: textColor }}>
+        <div data-dw-chrome="status-bar" style={{ ...androidFrameStyles.statusBar, color: textColor }}>
           <span>{time}</span>
           <div style={androidFrameStyles.statusIcons}>
             <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor">
@@ -148,7 +148,7 @@ function AndroidFrame({
         </div>
 
         {navStyle === 'gesture' && (
-          <div style={androidFrameStyles.navBar}>
+          <div data-dw-chrome="nav-bar" style={androidFrameStyles.navBar}>
             <div style={{
               ...androidFrameStyles.navButton,
               width: 100,
@@ -159,7 +159,7 @@ function AndroidFrame({
         )}
 
         {navStyle === 'buttons' && (
-          <div style={androidFrameStyles.navBar}>
+          <div data-dw-chrome="nav-bar" style={androidFrameStyles.navBar}>
             <span style={{ color: textColor, fontSize: 20 }}>◁</span>
             <span style={{ color: textColor, fontSize: 16 }}>○</span>
             <span style={{ color: textColor, fontSize: 16 }}>□</span>

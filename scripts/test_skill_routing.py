@@ -13,7 +13,7 @@
 6. **产品原则**：四层顺序、游戏化可选、专业密度正当、自主感三视角不是功能清单。
 7. **质量与证据**：真实证据、dp/sp 与 48dp、业务断言独立、三态结论、真机装包入口。
 8. **角色边界**：本 skill 是方法与质量规范，ZCode 原生 Agent 是执行主体。
-9. **V2 五项升级**：整机页面地图（数量与截图不算理解）、生图前提示词预审、方向三出口与融合逻辑、
+9. **V2 六项升级**：整机页面地图（数量与截图不算理解）、生图前提示词预审、方向三出口与融合逻辑、
    原型真实截图设计评审、原生落地映射与旧版↔HTML↔新版三方对照、工程/设计双验收。
 
 这些是文档契约测试：读真实文件、检查真实规则内容与跨文档一致性，不执行渲染、不调模型。
@@ -397,6 +397,26 @@ class CopilotSelectionContractTests(unittest.TestCase):
     def test_09_gate_file_does_not_precede_verdict(self):
         self.assertIn("**`direction-approved.md` 在 Copilot 裁决前不得创建**", self.skill)
         self.assertIn("旧任务的该文件不构成新任务的授权", self.skill)
+
+    def test_09b_single_implementation_baseline(self):
+        """同一任务内只能有一个实施基线：实验推荐不得并列或自动晋升；跨任务不互斥。"""
+        self.assertIn("同一任务同一时刻只有一个实施基线", self.skill)
+        self.assertIn("实验推荐", self.skill)
+        self.assertIn("不得并列成第二个基线", self.skill)
+        self.assertIn("不因「更新」自动晋升", self.skill)
+        self.assertIn("不同任务各自有基线互不排斥", self.skill)
+
+    def test_09c_image_batch_limit_is_declared(self):
+        """CONSULT 单次图片上限与分批覆盖要求必须写在接口规则里。"""
+        self.assertIn("单次送审图片默认上限 8 张", self.skill)
+        self.assertIn("--max-images", self.skill)
+        self.assertIn("不得默认全页已审", self.skill)
+
+    def test_09d_partial_failure_does_not_force_three_green(self):
+        """允许淘汰不合格方向，但不得把「三张全绿」当目标，也不得只剩一个就免于重出。"""
+        self.assertIn("已有至少 2 个合格方向可比时", self.skill)
+        self.assertIn("不必为「三张全绿」继续生成", self.skill)
+        self.assertIn("只剩 1 个合格方向时仍须按修正建议重出受影响方向", self.skill)
 
     def test_10_blind_copilot_is_blocked_not_substituted(self):
         block = section(self.skill, "8. 失败处理与降级", level=2)
