@@ -1,7 +1,7 @@
 # 验证：HTML 原型与原生 App 的证据链
 
 > **读这份文档的时机**：原型要交付、要出基准图、要判「这版能不能过」、或验证工具本身可疑时。
-> **一句话立场**：**没跑过的不能叫通过；跑过但没断言的只能叫观察。** 验收矩阵（阶段 7）见 `references/app-visual-workflow.md`；本文给方法、命令与判据。
+> **一句话立场**：**没跑过的不能叫通过；跑过但没断言的只能叫观察。** 验收矩阵（阶段 6）见 `app-visual-workflow.md`；本文给方法、命令、判据与能力边界。
 
 ---
 
@@ -22,7 +22,7 @@
 | 项 | HTML 原型（CSS px） | Android 原生（dp / 真机） |
 |---|---|---|
 | 触控目标 | `getBoundingClientRect` 覆盖 `button, a, input, textarea, select, summary, [role=button], [onclick]`；阈值按项目规格，无规格时按目标平台取 **Android 原型 ≥48 CSS px / iOS 原型 ≥44 CSS px** | `adb shell wm density` 取密度，`uiautomator dump` 读 bounds 换算 **dp**；实际可点区域 ≥ **48×48dp** |
-| 字号 | 叶子文本节点 computed `font-size`：正文 ≥14、标签/注释 ≥12，两档分别跑（见下方命令）；1.0 / 1.3（项目要求时 1.5）各跑一次 | `sp` + 系统 `fontScale`；真机调大字体后复看关键屏 |
+| 字号 | 叶子文本节点 computed `font-size`：正文 ≥14、标签/注释 ≥12，两档分别跑（见下方命令）；`1.0 / 1.3 / 1.6 / 2.0` 各跑一次（项目有规定按项目，更严取更严） | `sp` + 系统 `fontScale`；真机调大字体后复看关键屏；设备只支持到 1.6 时 2.0 标 `NOT TESTED` 并说明 |
 | 对比度 | `scripts/check-contrast.py` 三档（装饰项单独标注） | 同一 token 值；关键项用真机截图复核 |
 | 横向溢出 | `scrollWidth <= clientWidth + 1` | 真机确认无截断、无被导航栏/键盘遮挡 |
 | 交互 | 真实点击/输入 + 结果断言；控制台 0 error、0 未捕获异常 | 真机点击/返回/滚动；崩溃、ANR、回退栈证据 |
@@ -73,7 +73,21 @@ node scripts/check-ui.mjs --url <file:///...> --tap 48 --font-ignore '[data-dw-c
 
 ### 1.3 机械通过 ≠ 设计通过
 
-`check-ui` / 对比度 / Playwright 全部绿灯，只说明「没有坏」，不说明「设计对了」。阶段 4 结束前必须再用**当前版本真实渲染截图**（含弹层与空/错/大字体）做设计评审（`references/critique-guide.md`「原型设计评审」）；阶段 6–7 必须用旧版 / HTML / 新版三方真实证据判断落地。**不得把脚本退出码 0 写成设计验收通过。**
+`check-ui` / 对比度 / Playwright 全部绿灯，只说明「没有坏」，不说明「设计对了」。阶段 3 结束前必须再用**当前版本真实渲染截图**（含弹层与空/错/大字体）做设计评审（`critique-guide.md`「原型设计评审」）；阶段 5–6 必须用旧版 / HTML / 新版三方真实证据判断落地。**不得把脚本退出码 0 写成设计验收通过。**
+
+### 1.4 测试能力边界（哪些结论不能由哪类证据得出）
+
+| 结论 | 单测/契约测试能证明吗 | 需要什么 |
+|---|---|---|
+| 业务结果（等级、金额、连续天数、排序） | **能**，且必须独立重算 | fixture + 规格重算的断言 |
+| 渲染几何（溢出、错位、遮挡） | **不能** | 真实渲染截图（多档）或真机 |
+| 绘制层级 / 谁盖住谁 | **不能** | Canvas/自定义 View 的层级核验 + 截图 |
+| 裁切与可达性（关闭按钮、键盘遮挡） | **不能** | 最大字号渲染 + 点击路径 |
+| 图标/文字颜色实际呈现 | **不能**（只能证明传了值） | 截图取色或 DevTools 实测 |
+| 交互可用（能点、有结果、可返回） | **不能**（除非真跑 UI） | Playwright/真机点击 + 断言 |
+| 设计质量（层级、气质、方向一致性） | **不能** | 逐屏看图 + 判据评审 |
+
+**这张表是 D10 类"2742 个测试全绿但几何仍错"的对策**：测试数量不能替代渲染证据；也不能用"契约测试锁住了"当设计不落地的理由。
 
 ---
 
@@ -122,11 +136,11 @@ context.close()  # 关闭 context 后才落盘视频
 ### 2.5 产物一致性自检（只读，不替代设计判断）
 
 ```bash
-python3 scripts/check-deliverables.py --task-dir design-demos/<task> --stage 7
-python3 scripts/check-deliverables.py --task-dir design-demos/<task> --stage 4 --skip-artifacts   # 局部迭代：只校验已存在记录
+python3 scripts/check-deliverables.py --task-dir design-demos/<task> --stage 6
+python3 scripts/check-deliverables.py --task-dir design-demos/<task> --stage 3 --skip-artifacts   # 局部迭代：只校验已存在记录
 ```
 
-检查：阶段产物是否存在（`asset-manifest.json` 按「有素材才必需」处理，存在才校验）、`concept-index.json` / `direction-approved.md` 里的路径与 sha256 是否对应真实文件、决策出口与基线状态是否合法（实施基线唯一性**按当前任务判定**：同一任务含嵌套记录只能有一个「实施基线」，不同任务各自有基线不互斥）、`asset-manifest.json`（复用 `asset_manifest.py verify`）、`prototype-notes.md` 记录的截图指纹、阶段 7 是否分开给出双验收结论。退出码 0 只表示**机械一致**：一致 ≠ 设计通过，脚本不判断语义、不裁定对比度例外、不按修改时间猜「过期」；发现不一致由执行方改产物或记录，脚本不改任何文件。
+检查：阶段产物是否存在（`asset-manifest.json` 按「有素材才必需」处理，存在才校验）、`concept-index.json` / `direction-approved.md` 里的路径与 sha256 是否对应真实文件、决策出口与基线状态是否合法（实施基线唯一性**按当前任务判定**）、`asset-manifest.json`（复用 `asset_manifest.py verify`）、`prototype-notes.md` 记录的截图指纹、**`coverage.json` 结构与枚举**（id 唯一、`deferred-native` 有理由且 `native_verify=true`、`not-tested`/`fail` 有说明、地图与 coverage 的 id 集合一致）、阶段 6 是否分开给出双验收结论。退出码 0 只表示**机械一致**：一致 ≠ 设计通过，脚本不判断语义、不裁定对比度例外、不按修改时间猜「过期」；发现不一致由执行方改产物或记录，脚本不改任何文件。
 
 ---
 
@@ -163,12 +177,32 @@ page.wait_for_timeout(2000)                             # 等动效 settle
 - 证据：安装成功、冷启动、首屏截图、关键流程操作截图/录屏、`logcat` 无崩溃/ANR。
 - 字体缩放、深色模式、系统返回、安全区（刘海/手势条/键盘）逐项在真机看。
 - 设备不在线 → 标 `PARTIAL`/`BLOCKED`，**不写成通过**。
-- **构建/安装/启动成功不等于设计落地**：必须逐页说明结构、层级、交互如何实现或有依据保留，并用旧版 / HTML / 新版三方真实证据检查（`references/app-visual-workflow.md` 阶段 6「设计落地映射」）。只看首页不能推断次级页已落地。
+- **构建/安装/启动成功不等于设计落地**：必须逐页说明结构、层级、交互如何实现或有依据保留，并用旧版 / HTML / 新版三方真实证据检查（`app-visual-workflow.md` 阶段 5「落地映射」）。只看首页不能推断次级页已落地。
 - 旧版基线缺失先复用既有截图/记录；**不得为补基线擅自降级安装、清数据或恢复旧包**；仍缺证如实标注。
 
 ### 5.1 工程验收与设计验收分开
 
-同一份 `verification-report.md` 给两条结论：工程验收（功能/业务规则/测试/构建/真实运行）与设计验收（产品目标/页面完整/原则/原型意图/真机体验/三方对照）。**两项都达标才是整体 PASS**；一条未达标但可修 → `PARTIAL`。不得用代码修改量、视觉变化百分比、页面改动数量或测试数量替代设计结论。
+同一份 `verification-report.md` 给两条结论：工程验收（功能/业务规则/测试/构建/真实运行）与设计验收（产品目标/`P*`/`S*`/`X*` 完整/原则/原型意图/真机体验/三方对照）。**两项都达标才是整体 PASS**；一条未达标但可修 → `PARTIAL`。不得用代码修改量、视觉变化百分比、页面改动数量或测试数量替代设计结论。
+
+### 5.2 四态定义（每一项只能落一个）
+
+| 状态 | 含义 | 必须附 |
+|---|---|---|
+| **PASS** | 本轮真实证据证明条件成立 | 证据路径/操作路径/设备与构建信息 |
+| **FAIL** | 证据证明不成立 | 现象、位置、严重度、修复方向 |
+| **NOT TESTED** | 没有条件或没跑 | 缺什么（设备档位、权限、账号、数据） |
+| **N/A** | 项目里不存在或不适用 | 为什么不存在 |
+
+**禁止**：把 NOT TESTED 写成 PASS；把"应该没问题"补位；把上一轮的通过沿用为本轮；把静态截图当成交互验证。
+
+### 5.3 `coverage.json` 交叉核对
+
+验证报告、`coverage.json`、`handoff/` 三者必须一致：
+
+- 每个 `P*`/`S*`/`X*` 在 `coverage.json` 有记录，且 `native` 状态与真机实际一致。
+- `device.<scale>` 的取值与本轮矩阵逐项对应；`fail` 与 `not-tested` 必须有说明。
+- `deferred-native` 的项在交接里有 `native_verify` 义务，并在真机阶段被验证。
+- **报告里的页数、截图数、测试数，必须能数出来**（红线条 12）。
 
 ---
 

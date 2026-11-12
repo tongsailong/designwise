@@ -3,15 +3,15 @@
 
 只检查**机器可读的声明与绑定**：阶段产物是否存在、指纹是否与真实文件一致、
 方向记录的决策出口与状态是否合法（实施基线唯一性按当前任务判定，不跨任务比较）、
-素材清单是否可验、报告是否给出双验收结论。
+`coverage.json` 的结构与 id 集合、素材清单是否可验、报告是否给出双验收结论。
 不判断设计好坏，不改任何文件，不产生第二套质量结论。
 
 明确不做：自然语言语义判断、文案与像素比较、对比度豁免裁定、
-按修改时间推断「过期」、把一致等同于设计通过。
+按修改时间推断「过期」、判断覆盖去向是否合理、把一致等同于设计通过。
 
 用法：
     python3 scripts/check-deliverables.py --task-dir design-demos/<task>
-    python3 scripts/check-deliverables.py --task-dir design-demos/<task> --stage 7
+    python3 scripts/check-deliverables.py --task-dir design-demos/<task> --stage 6
     python3 scripts/check-deliverables.py --task-dir design-demos/<task> --stage 4 --skip-artifacts
     python3 scripts/check-deliverables.py --task-dir design-demos/<task> --json --strict
 
@@ -32,13 +32,21 @@ HERE = Path(__file__).resolve().parent
 
 STAGE_ARTIFACTS = {
     0: ["design-brief.md"],
-    2: ["concept-prompts.md", "concept-index.json"],
-    3: ["direction-approved.md"],
-    4: ["prototype/index.html", "prototype-notes.md"],
-    # 阶段 5 的 asset-manifest.json 按规则「有素材才必需」，存在即校验，不作为缺项
-    6: ["handoff/README.md", "verification-report.md"],
-    7: ["verification-report.md"],
+    1: ["concept-prompts.md", "concept-index.json"],
+    # 阶段 1 的 direction-approved.md 在决策形成前不得存在，故不列为阶段产物
+    2: ["prototype/index.html", "prototype-notes.md"],
+    # 阶段 3 的评审与打磨记录写在 prototype-notes.md 内；asset-manifest.json「有素材才必需」
+    4: ["handoff/README.md"],
+    # 阶段 5 的原生工程无固定路径；verification-report.md 由阶段 5 起笔、阶段 6 定稿
+    6: ["verification-report.md"],
 }
+
+COVERAGE_SCHEMA = "designwise-coverage/v1"
+COVERAGE_KINDS = ("page", "overlay", "state")
+COVERAGE_PROTOTYPE = ("rendered", "deferred-native", "not-applicable")
+COVERAGE_NATIVE = ("todo", "done", "not-applicable")
+COVERAGE_DEVICE = ("pass", "fail", "not-tested", "not-applicable")
+MAP_ID_RE = re.compile(r"(?<![A-Za-z0-9])([PSX]\d{1,3})(?![0-9])")
 
 EXIT_CHOICES = ("采用", "融合", "全部拒绝")
 STATUS_CHOICES = ("实施基线", "实验推荐")
@@ -177,7 +185,7 @@ def check_concept_index(root: Path, task: Path, min_concepts: int, rep: Report) 
                      f"方向 {cid} 既非 PNG 也未声明宽高，无法校验尺寸一致性")
     if len(sizes) > 1:
         rep.error("concept-size-variance", str(path),
-                  "三方向图尺寸不一致：" + "，".join(f"{s[0]}x{s[1]}" for s in sizes))
+                  "方向图尺寸不一致：" + "，".join(f"{s[0]}x{s[1]}" for s in sizes))
 
 
 def _table_rows(text: str) -> list[list[str]]:
@@ -287,6 +295,146 @@ def check_baselines(task: Path, rep: Report) -> None:
                   "同一任务内同时存在多个「实施基线」：" + "，".join(sorted(baselines)))
 
 
+def _map_ids(text: str) -> set[str]:
+    return set(MAP_ID_RE.findall(text))
+
+
+def check_coverage(root: Path, task: Path, rep: Report) -> None:
+    """校验 `coverage.json` 的结构与 id 集合（不判断覆盖去向是否合理）。
+
+    结构规则来自 SKILL.md §6.3；id 集合规则来自 references/state-map.md §7：
+    地图（design-brief.md）有的 id 不能在 coverage 里消失，coverage 也不能自造 id。
+    局部迭代可没有 coverage.json——brief 无 P*/S*/X* 时不提示，有则只给 warning。
+    """
+    coverage_path = task / "coverage.json"
+    brief_path = task / "design-brief.md"
+    brief_ids = _map_ids(read_text(brief_path)) if brief_path.exists() else set()
+    if not coverage_path.exists():
+        rep.mark("coverage.json")
+        if brief_ids:
+            rep.warn("coverage-missing", str(coverage_path),
+                     "设计地图含 " + "、".join(sorted(brief_ids))
+                     + " 但无 coverage.json；整机/多页面任务必需（局部迭代可忽略）")
+        return
+    rep.mark("coverage.json")
+    try:
+        data = json.loads(coverage_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        rep.error("coverage-invalid", str(coverage_path), f"JSON 无法解析：{exc}")
+        return
+    if not isinstance(data, dict):
+        rep.error("coverage-invalid", str(coverage_path), "顶层必须是对象")
+        return
+    schema = data.get("schema")
+    if schema != COVERAGE_SCHEMA:
+        rep.error("coverage-schema", str(coverage_path),
+                  f"schema 必须是 {COVERAGE_SCHEMA}，当前为 {schema!r}")
+    items = data.get("items")
+    if not isinstance(items, list) or not items:
+        rep.error("coverage-invalid", str(coverage_path), "缺少非空 items 数组")
+        return
+
+    scales = data.get("scales")
+    scale_set = {str(s) for s in scales} if isinstance(scales, list) else None
+
+    seen: set[str] = set()
+    coverage_ids: set[str] = set()
+    for i, item in enumerate(items):
+        if not isinstance(item, dict):
+            rep.error("coverage-item-invalid", str(coverage_path), f"items[{i}] 不是对象")
+            continue
+        cid = item.get("id")
+        if not isinstance(cid, str) or not cid.strip():
+            rep.error("coverage-item-invalid", str(coverage_path), f"items[{i}] 缺少非空 id")
+            cid = f"#{i}"
+        else:
+            cid = cid.strip()
+            coverage_ids.add(cid)
+            if cid in seen:
+                rep.error("coverage-id-duplicate", str(coverage_path), f"id 重复：{cid}")
+            seen.add(cid)
+
+        kind = item.get("kind")
+        if kind not in COVERAGE_KINDS:
+            rep.error("coverage-kind-invalid", str(coverage_path),
+                      f"{cid} 的 kind={kind!r}，只能是 {'/'.join(COVERAGE_KINDS)}")
+        proto = item.get("prototype")
+        if proto not in COVERAGE_PROTOTYPE:
+            rep.error("coverage-prototype-invalid", str(coverage_path),
+                      f"{cid} 的 prototype={proto!r}，只能是 {'/'.join(COVERAGE_PROTOTYPE)}")
+        native = item.get("native")
+        if native not in COVERAGE_NATIVE:
+            rep.error("coverage-native-invalid", str(coverage_path),
+                      f"{cid} 的 native={native!r}，只能是 {'/'.join(COVERAGE_NATIVE)}")
+
+        screens = item.get("screens")
+        if proto == "rendered":
+            if not isinstance(screens, list) or not [s for s in screens if str(s).strip()]:
+                rep.error("coverage-screens-missing", str(coverage_path),
+                          f"{cid} 标为 rendered，但 screens 为空；rendered 必须附真实屏名")
+        elif screens is not None and not isinstance(screens, list):
+            rep.error("coverage-item-invalid", str(coverage_path), f"{cid} 的 screens 必须是数组")
+        if isinstance(screens, list):
+            for s in screens:
+                if not isinstance(s, str) or not s.strip():
+                    rep.error("coverage-item-invalid", str(coverage_path),
+                              f"{cid} 的 screens 含空值或非字符串：{s!r}")
+
+        if proto == "deferred-native":
+            reason = item.get("defer_reason")
+            if not isinstance(reason, str) or not reason.strip():
+                rep.error("coverage-defer-reason-missing", str(coverage_path),
+                          f"{cid} 标为 deferred-native，但没有 defer_reason")
+            if item.get("native_verify") is not True:
+                rep.error("coverage-defer-verify-missing", str(coverage_path),
+                          f"{cid} 标为 deferred-native，但没有 native_verify: true")
+
+        rendered = item.get("scales_rendered")
+        needs_notes = False
+        if rendered is not None:
+            if not isinstance(rendered, list):
+                rep.error("coverage-item-invalid", str(coverage_path),
+                          f"{cid} 的 scales_rendered 必须是数组")
+            else:
+                for s in rendered:
+                    if scale_set is not None and str(s) not in scale_set:
+                        rep.warn("coverage-scale-unknown", str(coverage_path),
+                                 f"{cid} 的 scales_rendered 含未在 scales 声明的档位：{s!r}")
+
+        device = item.get("device")
+        if device is None:
+            device = {}
+        if not isinstance(device, dict):
+            rep.error("coverage-device-invalid", str(coverage_path),
+                      f"{cid} 的 device 必须是对象（档位 → 状态）")
+            device = {}
+        for scale, state in device.items():
+            if state not in COVERAGE_DEVICE:
+                rep.error("coverage-device-invalid", str(coverage_path),
+                          f"{cid} 在档位 {scale} 的状态 {state!r}，"
+                          f"只能是 {'/'.join(COVERAGE_DEVICE)}")
+            if state in ("fail", "not-tested"):
+                needs_notes = True
+            if scale_set is not None and str(scale) not in scale_set:
+                rep.warn("coverage-scale-unknown", str(coverage_path),
+                         f"{cid} 的 device 档位 {scale} 未在 scales 声明")
+
+        notes = item.get("notes")
+        if needs_notes and (not isinstance(notes, str) or not notes.strip()):
+            rep.error("coverage-notes-missing", str(coverage_path),
+                      f"{cid} 有 fail / not-tested 档位但没有 notes 说明缺什么条件或怎么修")
+
+    if brief_ids:
+        extra = coverage_ids - brief_ids
+        missing = brief_ids - coverage_ids
+        if extra:
+            rep.error("coverage-id-unmapped", str(coverage_path),
+                      "coverage 出现地图里没有的 id：" + "、".join(sorted(extra)))
+        if missing:
+            rep.error("coverage-id-missing", str(coverage_path),
+                      "地图里的 id 在 coverage 中消失：" + "、".join(sorted(missing)))
+
+
 def check_manifest(root: Path, task: Path, rep: Report) -> None:
     path = task / "asset-manifest.json"
     if not path.exists():
@@ -323,14 +471,14 @@ def check_prototype_notes(root: Path, task: Path, rep: Report) -> None:
 
 def check_report(task: Path, stage: int, rep: Report) -> None:
     report = task / "verification-report.md"
-    if not report.exists() or stage < 7:
+    if not report.exists() or stage < 6:
         return
     rep.mark("verification-report.md")
     text = read_text(report)
     missing = [k for k in ("工程验收", "设计验收") if k not in text]
     if missing:
         rep.error("dual-acceptance-missing", str(report),
-                  "阶段 7 需分开给出工程验收与设计验收结论，缺少：" + "、".join(missing))
+                  "阶段 6 需分开给出工程验收与设计验收结论，缺少：" + "、".join(missing))
 
 
 def check_duplicate_baselines(task: Path, rep: Report) -> None:
@@ -351,16 +499,17 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="DesignWise 产物一致性自检（只读）")
     ap.add_argument("--task-dir", required=True, help="任务目录，如 design-demos/<task>")
     ap.add_argument("--root", default=".", help="仓库根（解析记录里的相对路径用），默认当前目录")
-    ap.add_argument("--stage", type=int, default=7, help="已完成的最高阶段（0-7），默认 7")
-    ap.add_argument("--min-concepts", type=int, default=3, help="完整流程要求的方向数，默认 3")
+    ap.add_argument("--stage", type=int, default=6, help="已完成的最高阶段（0-6），默认 6")
+    ap.add_argument("--min-concepts", type=int, default=1,
+                    help="要求的最少方向数（V3 按分歧决定 1-3），默认 1")
     ap.add_argument("--json", action="store_true", help="输出机器可读结果")
     ap.add_argument("--skip-artifacts", action="store_true",
                     help="跳过阶段产物存在性检查（局部迭代或只需校验已存在记录时）")
     ap.add_argument("--strict", action="store_true", help="warning 也计入失败")
     args = ap.parse_args()
 
-    if not 0 <= args.stage <= 7:
-        print("check-deliverables: --stage 必须在 0-7", file=sys.stderr)
+    if not 0 <= args.stage <= 6:
+        print("check-deliverables: --stage 必须在 0-6", file=sys.stderr)
         return 2
     root = Path(args.root).resolve()
     task = Path(args.task_dir)
@@ -375,6 +524,7 @@ def main() -> int:
     check_concept_index(root, task, args.min_concepts, rep)
     check_direction(root, task, rep)
     check_baselines(task, rep)
+    check_coverage(root, task, rep)
     check_manifest(root, task, rep)
     check_prototype_notes(root, task, rep)
     check_report(task, args.stage, rep)

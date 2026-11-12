@@ -27,3 +27,14 @@ _style-research/
 
 __pycache__/
 .last-update-check
+
+# 本地任务治理状态与验证证据（仅本机保留，不进入版本库）
+# 长期设计记录仍保留在 .zcode/v3/ 下并随仓库提交：retrospective.md、
+# upstream-absorption.md、design-decisions.md、replay.md。
+.zcode/plans/
+.zcode/v3/state.json
+.zcode/v3/plan.json
+.zcode/v3/contract.md
+.zcode/v3/criteria.md
+.zcode/v3/evidence/
+.zcode/v3/*.lock

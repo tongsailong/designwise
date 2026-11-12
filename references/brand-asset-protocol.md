@@ -227,7 +227,7 @@ curl -A "Mozilla/5.0" -L "<hero-image-url>" -o assets/<brand>-brand/product-hero
 | **Logo 完全找不到** | **停下问用户**，不要硬做（logo 是品牌识别度的根基） |
 | **产品图（实体产品）找不到** | 优先 nano-banana-pro AI 生成（以官方参考图为基底）→ 次选向用户索取 → 最后才是诚实 placeholder（灰块+文字标签，明确标注"产品图待补"） |
 | **UI 截图（数字产品）找不到** | 向用户索取自己账号的截屏 → 官方演示视频截帧。不用 mockup 生成器凑 |
-| **色值完全找不到** | 有既有 design system → 停下确认既有 token 或按现有 spec 取色；**没有既有体系 → 按设计方向顾问模式出自己的最佳方案，写进 `design-brief.md` 的可探索约束，并在方向图里体现**（方向数量与流程见 `SKILL.md`，固定三方向） |
+| **色值完全找不到** | 有既有 design system → 停下确认既有 token 或按现有 spec 取色；**没有既有体系 → 按设计方向顾问模式出自己的最佳方案，写进 `design-brief.md` 的可探索约束，并在方向图里体现**（方向数量与流程见 `SKILL.md` 与 `direction-strategy.md`，按实质分歧决定，不固定三个） |
 
 **禁止**：找不到资产就静默用 CSS 剪影/通用渐变硬做——这是协议最大的反 pattern。**宁可停下问，也不要凑**。
 

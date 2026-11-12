@@ -32,7 +32,7 @@ REQUIRED_FILES = [
     "THIRD_PARTY_NOTICES.md",
     "package.json",
     "test-prompts.json",
-    # 单流程的关键载体：缺了任一条，0–7 阶段就断链
+    # 单流程的关键载体：缺了任一条，0–6 阶段就断链
     "references/app-visual-workflow.md",
     "references/image-generation.md",
     "references/image-assets.md",
@@ -40,6 +40,13 @@ REQUIRED_FILES = [
     "references/routing-table.md",
     "references/workflow.md",
     "references/product-value.md",
+    # V3 新增：页面-状态地图、方向策略、打磨环、判据与验证
+    "references/state-map.md",
+    "references/direction-strategy.md",
+    "references/polish-loop.md",
+    "references/critique-guide.md",
+    "references/verification.md",
+    "references/app-prototype.md",
 ]
 
 REQUIRED_DIRS = ["references", "assets", "scripts", "demos"]
@@ -60,6 +67,8 @@ REQUIRED_SCRIPTS = [
     "scripts/verify.py",
     "scripts/check-ui.mjs",
     "scripts/check-contrast.py",
+    "scripts/check-deliverables.py",
+    "scripts/direction_divergence.py",
     "scripts/ref_board.py",
     "scripts/fetch_images.py",
     "scripts/extract_grid.py",

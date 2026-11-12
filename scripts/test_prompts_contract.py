@@ -3,7 +3,7 @@
 
 这份清单是人工/会话内逐条执行的断言集，没有运行期执行器，因此结构或口径漂移
 不会自己报错。本文件只校验「它能被解析、字段完整、ID 唯一、不残留已废止的旧流程
-表述、阶段引用与文件引用可解析、核心验收场景仍在」，防止清单随流程演进静默过期。
+表述、阶段与文件引用可解析、V3 核心验收场景仍在」，防止清单随流程演进静默过期。
 
 它锁结构与字面，不判断语义；措辞是否仍准确表达新流程由人工验收与独立复核确认。
 
@@ -24,12 +24,25 @@ SKILL = os.path.join(ROOT, "SKILL.md")
 
 KEYS = {"id", "prompt", "expected", "tests"}
 
-# 已废止的旧体系表述：任务分层、默认单一方案、已删除的文档与脚本。
+# 已废止的旧体系表述：任务分层、固定三方向、远程裁决通道、已删除的文档与脚本。
 DEPRECATED = (
     "L1 四步",
     "L2",
     "L3",
     "单一最佳方案",
+    "恰好 3 个方向",
+    "三张真实图片",
+    "失败关闭六条件",
+    "不重新探索三个方向",
+    "生图前预审",
+    "预审不选方向",
+    "Copilot 裁决",
+    "CONSULT",
+    "call_gpt",
+    "bridge_evidence",
+    "阶段 7",
+    "0–7",
+    "G7",
     "gpt-visual-workflow.md",
     "direction-gpt-path.md",
     "materials.md",
@@ -48,40 +61,80 @@ DEPRECATED = (
 # 核心场景必须仍被覆盖：用该场景特有的判据短语，且必须出现在**某一条目自身的
 # expected** 里，避免用泛词在别处蹭到。
 REQUIRED_COVERAGE = {
-    "三方向结构性差异": "恰好 3 个方向",
-    "Copilot 基于真实像素裁决": "三张真实图片",
-    "失败关闭": "失败关闭六条件",
-    "局部迭代不重跑方向": "不重新探索三个方向",
-    "实质变化重新探索": "实质变化",
+    "页面-状态地图": "页面-状态地图",
+    "稳定 id 与三类对象": "稳定 id",
+    "出处到 file:line": "file:line",
+    "文档规则与 UI 冲突待决": "文档规则 ≠ UI 路径",
+    "产品三问": "产品三问",
+    "原生可行性前置": "原生可行性前置检查",
+    "范围冻结": "范围冻结",
+    "方向数按分歧决定": "按实质分歧决定",
+    "单方向最优": "1 个最优方向",
+    "两到三方向": "2–3 个",
+    "全部拒绝并重做": "全部拒绝",
+    "不为展示造 A/B/C": "不为展示选项制造 A/B/C",
+    "差异在结构层": "结构层",
+    "方向卡 form 归属": "form 来自产品的哪里",
+    "产品独有结构隐喻": "产品独有的结构隐喻",
+    "提示词任务块": "任务块",
+    "原则转译块": "原则转译块",
+    "共用块逐字相同": "逐字相同",
+    "差异实测脚本": "direction_divergence.py",
+    "脚本只给事实": "脚本只给事实",
+    "失败关闭": "失败关闭",
+    "失败不进原型": "不得进入原型",
+    "ZCode 设计决策主体": "ZCode 原生 Agent",
+    "不把设计裁决外置": "不把设计裁决外置",
+    "三出口": "采用 / 融合 / 全部拒绝",
+    "记录机会成本": "机会成本",
+    "局部迭代": "局部迭代",
+    "实质变化重走": "实质变化",
+    "融合统一逻辑": "统一信息层级",
+    "拼图不是融合": "拼图不是融合",
+    "概念图不是 UI 真相": "概念图不是 UI 真相",
+    "交互真实": "交互与状态必须真实",
+    "延迟到原生": "deferred-native",
+    "覆盖不静默消失": "不得静默消失",
+    "覆盖 id 集合": "coverage.json",
+    "缩放矩阵": "1.0/1.3/1.6/2.0",
+    "浏览器 zoom 不算": "浏览器 zoom",
+    "真实素材": "真实素材",
     "先复用再生成": "先复用再生成",
-    "素材清单": "asset-manifest.json",
+    "素材三态": "素材三态",
     "临时素材拦截": "status=temp",
-    "生图不可用时诚实暂停": "拒绝 SVG 冒充",
-    "原生 dp 与触控": "48dp",
+    "cover 不等于 CENTER_CROP": "CENTER_CROP",
+    "触控 48dp": "48dp",
+    "生图不可用时诚实暂停": "不得用 HTML/CSS/SVG",
+    "组件等价映射": "组件等价",
+    "禁用替代": "禁用替代",
+    "绘制层级": "绘制层级",
+    "滚动与可达": "滚动与可达",
+    "业务规则出处": "业务规则出处",
+    "token 换肤不算落地": "token 换肤",
+    "三方对照": "三方对照",
     "真机装包入口": "adb-auto-install.sh",
-    "验收三态": "PARTIAL",
+    "验收四态": "NOT TESTED",
+    "工程与设计双验收": "两项都达标才算整体通过",
+    "测试能力边界": "测试能力边界",
     "范围边界": "只做 App UI",
     "产品原则顺序": "有用 → 好懂 → 舒服 → 有意义",
-    "游戏化可选": "游戏化是可选手段",
+    "游戏化可选": "游戏化是手段不是目标",
     "设计自由度": "设计自由度",
     "品牌资产不猜": "不猜品牌色",
     "复杂度转嫁评审": "复杂度转嫁",
-    "提示词共用任务块": "任务块",
-    "原则转译可检查": "原则转译块",
-    "方向合格性判断": "合格性",
-    "全部拒绝并重出": "全部拒绝",
-    "不选最不差": "最不差",
-    "整机页面地图": "页面地图",
-    "生图前预审": "生图前",
-    "预审不选方向": "预审不选方向",
-    "融合统一逻辑": "统一后的信息层级",
-    "渲染通过不等于设计通过": "机械通过不等于设计通过",
-    "token 换肤不算落地": "token 换肤",
-    "工程与设计双验收": "两项都达标才算整体通过",
+    "六维评审": "六维",
+    "App 三项附加检查": "App 三项附加检查",
+    "打磨环": "打磨环",
+    "一轮三处": "最伤的三处",
+    "机械通过不等于设计通过": "机械通过不等于设计通过",
 }
 
-# 阶段编号：新流程只有 0–7 八个阶段，SKILL.md 的流程表是唯一权威。
-STAGES = {"0", "1", "2", "3", "4", "5", "6", "7"}
+# 阶段编号：V3 只有 0–6 七个阶段，SKILL.md 的流程表是唯一权威。
+STAGES = {"0", "1", "2", "3", "4", "5", "6"}
+
+# coverage.json 枚举必须在清单、SKILL.md 与校验脚本三处一致。
+COVERAGE_PROTOTYPE = ("rendered", "deferred-native", "not-applicable")
+COVERAGE_DEVICE = ("pass", "fail", "not-tested", "not-applicable")
 
 
 def read(path):
@@ -104,6 +157,7 @@ class PromptsContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.entries = load_prompts()
         cls.skill = read(SKILL)
+        cls.blob = " ".join(e["expected"] + " " + e["tests"] for e in cls.entries)
 
     def test_01_schema_is_unchanged(self):
         self.assertIsInstance(self.entries, list)
@@ -132,27 +186,27 @@ class PromptsContractTests(unittest.TestCase):
                 self.assertNotIn(phrase, blob,
                                  "id=%s 残留废止表述《%s》" % (entry["id"], phrase))
 
-    def test_04_three_directions_are_mandatory_not_optional(self):
-        blob = " ".join(e["expected"] + " " + e["tests"] for e in self.entries)
-        blocks = re.findall(r"[^。；\n]*3 个方向[^。；\n]*", blob)
-        self.assertTrue(blocks, "清单里没有任何条目要求 3 个方向")
+    def test_04_direction_count_is_divergence_driven(self):
+        # V3 方向数是设计判断，不得写回「固定 3 个」；同时必须保留自适应与拒绝出口。
+        self.assertTrue("按实质分歧决定" in self.blob, "缺少方向数自适应判据")
+        self.assertTrue("不为展示选项制造 A/B/C" in self.blob, "缺少反凑数判据")
+        self.assertTrue("全部拒绝" in self.blob, "缺少全部拒绝出口")
+        blocks = re.findall(r"[^。；\n]*\d+ 个方向[^。；\n]*", self.blob)
         for block in blocks:
-            # 「3 个方向」不得被写成可选 / 按需 / 默认不做
+            self.assertNotIn("恰好", block, "方向数量被写死：%r" % block)
             for weak in ("可以不做", "可选", "按需生成方向", "不强制"):
-                self.assertNotIn(weak, block, "3 个方向被写成可选：%r" % block)
+                self.assertNotIn(weak, block, "方向被写成可选：%r" % block)
 
     def test_05_stage_references_resolve(self):
         defined = stage_numbers_in_skill(self.skill)
         self.assertEqual(defined, STAGES,
-                         "SKILL.md 流程表阶段编号不是 0–7：%s" % sorted(defined))
-        blob = " ".join(e["expected"] + " " + e["tests"] for e in self.entries)
-        for ref in sorted(set(re.findall(r"阶段\s*(\d)", blob))):
+                         "SKILL.md 流程表阶段编号不是 0–6：%s" % sorted(defined))
+        for ref in sorted(set(re.findall(r"阶段\s*(\d)", self.blob))):
             self.assertIn(ref, STAGES, "引用了不存在的阶段「阶段 %s」" % ref)
 
     def test_06_file_references_resolve(self):
-        blob = " ".join(e["expected"] + " " + e["tests"] for e in self.entries)
         pattern = r"(?:references|assets|scripts)/[\w./-]+\.(?:md|jsx|py|mjs)"
-        refs = set(re.findall(pattern, blob))
+        refs = set(re.findall(pattern, self.blob))
         self.assertTrue(refs, "清单没有引用任何实际文件")
         for rel in sorted(refs):
             self.assertTrue(os.path.exists(os.path.join(ROOT, rel)),
@@ -170,6 +224,26 @@ class PromptsContractTests(unittest.TestCase):
         self.assertIn("不在范围内", entry["expected"])
         self.assertIn("视频", entry["expected"])
         self.assertIn("生产级 Web App", entry["expected"])
+
+    def test_09_coverage_vocabulary_matches_skill(self):
+        # 清单、SKILL.md、校验脚本的 coverage 枚举必须一致，否则覆盖判据会各说各话。
+        # 清单里验收状态写成大写/空格形式（PASS / NOT TESTED），比对前统一成枚举拼写。
+        blob = (self.blob.lower()
+                .replace("not tested", "not-tested")
+                .replace("not applicable", "not-applicable"))
+        for value in COVERAGE_PROTOTYPE + COVERAGE_DEVICE:
+            self.assertIn(value, self.skill, "SKILL.md 缺少 coverage 枚举 %s" % value)
+            self.assertIn(value, blob, "验收清单缺少 coverage 枚举 %s" % value)
+        self.assertIn("designwise-coverage/v1", self.skill, "SKILL.md 缺少 schema 标识")
+
+    def test_10_decision_is_not_outsourced(self):
+        # 设计裁决不得外置；治理层只做状态与证据。
+        self.assertIn("只做任务治理", self.blob)
+        self.assertIn("不把设计裁决外置", self.blob)
+        for entry in self.entries:
+            for phrase in ("由 Copilot 决定", "等待远程模型", "SOL 裁决"):
+                self.assertNotIn(phrase, entry["expected"] + entry["tests"],
+                                 "id=%s 把设计裁决外置" % entry["id"])
 
 
 if __name__ == "__main__":

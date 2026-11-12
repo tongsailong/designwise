@@ -86,7 +86,7 @@ python3 scripts/ref_board.py --out ./ref-board --image ./a.png --image ./b.png
 | 资产状态 | 用途 | 边界 |
 |---|---|---|
 | **参考图**（reference） | 判断输入；可作为 `scripts/zcode_image.py --ref` 的图生图输入 | 只提供结构与气质，其中的数字/文案不得当事实写进 prompt |
-| **概念图**（concept） | 候选方向、Copilot 方向选择的比较依据 | 不能当成品 UI，也不能当正式素材交付 |
+| **概念图**（concept） | 候选方向、方向差异实测与设计决策的比较依据 | 不能当成品 UI，也不能当正式素材交付 |
 | **正式素材**（production） | 真实图片、授权素材、程序化生成 | 见 `references/image-assets.md` 与 `references/brand-asset-protocol.md` |
 
 参考截图**永远不是**本项目的产出。把竞品截图放进交付包、或用参考图冒充自己的设计，
