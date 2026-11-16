@@ -32,7 +32,7 @@ npx skills add tongsailong/designwise
 
 ## The one standard flow
 
-**There are no task tiers.** Every new App UI task runs the same flow, gated by **evidence**, not by approval ceremony.
+**One flow, depth scaled to the change scope.** No task tiers and no L1/L2/L3 labels; stages and evidence gates are fixed, but each task only runs the depth its change actually needs: a local fix reuses the existing brief and direction record and re-verifies only affected items; a single-page addition covers only that page and its entry/exit states; a whole-app redesign runs the full 0–6. When unsure, take the wider scope — and never lower the bar on real evidence, zero fatal defects, or honest verdicts.
 
 | Stage | Goal | Evidence gate |
 |---|---|---|
@@ -83,7 +83,7 @@ Full method: [`references/product-value.md`](references/product-value.md). Stage
 
 Image generation is built in and depends on no other skill: `scripts/zcode_image.py` talks to an OpenAI-compatible image endpoint (default `gpt-image-2.5`) and supports `--health` for a zero-cost check, plus `--ref` reference images, `--size` / `--fit` sizing and cropping, and `--n` batching. Credentials come from environment variables or the local provider config and are never committed.
 
-- **Used across the flow**: direction concepts (stage 2) → filling in prototype visuals (stage 4) → local elements, illustrations, backgrounds, decoration (stage 5). All three share one visual language, reference set, sizing and cropping rules.
+- **Used across the flow**: direction concepts (stage 1) → filling in prototype visuals (stage 2) → local elements, illustrations, backgrounds, decoration (stage 3). All three share one visual language, reference set, sizing and cropping rules.
 - **Reuse first, generate second**: check `asset-manifest.json`, existing project assets, and already-registered concept and prototype assets. If an asset fits, do not regenerate it, and do not re-generate for microscopic differences.
 - **Three asset states**: reference image (judgement input, not output) / concept image (direction comparison only) / production asset (shippable). Concept images never ship as production assets.
 - **The manifest is the single source of truth**: `asset-manifest.json` records id, path, sha256, type, source, provenance (model/prompt/references), variants, consumers, licence and status. `scripts/asset_manifest.py` registers and verifies entries (missing files, hash mismatches and leftover temp images fail).

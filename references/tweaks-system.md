@@ -1,8 +1,10 @@
-# Tweaks：设计变体实时调参
+# Tweaks：设计变体实时调参（可选工具）
 
-Tweaks是这个skill里很核心的能力——让用户不改代码就能实时切换variations/调整参数。
+> **不属于 0–6 必需流程**：只有用户明确要求调参/版本切换，或需要让用户看清某个关键变量时才读本文。默认不做 Tweaks。
 
-**跨 agent 环境适配**：某些 design-agent 原生环境（如 Claude.ai Artifacts）依赖 host 的 postMessage 把 tweak 值回写源码做持久化。本 skill 采用**纯前端 localStorage 方案**——效果一致（刷新保留状态），但持久化发生在浏览器 localStorage 而不是源码文件。这个方案在任何 agent 环境（Claude Code / Codex / Cursor / Trae / etc.）都能工作。
+Tweaks 让用户不改代码就能实时切换 variations / 调整参数。
+
+**跨 agent 环境适配**：本 skill 采用**纯前端 localStorage 方案**——刷新保留状态，持久化在浏览器而不是源码文件，在任何 agent 环境都能工作。
 
 ## 何时加 Tweaks
 

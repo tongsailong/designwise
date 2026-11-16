@@ -114,10 +114,10 @@ npx playwright screenshot https://example.com screenshot.png --viewport-size=192
 - Button：filled primary，outlined secondary，ghost tertiary，全部圆角8px
 - Card：白色背景，subtle shadow，无border
 
-我按这套系统开始做。确认没问题？
+我按这套系统开始做。
 ```
 
-用户确认后再动手。
+把这段写进 `design-brief.md` 与原型头部注释即可，**不停轮等确认**；只有业务规则冲突、范围变化或关键取舍才需要用户拍板（见 `workflow.md` §3）。
 
 ## 凭空做设计（没Context时的 fallback）
 

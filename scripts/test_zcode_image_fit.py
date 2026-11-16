@@ -223,5 +223,16 @@ def main():
     return 0
 
 
+import unittest
+
+
+class ZcodeImageFitTests(unittest.TestCase):
+    """把本文件的 check() 自检纳入 `unittest discover`，避免 45 项检查只靠手工执行。"""
+
+    def test_all_checks_pass(self):
+        RESULTS.clear()
+        self.assertEqual(main(), 0)
+
+
 if __name__ == "__main__":
     sys.exit(main())

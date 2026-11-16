@@ -35,7 +35,7 @@ python3 scripts/zcode_image.py --prompt "<中文提示词>" --out out.png \
 - 返回非图片字节、`b64_json` 缺失、魔数或完整性校验失败 → **非零退出，不写占位文件**。
 - 凭据：优先 `ZCODE_CPA_BASE_URL` + `ZCODE_CPA_API_KEY`，否则读 `~/.zcode/v2/provider_config.json`（可用 `ZCODE_PROVIDER_CONFIG` 改路径）。**不打印、不落盘、不进 prompt。**
 
-### 2.2 `scripts/zcode_vision.py`
+### 2.2 `scripts/zcode_vision.py`（可选，流程不依赖）
 
 ```bash
 python3 scripts/zcode_vision.py --health
@@ -44,7 +44,7 @@ python3 scripts/zcode_vision.py --confirm-gpt-review \
 ```
 
 - 只接受磁盘真实图片（存在性、大小、magic number 校验）；文字或 base64 字符串直接拒绝。
-- 默认路径是**原生视觉自检**；此脚本是用户授权后的外部补充证据，**不是**设计批准，也**不是** Copilot 正式 REVIEW。
+- 默认路径是**原生视觉自检**；此脚本只在用户明确要求外部第二意见时使用，是补充证据，**不是**设计批准、**不是** Gate、**不是** Copilot 正式 REVIEW，缺它不影响任何阶段推进。
 - 状态非 completed、带 `incomplete_details` 或输出被截断 → 报告「未获得视觉裁决」，按缺证处理。
 
 ---

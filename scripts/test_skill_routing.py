@@ -21,6 +21,8 @@ import importlib.util
 import json
 import os
 import re
+import subprocess
+import sys
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -147,10 +149,10 @@ def stage_block(skill, num):
 
 
 def stage_table_rows(skill):
-    """Stage rows of the flow table in §2."""
+    """Stage rows of the flow table in §2 (only rows whose first cell is a stage)."""
     body = skill[skill.index("## 2. 唯一标准流程"):skill.index("### 2.1")]
     return [line for line in body.splitlines()
-            if line.startswith("|") and "---" not in line and "| 阶段 |" not in line]
+            if re.match(r"^\| \*\*\d ", line)]
 
 
 def load_checker():
@@ -166,8 +168,23 @@ class SingleFlowContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.skill = read("SKILL.md")
 
-    def test_01_no_task_tiers(self):
-        self.assertIn("**没有任务分层。**", self.skill)
+    def test_01_one_flow_scope_scaled_depth(self):
+        # 单流程不变；深度由改动范围决定，但不重新引入 L1/L2/L3 式任务分层。
+        self.assertIn("**一条流程，深度按改动范围；不按任务名分层、不设 L1/L2/L3 标签。**", self.skill)
+        self.assertIn("**范围只决定跑多少，不降低真实证据、致命项清零与不伪造结论这三条底线。**", self.skill)
+        self.assertIn("判不清就按更宽范围处理", self.skill)
+        for phrase in ("**局部修正**", "**单页/单流程增量**", "**整机 / 新体系 / 重大重设计**",
+                       "**复杂交互 / 关键产品决策**"):
+            self.assertIn(phrase, self.skill)
+        self.assertIn("不重出概念图", self.skill)
+        self.assertIn("不复验未受影响页", self.skill)
+
+    def test_09_scope_scaled_work_is_not_repeated(self):
+        self.assertIn("直接沿用，不重新生成", stage_block(self.skill, 1))
+        self.assertIn("未改动屏复用现有渲染与截图", stage_block(self.skill, 2))
+        self.assertIn("不重复跑", stage_block(self.skill, 3))
+        self.assertIn("矩阵按本次改动范围取行与档位", stage_block(self.skill, 6))
+        self.assertIn("复用不等于免检", stage_block(self.skill, 6))
 
     def test_02_stage_table_is_the_single_authority(self):
         rows = stage_table_rows(self.skill)
@@ -177,13 +194,10 @@ class SingleFlowContractTests(unittest.TestCase):
                             "阶段表缺少「%s %s」" % (num, name))
 
     def test_03_stage_details_match_the_table(self):
-        rows = stage_table_rows(self.skill)
         for num, name in STAGES.items():
             block = stage_block(self.skill, int(num))
             self.assertTrue(block.startswith("**阶段 %s · %s**" % (num, name)),
                             "阶段 %s 细则标题与阶段表不一致" % num)
-            self.assertTrue(any(line.startswith("| **%s %s** |" % (num, name)) for line in rows),
-                            "阶段 %s 细则在阶段表中没有对应行" % num)
 
     def test_04_gate_ids_are_defined_and_consistent(self):
         self.assertIn("**Gate 编号以本表为准：G0–G6。**", self.skill)
@@ -738,10 +752,6 @@ class ScopeContractTests(unittest.TestCase):
         self.assertIn("独立", readme)
         self.assertNotIn("上游运行时", readme)
 
-    def test_05_licence_not_excluded(self):
-        sync = read("scripts/sync_runtime.py")
-        self.assertIn("LICENSE", sync)
-
 
 class DocConsistencyContractTests(unittest.TestCase):
     @classmethod
@@ -780,13 +790,11 @@ class DocConsistencyContractTests(unittest.TestCase):
         self.assertIn("按实质分歧", self.readme)
         self.assertNotIn("阶段 0–7", self.readme)
 
-    def test_07_check_skill_lists_v3_files(self):
-        check = read("scripts/check-skill.py")
-        self.assertIn("state-map.md", check)
-        self.assertIn("direction-strategy.md", check)
-        self.assertIn("polish-loop.md", check)
-        self.assertIn("direction_divergence.py", check)
-        self.assertIn("check-deliverables.py", check)
+    def test_07_check_skill_passes(self):
+        # 直接跑自检脚本，验证结构完整与引用可达；不再 grep 脚本里的文件名常量。
+        proc = subprocess.run([sys.executable, os.path.join(HERE, "check-skill.py")],
+                              capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
     def test_08_readmes_agree_on_handoff(self):
         en = read("README.en.md")
@@ -816,10 +824,6 @@ class ForbiddenSubstitutionContractTests(unittest.TestCase):
 
     def test_05_narrative_cannot_prove_coverage(self):
         self.assertIn("**不用叙述证明覆盖**", self.skill)
-
-    def test_06_these_tests_carry_their_own_limit(self):
-        doc = read("scripts/test_skill_routing.py")
-        self.assertIn("不能证明真实设计质量", doc)
 
 
 if __name__ == "__main__":

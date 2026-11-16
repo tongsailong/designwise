@@ -18,34 +18,9 @@
 
 ## 文件结构
 
-```
-项目名/
-├── index.html               # 主HTML
-├── components.jsx           # 组件文件（type="text/babel"加载）
-├── data.js                  # 数据文件
-└── styles.css               # 额外CSS（可选）
-```
+**默认单页 inline**：屏、样式、数据与图片同页，`file://` 双击可开（见 `app-prototype.md` §0）。只有超过 ~1000 行难维护、或需要多 agent 并行时才拆分，拆分后必须在交付说明里给启动命令（不能双击直接打开的拆分等同于降级）。
 
-HTML里加载方式：
-
-```html
-<!-- 先React+Babel -->
-<script src="https://unpkg.com/react@18.3.1/..."></script>
-<script src="https://unpkg.com/react-dom@18.3.1/..."></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/..."></script>
-
-<!-- 然后你的组件文件 -->
-<script type="text/babel" src="components.jsx"></script>
-<script type="text/babel" src="pages.jsx"></script>
-
-<!-- 最后主入口 -->
-<script type="text/babel">
-  const root = ReactDOM.createRoot(document.getElementById('root'));
-  root.render(<App />);
-</script>
-```
-
-**不要**用`type="module"`——会和Babel冲突。
+拆分时用相对路径 + 本地 `vendor/` 或 `type="text/babel" src="components.jsx"` 均可，但必须实测 `file://` 下能加载；**不要**用`type="module"`——会和Babel冲突。
 
 ## 三条不可违反的规矩
 
@@ -119,63 +94,9 @@ container.scrollTo({
 });
 ```
 
-## 调 Claude API（HTML内）
+## 原型里的 mock 数据
 
-部分原生 design-agent 环境（如 Claude.ai Artifacts）有免配置的 `window.claude.complete`，但大部分 agent 环境（Claude Code / Codex / Cursor / Trae / etc.）本地里**没有**。
-
-如果你的 HTML 原型需要调用 LLM 做 demo（比如做个聊天 interface），两个选项：
-
-### 选项A：不真调，用mock
-
-Demo场景推荐。写一个假helper，返回预设的response：
-```jsx
-window.claude = {
-  async complete(prompt) {
-    await new Promise(r => setTimeout(r, 800)); // 模拟延迟
-    return "这是一个mock响应。真部署时请替换为真API。";
-  }
-};
-```
-
-### 选项B：真调Anthropic API（不推荐，仅限本地演示）
-
-需要API key，用户必须在HTML里填入自己的key才能跑。**永远不要把key硬编码在HTML里**。
-
-⚠️ 安全边界：这个方案只适合本地`file://`打开、用完即关的演示。key会留在DOM/内存里——
-**不要部署这个页面、不要带着填了key的页面截图/录屏传播**。生产场景一律走本地proxy后端转发，
-浏览器端不碰key。默认优先选项A/C（完全不需要key）。
-
-```html
-<input id="api-key" placeholder="粘贴你的Anthropic API key" />
-<script>
-window.claude = {
-  async complete(prompt) {
-    const key = document.getElementById('api-key').value;
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const data = await res.json();
-    return data.content[0].text;
-  }
-};
-</script>
-```
-
-**注意**：浏览器直接调Anthropic API会遇到CORS问题。如果用户给你的预览环境不支持CORS bypass，这条路不通。这时候用选项A mock，或者告诉用户需要一个proxy后端。
-
-### 选项 C：用 agent 侧的 LLM 能力生成 mock 数据
-
-如果只是本地演示用，可以在当前 agent 会话里临时调用该 agent 的 LLM 能力（或用户装的 multi-model 类 skill）先生成 mock 响应数据，再硬编码写进 HTML。这样 HTML 运行时完全不依赖任何 API。
+HTML 原型**不在运行时调用外部 LLM API**：既不需要 key，也避免 CORS 与凭据泄漏。需要对话/生成类演示时，在当前 agent 会话里先生成 mock 响应数据，再硬编码进 HTML，返回预设文案并保留合理延迟即可。
 
 ## 典型 HTML 起手模板
 
