@@ -26,6 +26,7 @@
 | 对比度 | `scripts/check-contrast.py` 三档（装饰项单独标注） | 同一 token 值；关键项用真机截图复核 |
 | 横向溢出 | `scrollWidth <= clientWidth + 1` | 真机确认无截断、无被导航栏/键盘遮挡 |
 | 交互 | 真实点击/输入 + 结果断言；控制台 0 error、0 未捕获异常 | 真机点击/返回/滚动；崩溃、ANR、回退栈证据 |
+| 动效 | `check-motion.py` 静态事实（token/减少动态/超长/布局属性）+ 录屏/连续帧证明转场与反馈 | 真机录屏；减少动态设置下复看；帧率与卡顿记录 |
 | 路由 | 每个入口到非空屏，返回路径可达 | 系统返回键与页面返回行为一致 |
 
 🔴 **CSS px 不能直接证明 Android 48dp**：`check-ui.mjs` 报的是 CSS px；只有页面按设计宽度 1:1 渲染时数值才可作**近似**。密度、字体缩放、系统栏 inset 都会改变真实 dp。**HTML 检查通过不得写成「Android 48dp 合规」**；原生必须按右列验证并留真机证据。
@@ -142,6 +143,20 @@ python3 scripts/check-deliverables.py --task-dir design-demos/<task> --stage 3 -
 
 检查：阶段产物是否存在（`asset-manifest.json` 按「有素材才必需」处理，存在才校验）、`concept-index.json` / `direction-approved.md` 里的路径与 sha256 是否对应真实文件、决策出口与基线状态是否合法（实施基线唯一性**按当前任务判定**）、`asset-manifest.json`（复用 `asset_manifest.py verify`）、`prototype-notes.md` 记录的截图指纹、**`coverage.json` 结构与枚举**（id 唯一、`deferred-native` 有理由且 `native_verify=true`、`not-tested`/`fail` 有说明、地图与 coverage 的 id 集合一致）、阶段 6 是否分开给出双验收结论。退出码 0 只表示**机械一致**：一致 ≠ 设计通过，脚本不判断语义、不裁定对比度例外、不按修改时间猜「过期」；发现不一致由执行方改产物或记录，脚本不改任何文件。
 
+### 2.6 动效与体验状态
+
+```bash
+python3 scripts/check-motion.py prototype/index.html            # 静态事实：token/减少动态/超长/布局属性
+python3 scripts/check-motion.py prototype/index.html --strict   # 高风险：warning 也阻断
+```
+
+- **必须可演**：按压/选中反馈、tab 切换、弹层开合、加载、结果反馈、页面转场；每个关键交互都要有“动作 + 结果断言”。
+- **必须看动态证据**：录屏或首/中/末连续帧；静态截图不能证明转场方向、可中断、时长与减少动态。
+- **中断与重复**：转场中返回、快速连点、切 tab、下滑关闭；以最后一次操作为准，不叠加、不卡死。
+- **减少动态**：模拟 `prefers-reduced-motion: reduce` 后复跑；位移动画与循环应消失或大幅减弱，功能仍可用。
+- **状态叙事**：空/加载/错误/离线/权限/锁定/完成逐项可达；失败可重试/回滚；返回保留筛选、滚动与输入。
+- **边界**：脚本只采集静态事实；动效是否服务体验、时长是否合适，由 `motion-design.md` 与真实录屏评审判断。
+
 ---
 
 ## 3. 截图与基准图
@@ -203,6 +218,15 @@ page.wait_for_timeout(2000)                             # 等动效 settle
 - `device.<scale>` 的取值与本轮矩阵逐项对应；`fail` 与 `not-tested` 必须有说明。
 - `deferred-native` 的项在交接里有 `native_verify` 义务，并在真机阶段被验证。
 - **报告里的页数、截图数、测试数，必须能数出来**（红线条 12）。
+
+### 5.4 动效与体验真机验证
+
+- **录屏**：进入/返回/弹层/tab/完成态各一段；首/中/末帧随报告归档。
+- **减少动态**：系统设置开启后复看关键流程；不得出现位移动画、循环背景或无法操作的降级。
+- **触感**：确认/选择/失败有区分；不每次点击都震；关闭触感后功能不受影响。
+- **中断**：转场中按返回、快速连点、切后台再回前台；状态不丢、不重叠、不崩溃。
+- **体验**：返回保留筛选/滚动/输入；失败可重试/回滚；完成态有下一步；庆祝只对真实成果。
+- 设备缺失或无法录屏 → `NOT TESTED` + 缺什么条件，**不得写 PASS**。
 
 ---
 

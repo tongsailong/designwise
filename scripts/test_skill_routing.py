@@ -3,7 +3,7 @@
 
 守的是「流程只有一条、方向数按分歧决定、设计判断不外置、设计与实现之间的契约不被删弱」：
 
-1. **单一流程**：`SKILL.md` 只有 0–6 七个阶段、G0–G6 七个门，没有任务分层，阶段表与细则一一对应。
+1. **单一流程**：`SKILL.md` 只有 0–6 七个阶段、SG0–SG6 七个门，没有任务分层，阶段表与细则一一对应。
 2. **自适应方向**：方向数按实质分歧决定（1..N），共用任务块与原则转译块逐字相同，差异实测不靠目测，
    失败关闭，三出口（采用/融合/全部拒绝），决策记录可追溯。
 3. **决策主体**：ZCode 原生 Agent 做设计判断；Copilot 只做治理；远程裁决通道已退役。
@@ -200,11 +200,11 @@ class SingleFlowContractTests(unittest.TestCase):
                             "阶段 %s 细则标题与阶段表不一致" % num)
 
     def test_04_gate_ids_are_defined_and_consistent(self):
-        self.assertIn("**Gate 编号以本表为准：G0–G6。**", self.skill)
+        self.assertIn("**Gate 编号以本表为准：SG0–SG6（设计阶段证据门）。**", self.skill)
         rows = stage_table_rows(self.skill)
         for num in STAGES:
-            matches = [line for line in rows if "**G%s**" % num in line]
-            self.assertEqual(len(matches), 1, "G%s 未在阶段表中唯一出现" % num)
+            matches = [line for line in rows if "**SG%s**" % num in line]
+            self.assertEqual(len(matches), 1, "SG%s 未在阶段表中唯一出现" % num)
         self.assertNotIn("| **7 ", self.skill, "阶段表仍残留阶段 7")
 
     def test_05_entry_is_decided_by_artifacts(self):
@@ -329,8 +329,9 @@ class DecisionOwnershipContractTests(unittest.TestCase):
 
     def test_02_copilot_governs_only(self):
         self.assertIn("**不做设计裁决**；不调远程模型；不是普通开发前置门", self.skill)
-        self.assertIn("Copilot v6", self.skill)
-        self.assertIn("只做任务治理", self.skill)
+        self.assertIn("**Copilot**", self.skill)
+        self.assertNotIn("Copilot v", self.skill)
+        self.assertIn("只做轻量治理", self.skill)
 
     def test_03_remote_channel_is_retired(self):
         self.assertIn("**设计判断不外置**", self.skill)
@@ -338,7 +339,7 @@ class DecisionOwnershipContractTests(unittest.TestCase):
         self.assertIn("**`call_gpt.py` / `bridge_evidence.py --image` 的设计裁决用途已退役，不得使用。**",
                       self.skill)
 
-    def test_04_reviewer_is_read_only(self):
+    def test_04_independent_review_is_read_only(self):
         self.assertIn("只读、不改文件、不发布", self.skill)
         self.assertIn("复核是补充证据，不是审批节点", self.skill)
 
@@ -458,6 +459,9 @@ class ReviewContractTests(unittest.TestCase):
         self.assertIn("**App UI 三项附加检查**", self.skill)
         for phrase in ("状态完整性", "交互真实性", "原生可实现性与适配风险"):
             self.assertIn(phrase, self.skill)
+        self.assertIn("**原生质感与动效附加检查**", self.skill)
+        for phrase in ("平台语法与反网页套路", "视觉深度与材质逻辑", "动效目的与降级", "体验状态与叙事"):
+            self.assertIn(phrase, self.skill)
 
     def test_04_severity_and_clearance(self):
         self.assertIn("**严重度**：致命 / 重要 / 打磨", self.skill)
@@ -477,7 +481,7 @@ class ReviewContractTests(unittest.TestCase):
         self.assertIn("**打分不能替代缺陷清单**", self.skill)
         self.assertIn("不用分数趋势代替证据", self.skill)
 
-    def test_08_optional_readonly_reviewer(self):
+    def test_08_optional_readonly_review(self):
         self.assertIn("**可选独立复核**", self.stage)
         self.assertIn("复核不替代主 Agent 判断", self.stage)
 
@@ -583,6 +587,8 @@ class AcceptanceContractTests(unittest.TestCase):
     def test_03_matrix_covers_core_dimensions(self):
         for phrase in ("方向一致性", "布局与信息层级", "字体与排版", "色彩与对比度",
                        "状态", "真实业务数据", "触控与交互", "平台规范",
+                       "原生平台语法", "视觉深度与跨页一致性", "动效与反馈",
+                       "体验状态与转场", "体验叙事",
                        "设计意图落地", "旧版对照与改善"):
             self.assertIn(phrase, self.stage)
 
@@ -682,7 +688,7 @@ class FailureHandlingContractTests(unittest.TestCase):
 
     def test_07_review_unavailable(self):
         self.assertIn("评审不可用（无截图/无渲染）", self.table)
-        self.assertIn("不得声称 G3 通过", self.table)
+        self.assertIn("不得声称 SG3 通过", self.table)
 
     def test_08_token_swap_and_degraded_substitution(self):
         self.assertIn("原生只换了皮", self.table)
@@ -800,6 +806,98 @@ class DocConsistencyContractTests(unittest.TestCase):
         en = read("README.en.md")
         for phrase in ("handoff", "coverage.json", "0–6"):
             self.assertIn(phrase, en)
+
+    def test_09_stage_numbers_and_contract_counts_are_consistent(self):
+        agents = read("AGENTS.md")
+        self.assertIn("0–6 阶段", agents)
+        self.assertNotIn("0–7 阶段", agents)
+        for text in (self.skill, self.readme):
+            self.assertNotIn("五类契约", text)
+            self.assertNotIn("五条契约", text)
+
+    def test_10_concept_index_template_matches_checker(self):
+        doc = read("references/app-visual-workflow.md")
+        self.assertIn('"concepts": [', doc)
+        self.assertNotIn('"directions": [', doc)
+
+
+class NativeExperienceContractTests(unittest.TestCase):
+    """原生质感、动效、视觉深度、完整体验与素材集成的文档契约。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.workflow = read("references/app-visual-workflow.md")
+        cls.native = read("references/native-platform.md")
+        cls.motion = read("references/motion-design.md")
+        cls.depth = read("references/visual-depth.md")
+        cls.states = read("references/experience-states.md")
+        cls.images = read("references/image-generation.md")
+        cls.assets = read("references/image-assets.md")
+        cls.critique = read("references/critique-guide.md")
+
+    def test_01_new_references_exist_and_are_linked(self):
+        for rel in ("references/native-platform.md", "references/motion-design.md",
+                    "references/visual-depth.md", "references/experience-states.md"):
+            self.assertTrue(os.path.exists(os.path.join(ROOT, rel)), "缺少 %s" % rel)
+            self.assertIn(rel, self.skill, "SKILL.md 未登记 %s" % rel)
+        for name in ("native-platform.md", "motion-design.md",
+                     "visual-depth.md", "experience-states.md"):
+            self.assertIn(name, self.workflow, "app-visual-workflow.md 未引用 %s" % name)
+
+    def test_02_native_platform_grammar(self):
+        self.assertIn("**原生质感与动效附加检查**", self.skill)
+        for phrase in ("反网页套路", "48×48dp", "tonal surface", "3–5 个目的地",
+                       "surface_container", "prefers-reduced-motion"):
+            self.assertIn(phrase, self.native)
+        self.assertIn("**反网页套路**", self.skill)
+        self.assertIn("**按平台语法设计，不把网页做小。**", read("README.md"))
+
+    def test_03_motion_system_is_specified(self):
+        for phrase in ("motion_duration_instant", "motion_duration_xs", "motion_duration_xl",
+                       "motion_easing_standard", "motion_easing_emphasized",
+                       "motion_spring_standard", "中断", "重复触发", "减少动态"):
+            self.assertIn(phrase, self.motion)
+        for phrase in ("触发", "起始", "结束", "时长", "缓动", "中断", "减少动态"):
+            self.assertIn(phrase, self.motion)
+        self.assertIn("**动效必须有目的**", self.skill)
+        self.assertIn("**动效与体验交接**", self.skill)
+        self.assertIn("scripts/check-motion.py", self.skill)
+        self.assertIn("check-motion.py", read("scripts/check-skill.py"))
+
+    def test_04_visual_depth_and_style_bible(self):
+        for phrase in ("背景层", "表面层", "内容层", "前景层", "一个主光源",
+                       "视觉 DNA", "跨页连续性装置"):
+            self.assertIn(phrase, self.depth)
+        self.assertIn("**深度不是堆装饰**", self.skill)
+        self.assertIn("视觉深度与材质逻辑", self.critique)
+
+    def test_05_complete_experience_states(self):
+        for phrase in ("首次加载", "错误（可恢复）", "离线", "锁定/未解锁",
+                       "额度用尽", "完成终态", "乐观更新", "转场", "跨页叙事"):
+            self.assertIn(phrase, self.states)
+        self.assertIn("**只做正常态不算体验**", self.skill)
+        self.assertIn("**完整体验状态**", self.skill)
+        self.assertIn("体验状态与叙事", self.critique)
+
+    def test_06_asset_plan_and_integration(self):
+        for phrase in ("视觉资产计划", "艺术方向卡", "进入设计与交付"):
+            self.assertIn(phrase, self.images + self.assets + self.skill)
+        self.assertIn("**素材必须进入设计与交付**", self.skill)
+        self.assertIn("**先规划再生成**", self.skill)
+        self.assertIn("**实际集成**", self.skill)
+
+    def test_07_stage_flow_includes_new_capabilities(self):
+        for num in range(7):
+            block = stage_block(self.skill, num)
+            self.assertTrue(block.strip(), "阶段 %d 细则为空" % num)
+        self.assertIn("视觉定位与资产计划", stage_block(self.skill, 0))
+        self.assertIn("体验基调", stage_block(self.skill, 0))
+        self.assertIn("原生平台语法与动效", stage_block(self.skill, 2))
+        self.assertIn("原生质感与动效", stage_block(self.skill, 3))
+        self.assertIn("动效与体验交接", stage_block(self.skill, 4))
+        self.assertIn("动效与体验落地", stage_block(self.skill, 5))
+        self.assertIn("动效与反馈", stage_block(self.skill, 6))
 
 
 class ForbiddenSubstitutionContractTests(unittest.TestCase):

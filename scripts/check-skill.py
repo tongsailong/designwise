@@ -47,6 +47,11 @@ REQUIRED_FILES = [
     "references/critique-guide.md",
     "references/verification.md",
     "references/app-prototype.md",
+    # 原生质感 / 动效 / 视觉深度 / 完整体验
+    "references/native-platform.md",
+    "references/motion-design.md",
+    "references/visual-depth.md",
+    "references/experience-states.md",
 ]
 
 REQUIRED_DIRS = ["references", "assets", "scripts", "demos"]
@@ -67,6 +72,7 @@ REQUIRED_SCRIPTS = [
     "scripts/verify.py",
     "scripts/check-ui.mjs",
     "scripts/check-contrast.py",
+    "scripts/check-motion.py",
     "scripts/check-deliverables.py",
     "scripts/direction_divergence.py",
     "scripts/ref_board.py",

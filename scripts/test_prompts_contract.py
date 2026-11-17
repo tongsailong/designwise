@@ -127,6 +127,25 @@ REQUIRED_COVERAGE = {
     "打磨环": "打磨环",
     "一轮三处": "最伤的三处",
     "机械通过不等于设计通过": "机械通过不等于设计通过",
+    "原生平台语法": "原生平台语法",
+    "反网页套路": "反网页套路",
+    "动效 token": "motion token",
+    "减少动态": "减少动态",
+    "动效静态校验": "check-motion.py",
+    "视觉资产计划": "视觉资产计划",
+    "艺术方向卡": "艺术方向卡",
+    "素材实际集成": "实际进入原型",
+    "完整体验状态": "完整体验状态",
+    "转场态": "转场态",
+    "视觉深度与 DNA": "视觉 DNA",
+    "深度不是堆装饰": "深度不是堆装饰",
+    "动效交接": "动效与体验交接",
+    "动效基准目录": "baselines/motion",
+    "原生质感评审": "原生质感与动效附加检查",
+    "视觉深度验收": "视觉深度与跨页一致",
+    "动效反馈验收": "动效与反馈",
+    "体验状态转场验收": "体验状态与转场",
+    "体验叙事验收": "体验叙事",
 }
 
 # 阶段编号：V3 只有 0–6 七个阶段，SKILL.md 的流程表是唯一权威。
@@ -225,6 +244,15 @@ class PromptsContractTests(unittest.TestCase):
         self.assertIn("视频", entry["expected"])
         self.assertIn("生产级 Web App", entry["expected"])
 
+    def test_08b_mechanical_pass_scenario_requires_native_motion_review(self):
+        # id 39 是「脚本全绿是否算过」的评审场景；只写 App 三项会漏掉原生质感与动效。
+        entry = next(e for e in self.entries if e["id"] == 39)
+        four = ("平台语法与反网页套路", "视觉深度与材质逻辑",
+                "动效目的与降级", "体验状态与叙事")
+        for phrase in ("原生质感与动效附加检查",) + four:
+            self.assertIn(phrase, entry["expected"])
+            self.assertIn(phrase, entry["tests"])
+
     def test_09_coverage_vocabulary_matches_skill(self):
         # 清单、SKILL.md、校验脚本的 coverage 枚举必须一致，否则覆盖判据会各说各话。
         # 清单里验收状态写成大写/空格形式（PASS / NOT TESTED），比对前统一成枚举拼写。
@@ -238,7 +266,7 @@ class PromptsContractTests(unittest.TestCase):
 
     def test_10_decision_is_not_outsourced(self):
         # 设计裁决不得外置；治理层只做状态与证据。
-        self.assertIn("只做任务治理", self.blob)
+        self.assertIn("只做轻量治理", self.blob)
         self.assertIn("不把设计裁决外置", self.blob)
         for entry in self.entries:
             for phrase in ("由 Copilot 决定", "等待远程模型", "SOL 裁决"):

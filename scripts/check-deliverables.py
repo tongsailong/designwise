@@ -36,7 +36,9 @@ STAGE_ARTIFACTS = {
     # 阶段 1 的 direction-approved.md 在决策形成前不得存在，故不列为阶段产物
     2: ["prototype/index.html", "prototype-notes.md"],
     # 阶段 3 的评审与打磨记录写在 prototype-notes.md 内；asset-manifest.json「有素材才必需」
-    4: ["handoff/README.md"],
+    4: ["handoff/README.md", "handoff/structure.md", "handoff/design-tokens.md",
+        "handoff/states-interactions.md", "handoff/copy-data.md",
+        "handoff/assets.md", "handoff/adaptation-a11y.md"],
     # 阶段 5 的原生工程无固定路径；verification-report.md 由阶段 5 起笔、阶段 6 定稿
     6: ["verification-report.md"],
 }
@@ -479,6 +481,14 @@ def check_report(task: Path, stage: int, rep: Report) -> None:
     if missing:
         rep.error("dual-acceptance-missing", str(report),
                   "阶段 6 需分开给出工程验收与设计验收结论，缺少：" + "、".join(missing))
+    for phrase in ("动效与反馈", "体验状态与转场"):
+        if phrase not in text:
+            rep.warn("verification-motion-row-missing", str(report),
+                     "验证报告缺少「%s」行；动效/状态证据未进入验收矩阵" % phrase)
+    motion_dir = task / "handoff" / "baselines" / "motion"
+    if not motion_dir.is_dir() or not any(p.is_file() for p in motion_dir.iterdir()):
+        rep.warn("motion-baseline-missing", str(report),
+                 "缺少 handoff/baselines/motion/ 动效录屏或关键帧；动效验收无物化证据")
 
 
 def check_duplicate_baselines(task: Path, rep: Report) -> None:

@@ -11,9 +11,9 @@
 |---|---|---|
 | 工程执行 | 当前 Agent（Read / Write / Edit / Bash / Agent） | 设计与验收由主 Agent 负责；子 Agent 只用于可拆分的并行调查或独立只读复核 |
 | 真实生图 | `python3 scripts/zcode_image.py` | 本 skill 自带适配器，不依赖其他 skill |
-| **设计判断（阶段 1/3）** | ZCode 主 Agent 读真实图片、渲染截图与运行结果，按 `SKILL.md` §4 判据决策 | 不外包给远程模型；可选派原生只读 `reviewer` 做独立复核 |
+| **设计判断（阶段 1/3）** | ZCode 主 Agent 读真实图片、渲染截图与运行结果，按 `SKILL.md` §4 判据决策 | 不外包给远程模型；可选派 ZCode 内置子 Agent 做只读复核 |
 | 外部 GPT 视觉评审（授权后，可选） | `python3 scripts/zcode_vision.py --confirm-gpt-review` | 只在用户明确授权后作为补充证据；不构成设计批准，也不等同 Copilot 正式 REVIEW |
-| 任务治理（可选） | `~/.zcode/skills/copilot/scripts/`（v6：合同/状态/证据/收口） | 本地脚本、不调远程模型；**不做设计裁决**；不是普通开发前置门 |
+| 任务治理（可选） | `~/.zcode/skills/copilot/scripts/`（合同/状态/证据/收口） | 本地脚本、不调远程模型；**不做设计裁决**；不是普通开发前置门 |
 | 浏览器渲染与截图 | `scripts/verify.py`（需 playwright）或本机 headless Chromium | 见 §3 实测状态 |
 | 真机安装与运行 | **只用** `~/.zcode/skills/app-testing/runtime/mi6-verify/adb-auto-install.sh` | **禁止裸 `adb install`**；多台设备在线即停 |
 | 全局规则 | `~/.zcode/AGENTS.md` | 安全、授权、Git、委派、记忆、联网纪律以它为准 |
@@ -57,7 +57,7 @@ python3 scripts/zcode_vision.py --confirm-gpt-review \
 |---|---|---|
 | 真实生图 | `python3 scripts/zcode_image.py --health`，再真实出一张 | 报告限制并暂停生图，不换链路冒充 |
 | 概念差异实测 | `python3 scripts/direction_divergence.py --help`（需 Pillow） | 缺 Pillow → 报告；改用人工并排比对并标注"未实测" |
-| 原生只读复核（可选） | 派 `reviewer` / 只读子代理，确认其无编辑工具 | 不可用 → 主 Agent 自评并说明"未经独立复核" |
+| 原生只读复核（可选） | 派 ZCode 内置子 Agent，确认其不修改文件 | 不可用 → 主 Agent 自评并说明"未经独立复核" |
 | HTML 渲染 | `node scripts/check-ui.mjs <file>`；需要 Playwright 时先 `import playwright` 试导入 | 用可用的解释器/浏览器路径，或报告渲染缺口 |
 | 图片处理 | `python3 -c "import PIL; print(PIL.__version__)"` | 用 `scripts/` 里不依赖 Pillow 的路径，或报告缺口 |
 | 对比度 | `python3 scripts/check-contrast.py <pairs>`（纯 stdlib） | 视为验证工具缺失，不声称已测 |
@@ -92,7 +92,7 @@ DesignWise 的运行只依赖本仓库文件与 ZCode 宿主能力：
 | 曾经的外部依赖 | 现状 |
 |---|---|
 | `huashu-gpt-image`（生图与方法论） | 方法论已吸收进 `references/image-generation.md`；生图走自带 `zcode_image.py`；**不再引用、不注册、不探测** |
-| `copilot`（任务治理） | 长任务/跨会话/高风险时可选用其 v6 合同、状态与证据脚本；**不做设计裁决、不调远程模型、不是前置门**；不假设其内部实现 |
+| `copilot`（任务治理） | 长任务/跨会话/高风险时可选用其合同、状态与证据脚本；**不做设计裁决、不调远程模型、不是前置门**；不假设其内部实现 |
 | huashu 上游仓库 | 只保留 MIT 代码的必要署名与许可证；无同步、无继承、无运行时关联 |
 
 > 其他 skill 的改动、升级或退场不应影响 DesignWise 的流程；若发现隐式依赖，按缺陷处理。

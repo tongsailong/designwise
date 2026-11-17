@@ -31,14 +31,16 @@ handoff/
 ├── copy-data.md            # ④ 真实文案与数据口径
 ├── assets.md               # ⑤ 素材清单与引用关系
 ├── adaptation-a11y.md      # ⑥ 适配、字体缩放、对比度、触控、无障碍
-└── baselines/              # ⑦ 关键页面/状态基准图（PNG，真实渲染）
+└── baselines/              # 附加：关键页面/状态基准图（PNG，真实渲染）
 ```
+
+> **计数口径**：「七件套」= `README.md` + ①–⑥ 六个文档；`baselines/` 是附加证据目录，不占七件套名额。
 
 `README.md` 必须含：产物性质（设计交付包，非产品代码）、目标平台与最低版本、七件套勾选状态、以及「HTML 原型是基准，不是实现代码」的红线提示。
 
 ---
 
-## 2. 七件套逐项规格
+## 2. 交付包逐项规格
 
 ### ① `structure.md` — 页面结构与信息层级
 
@@ -58,17 +60,21 @@ handoff/
 | 间距 | 基础栅格（4/8）+ 页面边距/区块间距/组件内距 token |
 | 圆角 | 卡片/按钮/输入/标签/弹层的半径值 |
 | 阴影/描边 | 具体参数或平台等价效果（elevation / shadow radius/opacity） |
-| 动效 | 时长 + 缓动 + 关键转场参数；加载/点击反馈/页面转场 |
+| 动效 | motion token（时长/缓动/弹簧）+ 关键转场参数 + 中断/重复触发 + 减少动态降级；加载/点击反馈/页面转场 |
 
 **要求**：实现端不看图也能填出 `colors.xml` / `dimens.xml` / Asset Catalog。色值若来自品牌资产，注明来源。
 
 ### ③ `states-interactions.md` — 状态与交互
 
-- **状态矩阵**：每页/每组件：默认 / 加载 / 空 / 错误 / 数据不足，各自长什么样
+- **状态矩阵**：每页/每组件：默认 / 加载 / 空 / 错误 / 数据不足，各自长什么样；每个 `X*` 的出口
 - **交互行为**：点击/滑动/切换后的结果；哪些真实可交互、哪些只是展示
-- **状态机**：Tab 切换、弹层开合、多步流程、任务进度
+- **交互状态**：按下 / 选中 / 聚焦 / 禁用 / 提交中 / 拖拽 / 长按的视觉与行为
+- **状态机**：Tab 切换、弹层开合、多步流程、任务进度；返回保留什么上下文
+- **转场规格**：进入/离开/弹层/tab；触发、起止、时长、缓动、中断、重复、减少动态降级
+- **反馈规格**：snackbar/banner/haptic/庆祝的触发、文案、持续与撤销
 - **边界状态**：数据为 0 / 首次使用 / 无权限 / 断网 / 弱网
 - **输入状态**：键盘弹出、焦点、校验错误、提交中、提交失败
+- **恢复**：失败重试/回滚、离线恢复、额度/锁定解除
 
 ### ④ `copy-data.md` — 真实文案与数据口径
 
@@ -103,10 +109,11 @@ handoff/
 - **深色模式**：语义色映射；不是简单反相
 - **机械校验**：`python3 scripts/check-contrast.py pairs.json`（退出码 1 = 有阻断项）
 
-### ⑦ `baselines/` — 关键页面/状态基准图
+### 附加 `baselines/` — 关键页面/状态基准图
 
 - 每页每个关键状态一张 PNG，来自 HTML 原型的真实渲染
 - 命名与 `P*`/`S*` 一一对应；`README.md` 给对照表
+- `baselines/motion/` 存关键动效录屏或首/中/末帧，命名 `M*`
 - 用途：实现端拿真机截图与基准**并排比对**（对意图负责，不对像素负责）
 
 ---
@@ -127,6 +134,11 @@ HTML 里凡不是平台标准控件的（自绘、分段、Canvas、自定义测
 | 三段 gauge | 三段独立进度、断点对齐、中心读数 | Canvas 三段 drawArc + 文本层 | `CircularProgressIndicator` / 单个 `ProgressBar` | 单值控件表达不了三段状态，替换即丢信息 |
 | 城市卡 pager | 相邻卡露出 24dp、一卡一屏吸附 | `RecyclerView` + `PagerSnapHelper` | 普通 `HorizontalScrollView` | 无吸附会破坏"一站一屏"节奏 |
 | 步数滚动数字 | 逐位滚动、固定宽字 | 自定义 View + 定宽数字字体 | 普通 `TextView` 动画 | 换字宽会抖动，读数跳位 |
+| 列表卡 → 详情 | 共享元素连续放大、返回反向 | `sharedTransitionLayout` / MotionLayout / `matchedGeometryEffect` | 全屏淡入淡出 | 丢失空间关系，用户不知道从哪来 |
+| 底部 sheet | 跟手拖拽、吸附、下滑关闭 | `BottomSheetScaffold` / `UISheetPresentationController` | 全屏 Dialog | 阻断上下文、无手势 |
+| 状态层/触感 | 按下 12% 状态层、确认/失败不同 haptic | 平台 indication + HapticFeedback | 只改颜色 / 每次点击都震 | 反馈不清或反馈通胀 |
+
+**动效与触感是组件行为的一部分**：上表必须覆盖关键动效与 haptic 的平台等价实现和禁用替代；只写“淡入 300ms”不算规格。
 ```
 
 **判定**：任何"用系统默认控件替代自绘控件"的实现都要在阶段 5 的替换 diff 里显式确认等价；未确认即为缺陷，不是"平台适配"。
@@ -183,6 +195,8 @@ Canvas / 自绘 / 叠加层必须写清：
 | 系统 UI | status/nav bar、WindowInsets、edge-to-edge |
 | 字体缩放 | `sp` + 布局自适应；不锁死高度 |
 | 导航 | 系统返回、预测性返回、Tab/抽屉按 Material 惯例 |
+| 动效 | `animate*AsState` / `AnimatedVisibility` / `sharedTransitionLayout`；motion token → 时长/缓动常量 |
+| 触感 | `HapticFeedback` / `Vibrator` 常量；确认/选择/失败分级 |
 
 ### 3.2 iOS
 
@@ -197,6 +211,8 @@ Canvas / 自绘 / 叠加层必须写清：
 | 系统 UI | safe area、home indicator、状态栏样式 |
 | 字体缩放 | Dynamic Type；大字号下布局重排 |
 | 导航 | NavigationStack、TabView、手势返回 |
+| 动效 | `withAnimation` / `UIViewPropertyAnimator` / `matchedGeometryEffect`；spring 参数 |
+| 触感 | `UIImpactFeedbackGenerator` / `UINotificationFeedbackGenerator` |
 
 ### 3.3 关键约定
 
@@ -204,7 +220,7 @@ Canvas / 自绘 / 叠加层必须写清：
 - **CSS px ≠ dp/pt**：按目标密度与设计基准换算，在真机核对。
 - **HTML 原型 ≠ 原生代码**：不得把原型 HTML 嵌入 App；WebView 只用于明确的产品需求。
 - **素材裁切**：CSS `object-fit: cover` 与原生 `CENTER_CROP/scaleAspectFill` 的焦点可能不同，逐端记录。
-- **token 必须语义化**：颜色按用途命名（`ui_color_surface` / `color_on_primary` / `color_text_secondary` / `color_danger`），**不得用 `white` / `black` 当语义色**——深色模式下会直接反色成错误结果。字号给 sp/pt 与层级名，间距给 4/8 网格，动效给时长与缓动。
+- **token 必须语义化**：颜色按用途命名（`ui_color_surface` / `color_on_primary` / `color_text_secondary` / `color_danger`），**不得用 `white` / `black` 当语义色**——深色模式下会直接反色成错误结果。字号给 sp/pt 与层级名，间距给 4/8 网格，圆角按 shape scale，动效给 motion token（时长/缓动/弹簧）与减少动态降级。
 - **旧资源清理**：列出本次被替换的旧资源（旧插画、旧 pager、旧字符串、旧 token），并给"已移除 / 仍被引用"结论，防止旧视觉残留仍在运行。
 
 ### 3.4 设计目标 vs 实现自由
