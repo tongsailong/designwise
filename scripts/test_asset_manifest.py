@@ -9,6 +9,7 @@ verify 的通过 / hash 不符 / 缺字段 / 缺文件 / 缺变体 / temp 拦截
 """
 
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -81,6 +82,39 @@ class ManifestTestBase(unittest.TestCase):
 
 
 class RegisterTests(ManifestTestBase):
+    def generation_meta(self, rel="assets/images/hero.png", sha=None, **overrides):
+        data = {
+            "schema": "designwise-image-meta/v1",
+            "generated_at": "2026-11-18T10:00:00+08:00",
+            "endpoint": "/images/generations",
+            "request": {
+                "model": "gpt-image-2.6-sunburst",
+                "profile": "premium",
+                "complexity": "high",
+                "quality": "xhigh",
+                "size": "1024x1536",
+                "output_format": "png",
+                "compression": None,
+                "background": "opaque",
+                "prompt_sha256": "a" * 64,
+                "refs": [],
+            },
+            "response": {"usage": {"output_tokens": 123}},
+            "assets": [{
+                "file": rel,
+                "sha256": sha or hashlib.sha256(PNG_1PX).hexdigest(),
+                "bytes": len(PNG_1PX),
+                "width": 1,
+                "height": 1,
+                "format": "png",
+            }],
+        }
+        data.update(overrides)
+        path = os.path.join(self.root, "generation.meta.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+        return path
+
     def test_01_register_computes_sha256_and_metadata(self):
         path = self.write("assets/images/hero.png")
         self.write("assets/images/hero@2x.png")
@@ -134,6 +168,54 @@ class RegisterTests(ManifestTestBase):
         self.assertEqual(self.register(id="empty-state", file="assets/images/empty.png")[0], 0)
         ids = [a["id"] for a in self.load()["assets"]]
         self.assertEqual(sorted(ids), ["empty-state", "hero-home"])
+
+    def test_06_register_ingests_generation_meta(self):
+        self.write("assets/images/hero.png")
+        meta = self.generation_meta()
+        code, out, _ = self.register(meta=meta)
+        self.assertEqual(code, 0, out)
+        prov = self.load()["assets"][0]["provenance"]
+        self.assertEqual(prov["model"], "gpt-image-2.6-sunburst")
+        self.assertEqual(prov["api"], "/images/generations")
+        self.assertEqual(prov["profile"], "premium")
+        self.assertEqual(prov["complexity"], "high")
+        self.assertEqual(prov["quality"], "xhigh")
+        self.assertEqual(prov["requested_size"], "1024x1536")
+        self.assertEqual(prov["output_format"], "png")
+        self.assertEqual(prov["background"], "opaque")
+        self.assertEqual(prov["created_at"], "2026-11-18T10:00:00+08:00")
+        self.assertEqual(prov["prompt_sha256"], "a" * 64)
+        self.assertEqual(prov["usage"], {"output_tokens": 123})
+        self.assertEqual(prov["purpose"], None)
+
+    def test_07_register_rejects_meta_sha_mismatch(self):
+        self.write("assets/images/hero.png")
+        meta = self.generation_meta(sha="b" * 64)
+        code, _, err = self.register(meta=meta)
+        self.assertEqual(code, 1)
+        self.assertIn("does not match", err)
+
+    def test_08_register_rejects_meta_with_credential_fields(self):
+        self.write("assets/images/hero.png")
+        meta = self.generation_meta()
+        with open(meta, encoding="utf-8") as fh:
+            data = json.load(fh)
+        data["request"]["api_key"] = "should-never-be-here"
+        with open(meta, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+        code, _, err = self.register(meta=meta)
+        self.assertEqual(code, 1)
+        self.assertIn("credential-like", err)
+        self.assertNotIn("should-never-be-here", err)
+
+    def test_09_explicit_args_override_meta_fields(self):
+        self.write("assets/images/hero.png")
+        meta = self.generation_meta()
+        code, out, _ = self.register(meta=meta, quality="max", purpose="hero")
+        self.assertEqual(code, 0, out)
+        prov = self.load()["assets"][0]["provenance"]
+        self.assertEqual(prov["quality"], "max")
+        self.assertEqual(prov["purpose"], "hero")
 
 
 class VerifyTests(ManifestTestBase):
@@ -249,6 +331,36 @@ class VerifyTests(ManifestTestBase):
         code, out, err = self.run_cli("verify", "--manifest", self.manifest)
         self.assertEqual(code, 0, out + err)
         self.assertIn('"assets": 0', out)
+
+    def test_14_missing_generated_provenance_warns_or_fails_strict(self):
+        self.write("assets/images/hero.png")
+        self.register()
+        code, out, err = self.run_cli("verify", "--manifest", self.manifest)
+        self.assertEqual(code, 0, out + err)
+        self.assertIn("no provenance.model", out)
+        code, out, _ = self.run_cli("verify", "--manifest", self.manifest,
+                                    "--strict-provenance")
+        self.assertEqual(code, 1)
+        self.assertIn("no provenance.model", out)
+
+    def test_15_output_format_mismatch_fails(self):
+        self.write("assets/images/hero.png")
+        self.register(output_format="webp")
+        code, out, _ = self.run_cli("verify", "--manifest", self.manifest)
+        self.assertEqual(code, 1)
+        self.assertIn("does not match actual png", out)
+
+    def test_16_manifest_with_credential_field_fails(self):
+        self.write("assets/images/hero.png")
+        self.register()
+        data = self.load()
+        data["assets"][0]["provenance"]["api_key"] = "leaked"
+        with open(self.manifest, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+        code, out, _ = self.run_cli("verify", "--manifest", self.manifest)
+        self.assertEqual(code, 1)
+        self.assertIn("credential-like field", out)
+        self.assertNotIn("leaked", out)
 
 
 class ListTests(ManifestTestBase):

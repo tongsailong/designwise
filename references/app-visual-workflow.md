@@ -163,7 +163,8 @@
   "shared_block_sha256": "<hash>",
   "concepts": [
     {"id": "A", "name": "…", "file": "concepts/A.png", "sha256": "…", "width": 1024, "height": 1536, "prompt_file": "concepts/prompts/A.md", "provenance": "generated",
-     "model": "gpt-image-2.5", "requested_size": "1024x1536", "actual_size": "1024x1536",
+     "model": "gpt-image-2.6-sunburst", "profile": "final", "complexity": "high", "quality": "high",
+     "requested_size": "1024x1536", "actual_size": "1024x1536", "output_format": "webp",
      "generated_at": "…", "source": "A|B|C", "structure": "…"}
   ]
 }

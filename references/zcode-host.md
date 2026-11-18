@@ -25,15 +25,18 @@
 ### 2.1 `scripts/zcode_image.py`
 
 ```bash
-python3 scripts/zcode_image.py --health                       # 零成本探测
-python3 scripts/zcode_image.py --prompt "<中文提示词>" --out out.png \
-  --size 1024x1536 --fit contain [--ref ref.png] [--n 2]
+python3 scripts/zcode_image.py --health                       # 零成本探测；默认 2.6 缺失时退出 2
+python3 scripts/zcode_image.py --prompt "<中文提示词>" --out out.webp \
+  --profile premium --size 1024x1536 --fit cover \
+  --output-format webp --compression 82 \
+  --meta-out out.meta.json [--ref ref.png] [--n 2]
 ```
 
 - OpenAI 兼容 `/v1/images/generations`；带 `--ref` 走 `/images/edits`。
-- 默认模型以脚本为准（当前 `gpt-image-2.5`）；`--size` 是请求，最终像素用 `--fit cover|contain|stretch` 落地。
-- 返回非图片字节、`b64_json` 缺失、魔数或完整性校验失败 → **非零退出，不写占位文件**。
-- 凭据：优先 `ZCODE_CPA_BASE_URL` + `ZCODE_CPA_API_KEY`，否则读 `~/.zcode/v2/provider_config.json`（可用 `ZCODE_PROVIDER_CONFIG` 改路径）。**不打印、不落盘、不进 prompt。**
+- 默认 `--profile final` = `gpt-image-2.6-sunburst` / complexity `high` / quality `high`；`premium`（xhigh）、`max`、`explore`（Flare）、`draft` 见 `SKILL.md` §6.1。`--model`/`--complexity`/`--quality` 可逐项覆盖。
+- `--size` 与 `--output-format` 是请求；当前 CPA 网关可能近似画布、把格式归为 PNG，脚本用 Pillow 适配并回读校验。网关响应 `quality` 与请求不一致会告警，不能当生效证据。
+- 返回非图片字节、`b64_json` 缺失、魔数或完整性校验失败 → **非零退出，不写占位文件**；模型失败不静默回退旧模型。
+- 凭据：优先 `ZCODE_CPA_BASE_URL` + `ZCODE_CPA_API_KEY`，否则读 `~/.zcode/v2/provider_config.json`（可用 `ZCODE_PROVIDER_CONFIG` 改路径）。**不打印、不落盘、不进 prompt、不进 metadata。**
 
 ### 2.2 `scripts/zcode_vision.py`（可选，流程不依赖）
 

@@ -290,11 +290,24 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 
 ### 6.1 GPT 生图
 
-- **入口**：`scripts/zcode_image.py`（CPA OpenAI 兼容；默认模型 `gpt-image-2.5`；`--health` 零成本；`--size` + `--fit cover|contain|stretch`；`--n` 默认 1）。
+- **入口**：`scripts/zcode_image.py`（CPA OpenAI 兼容；默认 `--profile final` = `gpt-image-2.6-sunburst` / complexity `high` / quality `high`；`--health` 零成本，默认 2.6 模型缺失时失败关闭；`--size` + `--fit cover|contain|stretch`；`--n` 默认 1）。
+- **模型路由**（`--profile`，按任务选，不一律用同一档）：
+  | profile | 模型 | complexity | quality | 适用 |
+  |---|---|---|---|---|
+  | `final`（默认） | `gpt-image-2.6-sunburst` | high | high | 正式素材、常规插画、场景背景 |
+  | `premium` | `gpt-image-2.6-sunburst` | high | xhigh | 核心主题插画、首页主视觉、精细编辑 |
+  | `max` | `gpt-image-2.6-sunburst` | high | max | 少量最高优先级精品资产 |
+  | `explore` | `gpt-image-2.6-flare` | medium | medium | 快速探索、多方案初稿 |
+  | `draft` | `gpt-image-2.6-flare` | low | low | 低成本构图验证 |
+  `--model` / `--complexity` / `--quality` 可逐项覆盖。**默认不降级旧模型，失败不静默回退**；显式使用非 2.6 模型会打印警告，仅供迁移对比。
+- **参数语义**：`complexity` 控制渲染前的场景规划算力（官方省略时默认 high），`quality` 控制渲染细节（`low/medium/high/xhigh/max/auto`）；两者独立，不能把 complexity 当画质、也不能把所有图一律 max。正式素材默认 high/high，精品才升 xhigh/max。
+- **接口与本地规范化**：生成走 `/images/generations`，`--ref` 走 `/images/edits`（参考图编辑优先 Sunburst）。请求携带 model/quality/complexity/size/background/output_format 与 JPEG/WebP 的 output_compression；当前 CPA 网关可能改写画布尺寸、把 output_format 归为 PNG、不回显 complexity，脚本用 Pillow 严格适配到 `--size`/`--output-format` 并回读校验。网关响应 `quality` 与请求不一致时打印警告并写入 `--meta-out`，**响应字段不能当作生效质量证据**。
+- **WebP 与透明**：普通素材优先 WebP（`--output-format webp --compression 80-85`）；透明用 `--background transparent --output-format png|webp`，脚本回读 alpha，没有 alpha 就失败关闭，改用纯色幕布 + `chroma_key.py`。
+- **元数据**：`--meta-out <json>` 记录请求（模型/profile/complexity/quality/size/format/compression/background/prompt 指纹/参考图摘要）、响应 usage 与产物 sha256/尺寸/格式；用 `asset_manifest.py register --meta` 写入 manifest，**不得写入 API Key/Token**。
 - **先规划再生成**：阶段 0 先写视觉资产计划（位置/角色/内容职责/来源/尺寸/变体/消费者，见 `references/image-assets.md` §1.5）。GPT 生图是正式设计能力，不是用户点名才考虑；但也不为使用图片而使用图片。计划里没有的图不临时加。
 - **艺术方向先定**：正式素材共用一张 art-direction 卡（色板/光照/材质/线宽/构图/禁止项，见 `references/image-generation.md` §3.6）；角色/物体先出 master 再作 `--ref`，保证同一 App 视觉语言一致。
 - **实际集成**：生成物必须进入原型与 `assets/`，登记 `asset-manifest.json`（id/sha256/来源/消费者/变体），并按屏幕比例与裁切验收；**只留下 prompt 或临时图不算完成**。重要文字用真实 UI，不生成进图；不冒充真实产品/品牌/用户照片。
-- **尺寸与格式**：按目标槽位与倍率导出；透明先纯色幕布 + 抠图；PNG/WebP/JPEG 按用途选择，记录裁切焦点与暗色变体。
+- **尺寸与格式**：按目标槽位与倍率导出；最终像素与格式由脚本回读校验，不能只信请求参数；透明优先 `--background transparent` 并验证 alpha，网关不支持时用纯色幕布 + 抠图；PNG/WebP/JPEG 按用途选择，记录裁切焦点与暗色变体。
 - **先探测再生成**：`--health` 只证明接口可用，**真实出图成功才算通过**；探测失败报告限制，不静默换链路。
 - **提示词默认中文**，图内描述性文字默认中文；用真实参考名替代形容词；不写 `Subject:/Style:/Constraints:` 伪结构；长度看信息密度。
 - **方向图必须给结构骨架 + 不可迁移声明**；氛围图可以只给气质，方向图不行。
@@ -373,7 +386,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 
 | 情况 | 处理 |
 |---|---|
-| 生图接口不可用 | 报告限制并暂停生图；可交付完整 prompt 让用户在外部真实出图后交回真实文件；**不得用 HTML/SVG/占位图冒充概念图** |
+| 生图接口不可用 / 默认 2.6 模型缺失 | 报告限制并暂停生图，**不静默降级旧模型**；可交付完整 prompt 让用户在外部真实出图后交回真实文件；**不得用 HTML/SVG/占位图冒充概念图** |
 | 多方向差异实测判为换皮/同骨架 | 不进入原型；换骨架或换来源重出受影响方向，**不是换颜色** |
 | 全部方向不合格 | 按修正项改 prompt，只重出受影响方向；原因指向需求本身时与用户确认设计目标，不自行降低产品原则 |
 | 融合后是拼图式堆叠 | 视为方向未定；回到方向记录写清保留/舍弃与统一层级，或改为直接采用一个方向 |

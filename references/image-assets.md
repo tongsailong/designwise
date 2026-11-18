@@ -108,10 +108,22 @@
       "type": "background",
       "source": "generated",
       "provenance": {
-        "model": "gpt-image-2.5",
+        "model": "gpt-image-2.6-sunburst",
+        "api": "/images/generations",
+        "profile": "premium",
+        "complexity": "high",
+        "quality": "xhigh",
+        "requested_size": "1024x1536",
+        "output_format": "webp",
+        "compression": 82,
+        "background": null,
         "prompt_file": "assets/prompts/<asset-id>.md",
+        "prompt_sha256": "<64 hex>",
         "ref": null,
-        "created_at": "..."
+        "refs": [],
+        "created_at": "...",
+        "usage": {"output_tokens": 601},
+        "purpose": "核心主题插画"
       },
       "variants": [
         {"file": "assets/images/<asset-id>@2x.png", "size": "2160x3840", "crop": "center", "format": "png", "theme": "light"},
@@ -137,6 +149,10 @@
 | `type` | background / illustration / icon / texture / photo / logo / decoration / mask |
 | `source` | real / generated / vector / css / user-provided |
 | `provenance` | 生成物必须有模型 + prompt 文件；真实图必须有来源 URL/作者/许可 |
+| `provenance.model` | 生成物必填；正式素材默认 `gpt-image-2.6-sunburst`，探索可用 `gpt-image-2.6-flare` |
+| `provenance.profile` / `complexity` / `quality` | 请求档位与参数；与 `--meta-out` 一致，不能只写「high」而不写是哪一个 |
+| `provenance.requested_size` / `output_format` / `compression` / `background` | 请求值；最终像素/格式以文件回读为准，`output_format` 必须与实际文件一致 |
+| `provenance.prompt_sha256` / `refs` / `usage` | prompt 指纹、参考图摘要与 usage；不写 prompt 正文中的敏感内容 |
 | `variants` | 尺寸/裁切/格式/主题变体；记录转换方式 |
 | `consumers` | 谁在用；删除/替换前必须核对 |
 | `crop` | 焦点与安全区；CSS `cover` 与原生 `CENTER_CROP` 的差异在此说明 |
@@ -146,11 +162,21 @@
 ### 5.3 一致性校验
 
 ```bash
-# 校验清单：文件存在、sha256 匹配、消费者存在、无 temp 残留
+# 登记：直接用生成脚本的元数据写入 provenance（模型/参数/尺寸/格式/时间/prompt 指纹）
+python3 scripts/asset_manifest.py register --manifest asset-manifest.json \
+  --file assets/images/<asset-id>.webp --id <asset-id> --type illustration \
+  --source generated --license generated-for-project --status final \
+  --meta assets/images/<asset-id>.meta.json \
+  --prompt-file assets/prompts/<asset-id>.md \
+  --consumer prototype/index.html
+
+# 校验清单：文件存在、sha256 匹配、消费者存在、无 temp 残留、格式一致、无凭据字段
 python3 scripts/asset_manifest.py verify --manifest asset-manifest.json
+# 严格模式：生成物缺 model/created_at/prompt_file 也视为错误
+python3 scripts/asset_manifest.py verify --manifest asset-manifest.json --strict-provenance
 ```
 
-`sha256` 只证明「文件没变」，**不证明许可正确、视觉正确或裁切正确**；这三件事分别记录。
+`sha256` 只证明「文件没变」，**不证明许可正确、视觉正确或裁切正确**；这三件事分别记录。生成物缺 `provenance.model`/`created_at` 默认告警，`--strict-provenance` 下阻断；`output_format` 与实际文件格式不一致、manifest 中出现 `api_key`/`token`/`password` 等字段直接阻断。
 
 ---
 
@@ -186,7 +212,7 @@ python3 scripts/asset_manifest.py verify --manifest asset-manifest.json
 1. **真实引用**：原型或原生实际引用该文件；只在 `assets/` 里躺着、原型仍用灰块 → 未集成。
 2. **槽位正确**：尺寸/比例/裁切与计划一致；焦点不丢主体；透明/满底符合用途。
 3. **视觉一致**：与艺术方向卡和同批素材的色板/光照/线宽一致；不像素材拼贴。
-4. **可交付**：manifest 状态为 `final`，消费者存在，变体已导出，无 temp 残留。
+4. **可交付**：manifest 状态为 `final`，消费者存在，变体已导出，无 temp 残留；`provenance.output_format` 与实际文件一致，`verify` 不报告凭据字段。
 
 **不得**：用生成图冒充真实产品/品牌/用户照片；把概念图直接当正式素材；只交 prompt 不交文件；用一张图硬塞到多个语义不同的槽位。
 

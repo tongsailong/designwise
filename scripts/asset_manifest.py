@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +23,9 @@ REQUIRED_FIELDS = ("id", "file", "type", "source", "license", "status")
 VALID_STATUS = {"temp", "final"}
 VALID_SOURCE = {"real", "generated", "vector", "css", "user-provided"}
 SCHEME_PREFIXES = ("android:", "ios:", "web:", "native:")
+CREDENTIAL_KEY = re.compile(
+    r"(?i)(api[_-]?key|authorization|bearer|access[_-]?token|refresh[_-]?token|"
+    r"client[_-]?secret|secret|password|passwd|cookie)")
 
 
 def sha256_file(path: Path) -> str:
@@ -66,6 +70,67 @@ def image_meta(path: Path) -> dict:
     return meta
 
 
+def credential_paths(obj, prefix="") -> list[str]:
+    """列出疑似凭据的字段路径；值不读取、不回显。"""
+    found: list[str] = []
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            path = f"{prefix}.{key}" if prefix else str(key)
+            if CREDENTIAL_KEY.search(str(key)):
+                found.append(path)
+            found.extend(credential_paths(value, path))
+    elif isinstance(obj, list):
+        for i, value in enumerate(obj):
+            found.extend(credential_paths(value, f"{prefix}[{i}]"))
+    return found
+
+
+def load_generation_meta(path: str, file_str: str, file_path: Path) -> tuple[dict, dict, str]:
+    """读取 zcode_image.py --meta-out，返回 (meta, 匹配的 asset, 错误说明)。"""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            meta = json.load(fh)
+    except OSError as exc:
+        return {}, {}, f"meta not readable: {path} ({type(exc).__name__})"
+    except ValueError as exc:
+        return {}, {}, f"meta is not valid JSON: {path} ({type(exc).__name__})"
+    if not isinstance(meta, dict):
+        return {}, {}, f"meta must be an object: {path}"
+    bad = credential_paths(meta)
+    if bad:
+        return {}, {}, f"meta contains credential-like fields: {', '.join(bad)}"
+    assets = meta.get("assets")
+    if not isinstance(assets, list) or not assets:
+        return meta, {}, "meta has no assets"
+    match = None
+    file_name = Path(file_str).name
+    for item in assets:
+        if not isinstance(item, dict):
+            continue
+        if item.get("file") == file_str or Path(str(item.get("file", ""))).name == file_name:
+            match = item
+            break
+    if match is None and len(assets) == 1:
+        match = assets[0]
+    if match is None:
+        return meta, {}, f"meta has no asset matching --file {file_str}"
+    actual = sha256_file(file_path)
+    if match.get("sha256") and match["sha256"] != actual:
+        return meta, {}, (f"meta sha256 {str(match['sha256'])[:12]}… does not match "
+                          f"actual {actual[:12]}…")
+    actual_meta = image_meta(file_path)
+    if match.get("format") and actual_meta.get("format") \
+            and match["format"] != actual_meta["format"]:
+        return meta, {}, (f"meta format {match['format']} does not match "
+                          f"actual {actual_meta['format']}")
+    if match.get("width") and match.get("height"):
+        expected = f"{match['width']}x{match['height']}"
+        if actual_meta.get("size") and actual_meta["size"] != expected:
+            return meta, {}, (f"meta size {expected} does not match "
+                              f"actual {actual_meta['size']}")
+    return meta, match, ""
+
+
 def cmd_register(args: argparse.Namespace) -> int:
     manifest_path = Path(args.manifest)
     base = manifest_path.parent
@@ -83,18 +148,49 @@ def cmd_register(args: argparse.Namespace) -> int:
         entry = {"file": v, "sha256": sha256_file(vp)}
         entry.update(image_meta(vp))
         variants.append(entry)
+    meta = {}
+    meta_asset = {}
+    if args.meta:
+        meta, meta_asset, err = load_generation_meta(args.meta, args.file, file_path)
+        if err:
+            print(f"ERROR: {err}", file=sys.stderr)
+            return 1
+    req = meta.get("request") or {}
+    resp = meta.get("response") or {}
+    provenance = {
+        "model": args.model if args.model is not None else req.get("model"),
+        "api": args.api if args.api is not None else meta.get("endpoint"),
+        "profile": args.profile if args.profile is not None else req.get("profile"),
+        "complexity": args.complexity if args.complexity is not None else req.get("complexity"),
+        "quality": args.quality if args.quality is not None else req.get("quality"),
+        "requested_size": (args.requested_size if args.requested_size is not None
+                           else req.get("size")),
+        "output_format": (args.output_format if args.output_format is not None
+                          else req.get("output_format")),
+        "compression": (args.compression if args.compression is not None
+                        else req.get("compression")),
+        "background": (args.background if args.background is not None
+                       else req.get("background")),
+        "prompt_file": args.prompt_file,
+        "prompt_sha256": (args.prompt_sha256 if args.prompt_sha256 is not None
+                          else req.get("prompt_sha256")),
+        "ref": args.ref,
+        "refs": req.get("refs") or [],
+        "created_at": (args.generated_at or meta.get("generated_at")
+                       or datetime.now().astimezone().isoformat(timespec="seconds")),
+        "usage": resp.get("usage"),
+        "purpose": args.purpose or req.get("profile_purpose"),
+    }
+    if args.source == "generated" and not provenance["model"]:
+        print("WARNING: generated asset has no model provenance "
+              "(use --model or --meta)", file=sys.stderr)
     entry = {
         "id": args.id,
         "file": args.file,
         "sha256": sha256_file(file_path),
         "type": args.type,
         "source": args.source,
-        "provenance": {
-            "model": args.model,
-            "prompt_file": args.prompt_file,
-            "ref": args.ref,
-            "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
-        },
+        "provenance": provenance,
         "variants": variants,
         "consumers": args.consumer or [],
         "crop": None,
@@ -124,6 +220,12 @@ def cmd_verify(args: argparse.Namespace) -> int:
     warnings: list[str] = []
     seen: set[str] = set()
     checked = 0
+    for path in credential_paths(data):
+        errors.append(f"manifest contains credential-like field: {path}")
+
+    def prov_issue(msg: str) -> None:
+        (errors if args.strict_provenance else warnings).append(msg)
+
     for idx, asset in enumerate(data["assets"]):
         label = asset.get("id") or f"#{idx}"
         missing = [f for f in REQUIRED_FIELDS if not asset.get(f)]
@@ -139,15 +241,30 @@ def cmd_verify(args: argparse.Namespace) -> int:
         if asset.get("source") and asset["source"] not in VALID_SOURCE:
             warnings.append(f"{label}: unknown source {asset['source']!r}")
         f = asset.get("file")
+        actual_meta = {}
         if f:
             fp = resolve(f, base)
             if not fp.is_file():
                 errors.append(f"{label}: file missing: {fp}")
-            elif asset.get("sha256"):
-                checked += 1
-                actual = sha256_file(fp)
-                if actual != asset["sha256"]:
-                    errors.append(f"{label}: sha256 mismatch (manifest {asset['sha256'][:12]}… actual {actual[:12]}…)")
+            else:
+                actual_meta = image_meta(fp)
+                if asset.get("sha256"):
+                    checked += 1
+                    actual = sha256_file(fp)
+                    if actual != asset["sha256"]:
+                        errors.append(f"{label}: sha256 mismatch (manifest {asset['sha256'][:12]}… actual {actual[:12]}…)")
+        prov = asset.get("provenance") or {}
+        if asset.get("source") == "generated":
+            if not prov.get("model"):
+                prov_issue(f"{label}: generated asset has no provenance.model")
+            if not prov.get("created_at"):
+                prov_issue(f"{label}: generated asset has no provenance.created_at")
+            if prov.get("prompt_file") and not resolve(prov["prompt_file"], base).is_file():
+                prov_issue(f"{label}: prompt_file not found: {prov['prompt_file']}")
+        if prov.get("output_format") and actual_meta.get("format") \
+                and prov["output_format"] != actual_meta["format"]:
+            errors.append(f"{label}: provenance.output_format {prov['output_format']} "
+                          f"does not match actual {actual_meta['format']}")
         for v in asset.get("variants") or []:
             vf = v.get("file")
             if not vf:
@@ -213,6 +330,18 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--consumer", action="append", help="consumer path or platform:<name>; repeatable")
     r.add_argument("--variant", action="append", help="variant file path; repeatable")
     r.add_argument("--model", default=None)
+    r.add_argument("--profile", default=None, help="zcode_image.py profile (final/premium/max/explore/draft)")
+    r.add_argument("--api", default=None, help="e.g. images/generations or images/edits")
+    r.add_argument("--complexity", default=None, help="low / medium / high")
+    r.add_argument("--quality", default=None, help="auto / low / medium / high / xhigh / max")
+    r.add_argument("--requested-size", default=None, help="requested WxH before local fitting")
+    r.add_argument("--output-format", default=None, choices=sorted(("png", "jpeg", "webp")))
+    r.add_argument("--compression", type=int, default=None, help="JPEG/WebP quality 0-100")
+    r.add_argument("--background", default=None, help="auto / opaque / transparent")
+    r.add_argument("--prompt-sha256", default=None)
+    r.add_argument("--generated-at", default=None, help="ISO timestamp from the generation record")
+    r.add_argument("--purpose", default=None, help="asset purpose / profile rationale")
+    r.add_argument("--meta", default=None, help="zcode_image.py --meta-out JSON")
     r.add_argument("--prompt-file", default=None)
     r.add_argument("--ref", default=None)
     r.add_argument("--attribution", default=None)
@@ -223,6 +352,8 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("--manifest", required=True)
     v.add_argument("--allow-temp", action="store_true", help="tolerate status=temp (work in progress)")
     v.add_argument("--strict-consumers", action="store_true", help="missing consumer path is an error")
+    v.add_argument("--strict-provenance", action="store_true",
+                   help="missing generated provenance is an error")
     v.set_defaults(func=cmd_verify)
 
     l = sub.add_parser("list", help="query entries")

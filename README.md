@@ -83,9 +83,10 @@ npx skills add tongsailong/designwise
 
 ## GPT 生图与素材复用
 
-生图是**本 skill 内建能力**，不依赖其他 skill：`scripts/zcode_image.py` 走 OpenAI 兼容的图像接口（默认 `gpt-image-2.5`），支持 `--health` 零成本核验、`--ref` 参考图、`--size` / `--fit` 尺寸与裁切、`--n` 批量。凭据来自环境变量或本机 provider 配置，不写进仓库。
+生图是**本 skill 内建能力**，不依赖其他 skill：`scripts/zcode_image.py` 走 OpenAI 兼容的图像接口，默认 `--profile final` = `gpt-image-2.6-sunburst` / complexity `high` / quality `high`；另有 `premium`（xhigh）、`max`、`explore`（`gpt-image-2.6-flare` / medium）与 `draft`（low）档位。支持 `--health` 零成本核验（默认 2.6 缺失时失败关闭）、`--ref` 参考图编辑、`--size` / `--fit` 尺寸与裁切、`--output-format png|jpeg|webp`、`--compression`、`--background transparent` 与 `--meta-out` 元数据。凭据来自环境变量或本机 provider 配置，不写进仓库。
 
 - **先规划，再生成**：阶段 0 列出视觉资产计划（页面/弹层/状态 × 角色 × 内容职责 × 来源 × 尺寸/裁切 × 变体 × 消费者）。GPT 生成是正式设计能力，不是用户点名才考虑；但也不为使用图片而使用图片，装饰图默认不生成。
+- **按任务选档**：Sunburst 做正式素材与精细编辑，Flare 做快速探索；正式默认 high/high，核心主题插画才升 xhigh/max。`complexity` 控制渲染前规划、`quality` 控制渲染细节，两者不混用；失败不静默回退旧模型。
 - **统一艺术方向**：正式素材共用一张 art-direction 卡（色板/光照/材质/线宽/构图/禁止项）；角色/物体先出 master 再作 `--ref`，同一 App 保持统一美术风格。
 - **贯穿全程**：方向概念图（阶段 1）→ 原型补齐视觉（阶段 2）→ 空态/引导/纹理/完成态等专属素材（阶段 3）。三处保持同一视觉语言、参考图、尺寸与裁切规则。
 - **生成必须进入设计**：文件放进 `assets/` 并被原型真实引用，登记 `asset-manifest.json`；按真实屏幕比例与裁切验收。**只留下 prompt 或临时图不算完成**；重要文字用真实 UI，不生成进图；不冒充真实产品/品牌/用户照片。

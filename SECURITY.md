@@ -21,7 +21,7 @@ There is **no telemetry**, no analytics, no author-controlled server, and no bac
 
 | Host | Where | What is sent | When |
 |---|---|---|---|
-| **Image endpoint** — configured `baseUrl` (default the local CPA proxy `http://127.0.0.1:8317`, OpenAI-compatible `/v1/images/generations` and `/v1/images/edits`) | `scripts/zcode_image.py` | Your prompt, size/quality/count parameters, and any `--ref` reference images (base64) | Only when the script is invoked; `--health` performs a zero-cost reachability check |
+| **Image endpoint** — configured `baseUrl` (default the local CPA proxy `http://127.0.0.1:8317`, OpenAI-compatible `/v1/images/generations` and `/v1/images/edits`) | `scripts/zcode_image.py` | Your prompt, model/profile, complexity/quality, size/format/background parameters, and any `--ref` reference images (base64) | Only when the script is invoked; `--health` performs a zero-cost reachability check |
 | **Vision endpoint** — same `baseUrl`, `/v1/responses` | `scripts/zcode_vision.py` | The image under review plus the review prompt | Only with `--confirm-gpt-review`; every non-health call without it is refused **before** any request is made |
 | **Model endpoint** — Copilot's configured endpoint (CPA), via `call_gpt.py --mode CONSULT` | Copilot direction selection (stage 3) | The design brief, the three concept images and the selection request | Only when stage 3 runs; every call is written to the audit log (see §4) |
 | `commons.wikimedia.org` (official Wikimedia API) | `scripts/fetch_images.py` | Search keywords; downloads CC/public-domain images with licence info printed for review | Only when the agent fetches stock imagery |
@@ -43,7 +43,7 @@ Every hit must map to a row above.
 
 - **No key is hardcoded.** The repo ships only `.env.example` placeholders; `.env` is gitignored and excluded from runtime sync.
 - `scripts/zcode_image.py` and `scripts/zcode_vision.py` read the endpoint and key at call time from `ZCODE_CPA_BASE_URL` / `ZCODE_CPA_API_KEY`, or from ZCode's provider config (`~/.zcode/v2/provider_config.json`, overridable with `ZCODE_PROVIDER_CONFIG`). They never print, copy or persist the key.
-- Design outputs never embed credentials: keys are not written into HTML, images, manifests or reports. `asset-manifest.json` records model name and prompt reference, never auth material.
+- Design outputs never embed credentials: keys are not written into HTML, images, manifests or reports. `asset-manifest.json` records model, profile, complexity/quality, size/format, prompt reference and usage, never auth material. `scripts/asset_manifest.py verify` rejects credential-like fields and format/provenance mismatches.
 - Copilot's own credentials and audit configuration belong to the **`copilot` skill**, not to this repo. DesignWise only calls its documented CLI surface and never reads its config.
 - Adding a provider, purchasing credit, or changing billing is **outside** this skill's authority; it is a user/account decision.
 

@@ -164,7 +164,44 @@ Prompt 的有效信息 ≠ 字数。决定质量的是**单字承载的设计决
 | **文字下标** | 模型画文字标签做「下标」易乱码 | 用顺序映射/图例，不靠图内小字 |
 | **辅助元素** | 一切「辅助装饰」都是污染源 | prompt 明确不要无关元素 |
 
-> 以上是 `gpt-image-2` 的实测口径；默认模型 `gpt-image-2.5` 的差异化能力**尚未逐条重测**，不要把旧数字当 2.5 的结论。**以当次 `--health` 与真实出图结果为准。**
+> 以上是 `gpt-image-2` 的实测口径；2.6 的差异化能力以 §4.1/§4.2 与当次 `--health`、真实出图结果为准。
+
+### 4.1 GPT-Image-2.6 双模型与参数（官方口径）
+
+2026-11-18 核对 OpenAI Image prompting 文档：
+
+| 参数 | 2.6 取值 | 语义 |
+|---|---|---|
+| `model` | `gpt-image-2.6-flare` / `gpt-image-2.6-sunburst` | Flare 速度优先；Sunburst 细节、版式与编辑精度优先 |
+| `complexity` | `low` / `medium` / `high`（省略时 **high**） | 渲染前的场景规划算力；**不是画质** |
+| `quality` | `auto` / `low` / `medium` / `high` / `xhigh` / `max` | 渲染细节、纹理、小字；**不是规划算力** |
+| `size` | `auto` / `1024x1024` / `1536x1024` / `1024x1536` / 自定义 | 自定义宽高为 16 的倍数，比例 1:3–3:1 |
+| `background` | `auto` / `opaque` / `transparent` | PNG/WebP 透明必须回读 alpha |
+| `output_format` | `png` / `jpeg` / `webp`（生成也支持 `svg` / `gif`） | 仅 JPEG/WebP 支持 `output_compression` |
+| `markup` | edits 的透明叠加层 | 与 `mask` / `prompt_rewriter` 互斥 |
+
+**DesignWise 路由（与 `SKILL.md` §6.1 一致）**：
+
+| profile | 模型 | complexity | quality | 适用 |
+|---|---|---|---|---|
+| `final`（默认） | Sunburst | high | high | 正式素材、常规插画、场景背景 |
+| `premium` | Sunburst | high | xhigh | 核心主题插画、首页主视觉、精细编辑 |
+| `max` | Sunburst | high | max | 少量最高优先级精品 |
+| `explore` | Flare | medium | medium | 快速探索、多方案初稿 |
+| `draft` | Flare | low | low | 低成本构图验证 |
+
+**选型原则**：正式视觉资产默认 Sunburst；只有明确的速度/成本优先探索才用 Flare；精品才升 `xhigh`/`max`，不把所有图一律 max。参考图编辑优先 Sunburst，因为跨轮主体一致性是它的强项。
+
+### 4.2 本机 CPA 网关实测边界（2026-11-18）
+
+- **模型可用**：`/models` 返回 `gpt-image-2.6`、`gpt-image-2.6-flare`、`gpt-image-2.6-sunburst`；`--health` 在默认 2.6 缺失时失败关闭。
+- **complexity**：请求被接受，但响应不回显；不能从响应证明生效。按请求记录，以构图/元素关系验收。
+- **quality**：请求被接受；响应 `quality` 与请求**不一定一致**（实测 high 曾回 medium/low，xhigh 回 low）。响应字段不能当生效质量证据；以实际产物、细节与视觉验收为准，并在 metadata 记录 mismatch。
+- **size**：只近似遵守。实测 `1024x1024` 可能回 `1254x1254` 或 `1536x1024`，`1024x1536` 可能回 `1086x1448` 或精确值。最终像素必须由本地 Pillow `--fit` 保证并回读校验。
+- **output_format**：请求 WebP 时网关可能仍返回 PNG；脚本本地转 WebP/JPEG 并记录 `source_format`，最终格式回读校验。
+- **background transparent**：实测可用，返回 RGBA PNG（alpha 0–255）；脚本回读 alpha，没有 alpha 就失败关闭。
+- **安全系统**：含在世艺术家/品牌风格模仿的 prompt 可能被 `moderation_blocked`（实测一次）。改用结构性描述、媒介与色板约束；**不上诉、不绕过、不换账户**。
+- **不静默降级**：模型失败、2.6 缺失或参数不被接受时，报告原因与实际模型；不自动切回 2.5 或其他 Provider。
 
 ---
 
@@ -176,12 +213,18 @@ Prompt 的有效信息 ≠ 字数。决定质量的是**单字承载的设计决
 4. **跑 5 项自检**：不过不生成。
 5. **调用**：
    ```bash
-   python3 scripts/zcode_image.py --prompt "<prompt>" --out assets/images/xxx.png \
-     --size 1024x1536 --fit contain
+   # 正式素材默认：Sunburst / high / high
+   python3 scripts/zcode_image.py --prompt "<中文提示词>" --out assets/images/xxx.webp \
+     --profile final --size 1024x1536 --fit cover \
+     --output-format webp --compression 82 \
+     --meta-out assets/images/xxx.meta.json
    ```
-   需要参考图时加 `--ref <真实参考图>`，走 `/images/edits`。
-6. **验收**：尺寸/比例、中文准确性、关键信息在安全区、设计史细节真实、无伪控件/伪 chrome、与选定方向一致。
-7. **登记**：写入 `asset-manifest.json`（来源、模型、prompt、参考、sha256、变体、消费者）。
+   精品把 `--profile final` 换成 `--profile premium`（xhigh）或 `max`；快速探索用
+   `--profile explore`（Flare / medium / medium），低成本验证用 `draft`。需要参考图时加
+   `--ref <真实参考图>`，走 `/images/edits`。需要精确像素/格式时不要省略 `--size` 与
+   `--output-format`，两者都由本地 Pillow 回读校验。
+6. **验收**：尺寸/比例、中文准确性、关键信息在安全区、设计史细节真实、无伪控件/伪 chrome、与选定方向一致；同时核对 `--meta-out` 的 model/profile/complexity/quality 与最终文件格式是否一致。
+7. **登记**：用 `asset_manifest.py register --meta <meta.json>` 写入 `asset-manifest.json`（模型、参数、尺寸、格式、prompt 指纹、参考图、sha256、消费者）。
 
 **失败不要「再试一次」碰运气**：先读错误，按 §9 失败树处理。
 
@@ -227,10 +270,11 @@ python3 scripts/chroma_key.py in.png out.png [tol_low=62] [tol_high=110] [erode=
 
 | 需求 | 做法 |
 |---|---|
-| 精确尺寸 | `--size` + `--fit cover|contain|stretch`（Pillow 后处理） |
+| 精确尺寸 | `--size` + `--fit cover|contain|stretch`（Pillow 后处理并回读校验；网关只近似遵守） |
 | 裁切焦点 | 记录焦点坐标/比例；不依赖 `cover` 自动居中 |
-| 透明 | 纯色幕布 + `chroma_key.py`；或原生 PNG alpha |
-| 压缩 | 按平台要求；WebP/PNG；不反复有损重压 |
+| 透明 | `--background transparent` + 回读 alpha；网关不支持时纯色幕布 + `chroma_key.py` |
+| 压缩 | `--output-format webp|jpeg --compression 0-100`；PNG 不支持压缩参数；不反复有损重压 |
+| 格式 | 普通素材优先 WebP；透明用 PNG/WebP；照片用 JPEG/WebP；最终格式回读校验 |
 | 深色模式变体 | 单独生成或程序化调色；登记为同一资产变体 |
 | 多倍图 | Android `drawable-*dpi`；iOS `@2x/@3x`；从同一母版导出 |
 
@@ -304,14 +348,17 @@ python3 scripts/chroma_key.py in.png out.png [tol_low=62] [tol_high=110] [erode=
 
 | 现象 | 处理 |
 |---|---|
-| `--health` 失败 | 报告接口不可用；不伪造；不自行改 CPA 配置（属高等级动作） |
+| `--health` 失败 / 默认 2.6 模型缺失 | 报告接口或模型限制；不伪造、不静默降级旧模型；不自行改 CPA 配置（属高等级动作） |
 | 404 `/v1/images/generations` | 只读确认原因并报告；不改配置、不重启核心；不自动换链路 |
 | 401/403/429/400 | 按错误原文改 prompt/参数或等额度；**不无条件重试** |
+| `moderation_blocked` | 删除在世艺术家/品牌风格模仿等触发词，改结构性描述；不上诉、不绕过、不换账户 |
 | 超时/5xx | 结果不确定；先确认上游是否受理，避免重复消耗；不自行降级 |
-| 模型不支持 | 换 `--model` 为现场支持清单内的型号 |
-| 尺寸不对 | `--size` 只是请求；用 `--fit contain/cover` 落地；裁掉 >25% 要告警 |
+| 模型不支持 | 不自动换模型；显式选择现场支持清单内的 2.6 型号，并记录原因 |
+| 尺寸不对 | `--size` 只是请求；网关可能近似或改写，最终用 `--fit` 与回读校验 |
+| 输出格式被归一（如 WebP→PNG） | 本地 Pillow 转换到 `--output-format`，metadata 记录 `source_format` |
+| 响应 quality 与请求不一致 | 记录请求与响应；以实际产物和视觉验收为准，不把响应字段当生效证据 |
 | 生成成功但文件损坏 | 魔数/完整性校验失败；重出该张，不拼接 |
-| 透明底不稳 | 纯色幕布 + `chroma_key.py` |
+| 透明底不稳 / 无 alpha | 脚本失败关闭；改用纯色幕布 + `chroma_key.py` |
 
 **原则**：先一线修复（成本低），再换手段；每次 fallback 记录原因；不循环重发。
 
@@ -321,8 +368,9 @@ python3 scripts/chroma_key.py in.png out.png [tol_low=62] [tol_high=110] [erode=
 
 - 在用户已配置并授权的 Provider/模型/账户范围内，正常生图调用属任务成本，**不需逐次请示**。
 - **不新增 Provider、不购买服务/额度、不改变付费方案**；超出授权范围先说明再取得授权。
+- **选型即成本**：Flare `explore`/`draft` 用于探索和验证；Sunburst `final` 用于正式素材；`premium`/`max` 只给少数核心资产。不要把所有图一律 max，也不要为省时间默认降级正式素材。
 - 一次一张、按实际需要决定数量；不重复生成已有合格素材，不为微小差异反复生图。
-- 记录实际调用量/费用（可获得的）；无数据标未知，不估算冒充账单。
+- 每次记录实际模型、profile、complexity、quality、耗时与可获得的 usage（`--meta-out`）；无数据标未知，不估算冒充账单。
 
 ---
 

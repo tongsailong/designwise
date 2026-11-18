@@ -9,11 +9,13 @@ b64_json、数量不足、尺寸适配成功与失败、env provider 覆盖、�
 import base64
 import contextlib
 import io
+import json
 import os
 import sys
 import tempfile
 import unittest
 import unittest.mock
+import urllib.error
 
 sys.dont_write_bytecode = True
 
@@ -43,6 +45,14 @@ def real_png(size=(20, 20)) -> bytes:
     return buf.getvalue()
 
 
+def real_png_rgba(size=(32, 32)) -> bytes:
+    if Image is None:
+        raise unittest.SkipTest("Pillow 未安装")
+    buf = io.BytesIO()
+    Image.new("RGBA", size, (255, 0, 0, 128)).save(buf, "PNG")
+    return buf.getvalue()
+
+
 class ImageBatchTests(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.TemporaryDirectory(prefix="zcode_image_test_")
@@ -59,12 +69,12 @@ class ImageBatchTests(unittest.TestCase):
         zi.post = self.orig_post
         zi.load_endpoint = self.orig_endpoint
 
-    def _run(self, response, *extra):
+    def _run(self, response, *extra, post=None):
         def fake_post(url, key, payload, timeout):
             self.payloads.append(payload)
             return response
 
-        zi.post = fake_post
+        zi.post = post or fake_post
         old = sys.argv
         sys.argv = ["zcode_image.py", "--prompt", "test", "--out", self.out] + list(extra)
         out, err = io.StringIO(), io.StringIO()
@@ -150,10 +160,10 @@ class ImageBatchTests(unittest.TestCase):
         if Image is None:
             self.skipTest("Pillow 未安装")
         code, out, _ = self._run(
-            {"data": [{"b64_json": b64(real_png((20, 20)))}]}, "--size", "10x10")
+            {"data": [{"b64_json": b64(real_png((32, 32)))}]}, "--size", "16x16")
         self.assertEqual(code, 0, out)
         with Image.open(self.out) as im:
-            self.assertEqual(im.size, (10, 10))
+            self.assertEqual(im.size, (16, 16))
         self.assertFalse([n for n in os.listdir(self.root)
                           if n.startswith(".zcode-image-")])
 
@@ -169,6 +179,206 @@ class ImageBatchTests(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn("--n 上限为 4", out)
         self.assertEqual(len(self._outputs()), 4)
+
+    # ------------------------------------------------ GPT-Image-2.6 路由与参数契约
+
+    def test_default_route_is_26_sunburst_high_high(self):
+        code, out, _ = self._run({"data": [{"b64_json": b64(PNG)}]})
+        self.assertEqual(code, 0, out)
+        payload = self.payloads[-1]
+        self.assertEqual(payload["model"], "gpt-image-2.6-sunburst")
+        self.assertEqual(payload["complexity"], "high")
+        self.assertEqual(payload["quality"], "high")
+        self.assertEqual(payload["output_format"], "png")
+        self.assertNotIn("gpt-image-2.5", json.dumps(payload))
+
+    def test_explore_profile_routes_flare_medium_medium(self):
+        code, out, _ = self._run({"data": [{"b64_json": b64(PNG)}]},
+                                 "--profile", "explore")
+        self.assertEqual(code, 0, out)
+        payload = self.payloads[-1]
+        self.assertEqual(payload["model"], "gpt-image-2.6-flare")
+        self.assertEqual(payload["complexity"], "medium")
+        self.assertEqual(payload["quality"], "medium")
+
+    def test_premium_profile_uses_xhigh(self):
+        code, out, _ = self._run({"data": [{"b64_json": b64(PNG)}]},
+                                 "--profile", "premium")
+        self.assertEqual(code, 0, out)
+        payload = self.payloads[-1]
+        self.assertEqual(payload["model"], "gpt-image-2.6-sunburst")
+        self.assertEqual(payload["complexity"], "high")
+        self.assertEqual(payload["quality"], "xhigh")
+
+    def test_max_profile_uses_max_quality(self):
+        code, out, _ = self._run({"data": [{"b64_json": b64(PNG)}]},
+                                 "--profile", "max")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.payloads[-1]["quality"], "max")
+
+    def test_explicit_model_and_parameters_override_profile(self):
+        code, out, _ = self._run(
+            {"data": [{"b64_json": b64(PNG)}]},
+            "--profile", "explore", "--model", "gpt-image-2.6-sunburst",
+            "--complexity", "low", "--quality", "high")
+        self.assertEqual(code, 0, out)
+        payload = self.payloads[-1]
+        self.assertEqual(payload["model"], "gpt-image-2.6-sunburst")
+        self.assertEqual(payload["complexity"], "low")
+        self.assertEqual(payload["quality"], "high")
+
+    def test_edit_request_carries_26_parameters(self):
+        if Image is None:
+            self.skipTest("Pillow 未安装")
+        ref = os.path.join(self.root, "ref.png")
+        with open(ref, "wb") as fh:
+            fh.write(real_png((32, 32)))
+        code, out, _ = self._run(
+            {"data": [{"b64_json": b64(real_png_rgba())}]},
+            "--ref", ref, "--profile", "premium", "--background", "transparent")
+        self.assertEqual(code, 0, out)
+        payload = self.payloads[-1]
+        self.assertIn("images", payload)
+        self.assertEqual(payload["model"], "gpt-image-2.6-sunburst")
+        self.assertEqual(payload["complexity"], "high")
+        self.assertEqual(payload["quality"], "xhigh")
+        self.assertEqual(payload["background"], "transparent")
+
+    def test_png_compression_is_rejected_before_request(self):
+        code, out, _ = self._run({"data": [{"b64_json": b64(PNG)}]},
+                                 "--compression", "80")
+        self.assertEqual(code, 1, out)
+        self.assertIn("PNG 不支持", out)
+        self.assertEqual(self.payloads, [])
+
+    def test_size_must_be_multiple_of_16(self):
+        code, out, _ = self._run({"data": [{"b64_json": b64(PNG)}]},
+                                 "--size", "1000x1536")
+        self.assertEqual(code, 1, out)
+        self.assertIn("16 的倍数", out)
+        self.assertEqual(self.payloads, [])
+
+    def test_size_ratio_must_be_within_1_to_3(self):
+        code, out, _ = self._run({"data": [{"b64_json": b64(PNG)}]},
+                                 "--size", "1024x4096")
+        self.assertEqual(code, 1, out)
+        self.assertIn("1:3", out)
+        self.assertEqual(self.payloads, [])
+
+    def test_output_extension_must_match_format(self):
+        code, out, _ = self._run({"data": [{"b64_json": b64(PNG)}]},
+                                 "--out", os.path.join(self.root, "x.webp"))
+        self.assertEqual(code, 1, out)
+        self.assertIn("不一致", out)
+        self.assertEqual(self.payloads, [])
+
+    def test_non_26_model_warns_and_omits_complexity(self):
+        code, out, _ = self._run(
+            {"data": [{"b64_json": b64(PNG)}]},
+            "--model", "gpt-image-2.5", "--complexity", "high")
+        self.assertEqual(code, 0, out)
+        self.assertIn("非 2.6 模型", out)
+        self.assertNotIn("complexity", self.payloads[-1])
+
+    def test_api_error_does_not_fallback_or_write(self):
+        calls = []
+
+        def failing_post(url, key, payload, timeout):
+            calls.append(url)
+            raise urllib.error.HTTPError(url, 503, "upstream", {}, io.BytesIO(b"down"))
+
+        code, out, _ = self._run(None, post=failing_post)
+        self.assertEqual(code, 1, out)
+        self.assertEqual(len(calls), 1, "失败时不得重试或切换模型")
+        self.assertIn("HTTP 503", out)
+        self.assertEqual(self._outputs(), [])
+
+    def test_webp_conversion_and_meta_contract(self):
+        if Image is None:
+            self.skipTest("Pillow 未安装")
+        meta_path = os.path.join(self.root, "out.meta.json")
+        code, out, _ = self._run(
+            {"data": [{"b64_json": b64(real_png((64, 64)))},
+                      {"size": "1536x1024", "output_format": "png",
+                       "quality": "low", "usage": {"output_tokens": 10}}]},
+            "--out", os.path.join(self.root, "hero.webp"),
+            "--output-format", "webp", "--compression", "82",
+            "--size", "32x32", "--meta-out", meta_path)
+        self.assertEqual(code, 0, out)
+        with Image.open(os.path.join(self.root, "hero.webp")) as im:
+            self.assertEqual(im.format, "WEBP")
+            self.assertEqual(im.size, (32, 32))
+        with open(meta_path, encoding="utf-8") as fh:
+            meta = json.load(fh)
+        self.assertEqual(meta["schema"], "designwise-image-meta/v1")
+        self.assertEqual(meta["request"]["model"], "gpt-image-2.6-sunburst")
+        self.assertEqual(meta["request"]["profile"], "final")
+        self.assertEqual(meta["request"]["complexity"], "high")
+        self.assertEqual(meta["request"]["quality"], "high")
+        self.assertEqual(meta["request"]["output_format"], "webp")
+        self.assertEqual(meta["request"]["compression"], 82)
+        self.assertEqual(meta["assets"][0]["format"], "webp")
+        self.assertEqual(meta["assets"][0]["width"], 32)
+        self.assertEqual(len(meta["assets"][0]["sha256"]), 64)
+        text = json.dumps(meta)
+        self.assertNotIn("dummy", text)
+        self.assertNotIn("Authorization", text)
+        self.assertNotIn("api_key", text)
+
+    def test_meta_out_is_not_written_when_generation_fails(self):
+        meta_path = os.path.join(self.root, "out.meta.json")
+        code, out, _ = self._run(
+            {"data": [{"b64_json": b64(BAD)}]}, "--meta-out", meta_path)
+        self.assertEqual(code, 1, out)
+        self.assertFalse(os.path.exists(meta_path))
+
+    def test_quality_echo_mismatch_is_reported_but_not_silent(self):
+        code, out, _ = self._run(
+            {"data": [{"b64_json": b64(PNG)}], "quality": "low", "size": "1024x1536"})
+        self.assertEqual(code, 0, out)
+        self.assertIn("quality=low 与请求 high 不一致", out)
+
+    def test_quality_echo_is_recorded_in_meta(self):
+        if Image is None:
+            self.skipTest("Pillow 未安装")
+        meta_path = os.path.join(self.root, "out.meta.json")
+        code, out, _ = self._run(
+            {"data": [{"b64_json": b64(real_png((32, 32)))}], "quality": "low"},
+            "--meta-out", meta_path)
+        self.assertEqual(code, 0, out)
+        with open(meta_path, encoding="utf-8") as fh:
+            meta = json.load(fh)
+        self.assertTrue(meta["response"]["quality_echo_mismatch"])
+        self.assertFalse(meta["response"]["complexity_echoed"])
+
+    def test_transparent_background_without_alpha_fails_closed(self):
+        if Image is None:
+            self.skipTest("Pillow 未安装")
+        code, out, _ = self._run(
+            {"data": [{"b64_json": b64(real_png((32, 32)))}]},
+            "--background", "transparent")
+        self.assertEqual(code, 1, out)
+        self.assertIn("alpha", out)
+        self.assertEqual(self._outputs(), [])
+
+    def test_transparent_background_with_alpha_passes(self):
+        if Image is None:
+            self.skipTest("Pillow 未安装")
+        code, out, _ = self._run(
+            {"data": [{"b64_json": b64(real_png_rgba())}]},
+            "--background", "transparent")
+        self.assertEqual(code, 0, out)
+        with Image.open(self.out) as im:
+            self.assertIn(im.mode, ("RGBA", "LA", "PA"))
+
+    def test_transparent_jpeg_is_rejected_before_request(self):
+        code, out, _ = self._run(
+            {"data": [{"b64_json": b64(PNG)}]},
+            "--out", os.path.join(self.root, "x.jpg"),
+            "--output-format", "jpeg", "--background", "transparent")
+        self.assertEqual(code, 1, out)
+        self.assertIn("JPEG 不支持透明", out)
+        self.assertEqual(self.payloads, [])
 
 
 class ConfigTests(unittest.TestCase):
@@ -192,6 +402,26 @@ class ConfigTests(unittest.TestCase):
                     zi, "CONFIG", "/nonexistent/provider-config.json"), \
                 contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(zi.health(), 2)
+
+    def test_health_fails_closed_when_default_26_model_missing(self):
+        with unittest.mock.patch.object(
+                zi, "load_endpoint", return_value=("http://example.invalid/v1", "k")), \
+                unittest.mock.patch.object(
+                    zi, "get_models",
+                    return_value=["gpt-image-2.5", "gpt-image-2.6-flare"]), \
+                contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(zi.health(), 2)
+        self.assertIn("不会静默降级", out.getvalue())
+
+    def test_health_passes_when_default_26_model_present(self):
+        with unittest.mock.patch.object(
+                zi, "load_endpoint", return_value=("http://example.invalid/v1", "k")), \
+                unittest.mock.patch.object(
+                    zi, "get_models",
+                    return_value=["gpt-image-2.6-sunburst", "gpt-image-2.6-flare"]), \
+                contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(zi.health(), 0)
+        self.assertIn("gpt-image-2.6-sunburst", out.getvalue())
 
     def test_main_config_error_returns_2_without_writing(self):
         out = os.path.join(tempfile.mkdtemp(prefix="zcode_image_cfg_"), "out.png")

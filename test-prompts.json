@@ -268,5 +268,11 @@
     "prompt": "把动效写进交接，别让开发自己猜",
     "expected": "按阶段 4 做**动效与体验交接**，写进 `handoff/states-interactions.md`：状态矩阵、交互态、转场规格（触发/起止/时长/缓动/中断/重复/减少动态）、反馈与触感、恢复路径、平台等价（`sharedTransitionLayout` / `matchedGeometryEffect`、sheet、状态层、haptic）与禁止的廉价替代；`baselines/motion/` 存录屏或首/中/末帧。只写「淡入 300ms」不算规格；实现端看完不需要回来问动效怎么动。",
     "tests": "动效与体验交接 + 状态矩阵 + 转场六栏 + 反馈与触感 + 平台等价 + 禁止廉价替代 + baselines/motion + 淡入300ms不算规格 + 实现端不用问"
+  },
+  {
+    "id": 46,
+    "prompt": "给这个 App 的首页、探索地图和空态生成正式视觉素材；先用低成本模型快速出探索稿，确认后再做精品。",
+    "expected": "先跑 `scripts/zcode_image.py --health`，确认 `gpt-image-2.6-sunburst` 与 `gpt-image-2.6-flare` 在可用列表；正式素材默认走 `--profile final`（Sunburst / complexity high / quality high），探索稿走 `explore`（Flare / medium / medium），核心主视觉才升 `premium`（xhigh）或 `max`。请求必须真实携带 model/complexity/quality/size/output_format，不能用文本模型的 reasoning effort 冒充画质参数；失败或 2.6 缺失时报告原因，不得静默回退旧模型。生成后用 `--meta-out` 记录参数与 sha256，`asset_manifest.py register --meta` 登记并 verify 通过；普通素材优先 WebP，透明素材回读 alpha，素材真实进入原型并按屏幕比例验收。详见 `references/image-generation.md` 与 `references/image-assets.md`。",
+    "tests": "2.6 双模型路由正确 + 正式 high/high + 探索 Flare + 精品 xhigh/max + 参数真实进入请求 + 无静默降级 + meta/manifest 一致 + WebP/alpha + 素材进入原型"
   }
 ]
