@@ -68,48 +68,49 @@ def verify_html(html_path, viewports=None, slides=0, output_dir=None, show=False
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=not show)
+        try:
+            for viewport in viewports:
+                context = browser.new_context(viewport=viewport, device_scale_factor=2)
+                try:
+                    page = context.new_page()
 
-        for viewport in viewports:
-            context = browser.new_context(viewport=viewport, device_scale_factor=2)
-            page = context.new_page()
+                    page.on("console", on_console)
+                    page.on("pageerror", lambda err: page_errors.append(str(err)))
 
-            page.on("console", on_console)
-            page.on("pageerror", lambda err: page_errors.append(str(err)))
+                    print(f"\n→ 打开 {file_url} @ {viewport['width']}x{viewport['height']}")
+                    page.goto(file_url, wait_until='networkidle')
+                    page.wait_for_timeout(wait)
 
-            print(f"\n→ 打开 {file_url} @ {viewport['width']}x{viewport['height']}")
-            page.goto(file_url, wait_until='networkidle')
-            page.wait_for_timeout(wait)
+                    if slides > 0:
+                        # 多 viewport 时文件名必须带尺寸，否则后一个尺寸会覆盖前一个的截图。
+                        slide_suffix = (f"-{viewport['width']}x{viewport['height']}"
+                                        if len(viewports) > 1 else "")
+                        for i in range(slides):
+                            screenshot_path = output_dir / \
+                                f"{stem}{slide_suffix}-slide-{str(i + 1).zfill(2)}.png"
+                            page.screenshot(path=str(screenshot_path), full_page=False)
+                            print(f"  ✓ slide {i+1} → {screenshot_path.name}")
 
-            if slides > 0:
-                # 多 viewport 时文件名必须带尺寸，否则后一个尺寸会覆盖前一个的截图。
-                slide_suffix = (f"-{viewport['width']}x{viewport['height']}"
-                                if len(viewports) > 1 else "")
-                for i in range(slides):
-                    screenshot_path = output_dir / \
-                        f"{stem}{slide_suffix}-slide-{str(i + 1).zfill(2)}.png"
-                    page.screenshot(path=str(screenshot_path), full_page=False)
-                    print(f"  ✓ slide {i+1} → {screenshot_path.name}")
+                            if i < slides - 1:
+                                page.keyboard.press('ArrowRight')
+                                page.wait_for_timeout(500)
+                    else:
+                        suffix = f"-{viewport['width']}x{viewport['height']}" if len(viewports) > 1 else ""
+                        screenshot_path = output_dir / f"{stem}{suffix}.png"
+                        page.screenshot(path=str(screenshot_path), full_page=False)
+                        print(f"  ✓ 截图 → {screenshot_path.name}")
 
-                    if i < slides - 1:
-                        page.keyboard.press('ArrowRight')
-                        page.wait_for_timeout(500)
-            else:
-                suffix = f"-{viewport['width']}x{viewport['height']}" if len(viewports) > 1 else ""
-                screenshot_path = output_dir / f"{stem}{suffix}.png"
-                page.screenshot(path=str(screenshot_path), full_page=False)
-                print(f"  ✓ 截图 → {screenshot_path.name}")
+                        full_path = output_dir / f"{stem}{suffix}-full.png"
+                        page.screenshot(path=str(full_path), full_page=True)
+                        print(f"  ✓ 完整页 → {full_path.name}")
 
-                full_path = output_dir / f"{stem}{suffix}-full.png"
-                page.screenshot(path=str(full_path), full_page=True)
-                print(f"  ✓ 完整页 → {full_path.name}")
-
-            if show:
-                print("  (浏览器窗口保持打开，按Enter关闭...)")
-                input()
-
-            context.close()
-
-        browser.close()
+                    if show:
+                        print("  (浏览器窗口保持打开，按Enter关闭...)")
+                        input()
+                finally:
+                    context.close()
+        finally:
+            browser.close()
 
     print("\n" + "=" * 50)
     print("验证报告")

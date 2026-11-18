@@ -204,7 +204,8 @@ def _table_rows(text: str) -> list[list[str]]:
 
 
 def _field(text: str, name: str) -> str | None:
-    m = re.search(rf"{name}[：:]\s*(.+)", text)
+    """只认行首字段，避免「体验状态：…」被当成「状态：…」。"""
+    m = re.search(rf"(?m)^\s*(?:[-*]\s*)?{re.escape(name)}\s*[：:]\s*(.+?)\s*$", text)
     return m.group(1).strip() if m else None
 
 
@@ -220,14 +221,24 @@ def _decision_exit(text: str) -> str | None:
         return "融合"
     if re.search(r"^#+\s*采用", text, re.M) and _field(text, "采用方向"):
         return "采用"
-    if "全部拒绝" in text:
+    if re.search(r"^#+\s*(全部拒绝|拒绝)", text, re.M):
         return "全部拒绝"
     return None
 
 
-def check_direction(root: Path, task: Path, rep: Report) -> None:
+def check_direction(root: Path, task: Path, rep: Report, stage: int = 6) -> None:
     path = task / "direction-approved.md"
     if not path.exists():
+        handoff = task / "handoff" / "README.md"
+        if stage >= 5 and handoff.exists():
+            # 从阶段 5 承接既有 handoff：允许历史记录不在本目录，但不能静默当作有方向记录
+            rep.warn("direction-record-missing", str(path),
+                     "阶段 5+ 沿用既有 handoff，但本任务目录没有 direction-approved.md；"
+                     "确认方向来自哪份有效记录")
+        elif stage >= 2:
+            # 阶段 2 起必须有设计决策记录：原型不能在没有采用/融合/拒绝结论时开工
+            rep.error("direction-record-missing", str(path),
+                      "阶段 2 起必须存在 direction-approved.md（采用 / 融合 / 全部拒绝的决策记录）")
         return
     rep.mark("direction-approved.md")
     text = read_text(path)
@@ -437,15 +448,36 @@ def check_coverage(root: Path, task: Path, rep: Report) -> None:
                       "地图里的 id 在 coverage 中消失：" + "、".join(sorted(missing)))
 
 
+def _local_assets(task: Path) -> list[Path]:
+    """任务目录下已落盘的素材文件（assets/ 里的图片）。"""
+    found: list[Path] = []
+    base = task / "assets"
+    if not base.is_dir():
+        return found
+    for path in base.rglob("*"):
+        if path.is_file() and path.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
+            found.append(path)
+    return found
+
+
 def check_manifest(root: Path, task: Path, rep: Report) -> None:
     path = task / "asset-manifest.json"
     if not path.exists():
+        assets = _local_assets(task)
+        if assets:
+            rep.error("manifest-missing", str(path),
+                      f"assets/ 下已有 {len(assets)} 个素材文件，但缺少 asset-manifest.json"
+                      "（清单是唯一事实源，有素材就必须登记）")
         return
     rep.mark("asset-manifest.json")
-    proc = subprocess.run(
-        [sys.executable, str(HERE / "asset_manifest.py"), "verify", "--manifest", str(path)],
-        capture_output=True, text=True,
-    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(HERE / "asset_manifest.py"), "verify", "--manifest", str(path)],
+            capture_output=True, text=True, timeout=120,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        rep.error("manifest-verify-failed", str(path), f"asset_manifest.py verify 无法执行：{exc}")
+        return
     if proc.returncode != 0:
         tail = (proc.stdout + proc.stderr).strip().splitlines()[-4:]
         rep.error("manifest-verify-failed", str(path), "asset_manifest.py verify 未通过：" + " / ".join(tail))
@@ -532,7 +564,7 @@ def main() -> int:
     if not args.skip_artifacts:
         check_artifacts(root, task, args.stage, rep)
     check_concept_index(root, task, args.min_concepts, rep)
-    check_direction(root, task, rep)
+    check_direction(root, task, rep, args.stage)
     check_baselines(task, rep)
     check_coverage(root, task, rep)
     check_manifest(root, task, rep)

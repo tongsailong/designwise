@@ -110,7 +110,6 @@ function findChrome() {
     return chromePath;
   }
   const candidates = [
-    '/home/ctyun/.local/bin/google-chrome',
     '/usr/bin/google-chrome',
     '/usr/bin/google-chrome-stable',
     '/usr/bin/chromium',
@@ -228,8 +227,10 @@ const EVALUATE = `(() => {
     const key = JSON.stringify(rec);
     if (seen.has(key)) continue;
     seen.add(key);
+    // WCAG 2.5.8 例外：正文段内的行内链接不按块级触控目标判定
+    const inlineTextLink = inline && el.tagName === 'A';
     const minW = inline ? 0 : TAP_WIDTH;
-    if (r.height + 0.5 < TAP || r.width + 0.5 < minW) tapFailures.push(rec);
+    if (!inlineTextLink && (r.height + 0.5 < TAP || r.width + 0.5 < minW)) tapFailures.push(rec);
   }
   const fontFailures = [];
   // 非产品文本（设备状态栏/外框等）用选择器单独排除，并回传命中项，避免「悄悄下调全局阈值」
@@ -283,6 +284,7 @@ const EVALUATE = `(() => {
       src: src.slice(0, 200),
       alt: (el.alt || '').slice(0, 80),
       loaded,
+      lazy: (el.getAttribute('loading') || '').toLowerCase() === 'lazy',
       natural: (el.naturalWidth || 0) + 'x' + (el.naturalHeight || 0),
       rendered: Math.round(ir.width) + 'x' + Math.round(ir.height),
       visible: isVisible(el),
@@ -497,7 +499,9 @@ const EVALUATE = `(() => {
 
   const de = document.documentElement;
   const b = document.body;
-  const brokenImages = images.filter((i) => !i.loaded);
+  // 只有可见且非 lazy 的图片才计入红灯；隐藏/懒加载图可能只是尚未进入视口
+  const brokenImages = images.filter((i) => !i.loaded && i.visible && !i.lazy);
+  const unloadedSkipped = images.filter((i) => !i.loaded && (!i.visible || i.lazy));
   const uniqueRel = Array.from(new Set(relativeRefs));
   const pageWarnings = [];
   if (uniqueRel.length) {
@@ -505,6 +509,13 @@ const EVALUATE = `(() => {
       code: 'relative-asset',
       message: uniqueRel.length + ' 处相对路径引图/资源；交付为单个 HTML（或只看这份 html）时会 404，改用 data: URI 或确认整目录一起交付',
       refs: uniqueRel.slice(0, 5),
+    });
+  }
+  if (unloadedSkipped.length) {
+    pageWarnings.push({
+      code: 'image-unloaded-nonblocking',
+      message: unloadedSkipped.length + ' 张图片未加载，但属于隐藏或 loading="lazy" 项，未计入红灯；如交付前仍未加载，人工确认是否缺图',
+      refs: unloadedSkipped.slice(0, 5).map((i) => i.src || i.alt || '(no src)'),
     });
   }
   if (contrastUnknown.length) {
@@ -735,10 +746,13 @@ function readLedger(limit) {
 
 function appendLedger(entry) {
   const dir = path.dirname(ledgerPath);
+  const dirExisted = existsSync(dir);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   // 目录/文件都按私有收口：账本属于本机设计记录，不是共享数据。
-  // 已存在的目录或文件不会被 mkdirSync 改权限，故显式 chmod；失败不影响记录本身。
-  try { chmodSync(dir, 0o700); } catch { /* 非 POSIX 或无权限时保持原样 */ }
+  // 只收紧本次新建的目录；用户通过 DESIGNWISE_HOME 指定的既有目录不改权限。
+  if (!dirExisted) {
+    try { chmodSync(dir, 0o700); } catch { /* 非 POSIX 或无权限时保持原样 */ }
+  }
   appendFileSync(ledgerPath, `${JSON.stringify(entry)}\n`, { mode: 0o600 });
   try { chmodSync(ledgerPath, 0o600); } catch { /* 同上 */ }
 }

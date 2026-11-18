@@ -30,6 +30,14 @@ PNG_1PX = bytes.fromhex(
 )
 
 
+def _has_pil():
+    try:
+        import PIL  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 class ManifestTestBase(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -408,8 +416,24 @@ class UsageTests(ManifestTestBase):
         with open(self.manifest, "w", encoding="utf-8") as fh:
             json.dump(["not", "an", "object"], fh)
         code, _, err = self.run_cli("list", "--manifest", self.manifest)
-        self.assertEqual(code, 1)
+        self.assertEqual(code, 2)
         self.assertIn("invalid manifest", err)
+
+    def test_03_truncated_manifest_is_usage_error_not_traceback(self):
+        with open(self.manifest, "w", encoding="utf-8") as fh:
+            fh.write('{"assets": [')
+        code, _, err = self.run_cli("list", "--manifest", self.manifest)
+        self.assertEqual(code, 2)
+        self.assertIn("invalid manifest", err)
+
+    @unittest.skipUnless(_has_pil(), "需要 Pillow 才能识别损坏图片")
+    def test_04_corrupt_image_fails_verify(self):
+        path = self.write("assets/images/broken.png", b"not-a-real-png")
+        code, _, _ = self.register(file="assets/images/broken.png")
+        self.assertEqual(code, 0)
+        code, out, _ = self.run_cli("verify", "--manifest", self.manifest)
+        self.assertEqual(code, 1)
+        self.assertIn("image unreadable", out)
 
 
 if __name__ == "__main__":

@@ -83,7 +83,9 @@ def load_endpoint():
             c = pr.get("config") or {}
             base = ((c.get("api") or {}).get("baseUrl") or "").rstrip("/")
             key = ((c.get("access") or {}).get("apiKey") or "").strip()
-            if base and key and ("8317" in base or "cpa" in json.dumps(pr).lower()):
+            label = f"{pr.get('name') or ''} {pr.get('id') or ''}".lower()
+            # 只看名称/id 与 baseUrl，不对整条 rule（含密钥字段）做子串匹配
+            if base and key and ("8317" in base or "cpa" in label or "cpa" in base.lower()):
                 return base, key
     except (OSError, KeyError, TypeError, ValueError) as exc:
         raise ConfigError(f"无法读取 provider 配置：{config}（{type(exc).__name__}）") from exc

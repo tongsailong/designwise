@@ -132,6 +132,51 @@ class CheckDeliverablesTest(unittest.TestCase):
         self.assertTrue(data["ok"])
         self.assertEqual(data["errors"], [])
 
+    def test_stage5_inherited_handoff_warns_not_errors(self):
+        """从阶段 5 承接既有 handoff：缺本目录方向记录要提示，但不当作伪造通过。"""
+        (self.task / "handoff").mkdir()
+        (self.task / "handoff" / "README.md").write_text("# handoff\n", encoding="utf-8")
+        proc, data = self.run_check("--skip-artifacts", stage="5")
+        self.assertEqual(proc.returncode, 0, data)
+        self.assertEqual(data["errors"], [])
+        self.assertIn("direction-record-missing",
+                      [w["code"] for w in data["warnings"]])
+
+    def test_stage2_requires_direction_record(self):
+        self.write_concept_index()
+        proc, data = self.run_check(stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("direction-record-missing", self.codes(data))
+
+    def test_stage1_without_direction_record_is_allowed(self):
+        self.write_concept_index()
+        proc, data = self.run_check(stage="1")
+        self.assertEqual(proc.returncode, 0, data)
+
+    def test_assets_without_manifest_are_rejected(self):
+        self.write_concept_index()
+        self.write_direction()
+        images = self.task / "assets" / "images"
+        images.mkdir(parents=True)
+        (images / "hero.png").write_bytes(PNG_1PX)
+        proc, data = self.run_check()
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("manifest-missing", self.codes(data))
+
+    def test_decoy_status_field_is_not_read_as_baseline(self):
+        """「体验状态：实施基线」不是方向记录的状态字段，不能被当成实施基线。"""
+        self.write_concept_index()
+        rows = "\n".join(
+            f"| {tag} | design-demos/t1/concepts/{tag}.png | {self.sha(tag)} | 方向{tag} | 结构 |"
+            for tag in ("A", "B", "C")
+        )
+        body = ("# 方向确认 · t1\n\n## 候选\n"
+                "| id | 文件 | sha256 | 方向名 | 结构定位 |\n|---|---|---|---|---|\n"
+                f"{rows}\n\n- 体验状态：实施基线\n- 决策出口：采用\n- 采用方向：A\n")
+        (self.task / "direction-approved.md").write_text(body, encoding="utf-8")
+        proc, data = self.run_check(stage="1")
+        self.assertIn("direction-status-missing", self.codes(data))
+
     def test_sha_mismatch_is_reported(self):
         def mutate(data):
             data["concepts"][0]["sha256"] = "0" * 64

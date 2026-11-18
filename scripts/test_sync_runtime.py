@@ -76,6 +76,18 @@ class SyncRuntimeTests(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
         self.assertIn("--prune 只能与 --apply", r.stdout)
 
+    def test_force_prune_refuses_git_worktree(self):
+        os.makedirs(os.path.join(self.dst, ".git"))
+        r = self.run_sync("--apply", "--prune")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("git 工作区", r.stdout)
+
+    def test_force_prune_refuses_other_skill(self):
+        self.write(self.dst, "SKILL.md", "---\nname: other-skill\n---\n")
+        r = self.run_sync("--apply", "--prune")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("另一个 skill", r.stdout)
+
     def test_check_reports_missing_then_apply_copies(self):
         r = self.run_sync("--check")
         self.assertEqual(r.returncode, 1, r.stdout)

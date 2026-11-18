@@ -78,6 +78,14 @@ ALL_PROP = f"""<!doctype html><html><head><style>
 .x{{transition:all 200ms ease}}
 </style></head><body><div class="x"></div></body></html>"""
 
+DELAY = f"""<!doctype html><html><head><style>
+{TOKENS}
+{REDUCE}
+.x{{transition:transform 300ms ease 2s}}
+.y{{animation:fade 300ms 1.5s both}}
+@keyframes fade{{from{{opacity:0}}to{{opacity:1}}}}
+</style></head><body><div class="x"></div></body></html>"""
+
 
 class CheckMotionTest(unittest.TestCase):
     def setUp(self):
@@ -151,6 +159,13 @@ class CheckMotionTest(unittest.TestCase):
         proc = self.run_check(self.write("all.html", ALL_PROP))
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertIn("motion_all_property", self.codes(proc))
+
+    def test_transition_delay_is_not_counted_as_duration(self):
+        proc = self.run_check(self.write("delay.html", DELAY))
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        codes = self.codes(proc)
+        self.assertNotIn("motion_too_long", codes)
+        self.assertNotIn("motion_long", codes)
 
     def test_static_page_warns_but_passes(self):
         proc = self.run_check(self.write("static.html", STATIC))

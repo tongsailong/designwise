@@ -81,33 +81,14 @@ AI设计里最容易掉进去的陷阱。这是一份「不做什么」的清单
 不要从头设计一整套不熟悉的色彩。这通常不和谐。
 
 **✅ 策略**：
-1. 有品牌色 → 用品牌色，缺的color token用oklch插值
+1. 有品牌色 → 用品牌色，缺的 color token 按同一色相推导
 2. 没有品牌色但有参考 → 从参考产品截图吸色
-3. 完全从零 → 选一个known的配色系统（Radix Colors / Tailwind默认palette / Anthropic brand），不要自己调
+3. 完全从零 → 用平台语义色板（Material 3 tonal / iOS system colors）或一个已验证的开源色板，不逐个手调
 
-**oklch定义色彩**是最现代的做法：
-```css
-:root {
-  --primary: oklch(0.65 0.18 25);      /* 温暖的terracotta */
-  --primary-light: oklch(0.85 0.08 25); /* 同色系浅色 */
-  --primary-dark: oklch(0.45 0.20 25);  /* 同色系深色 */
-}
-```
-oklch能保证调整亮度时色相不漂移，比hsl好用。
+色彩在原型里用语义 token（`ui_background` / `surface` / `on_surface` / `primary` / `on_primary`），不把 `white`/`black` 当语义色——深色模式会反色（`design-handoff.md` ③）。
 
 **❌ 夜间模式随手加反色**
 不是简单invert颜色。好的dark mode需要重新调整饱和度、对比度、accent色。不想做dark mode就别做。
-
-### Layout陷阱
-
-**❌ Bento grid 过度泛滥**
-每个AI生成的landing page都想搞bento。除非你的信息structure确实适合bento，否则用其他layout。
-
-**❌ 大hero + 3-column features + testimonials + CTA**
-这个landing page模板被用烂了。想创新就真创新。
-
-**❌ Card grid里每个card长一样**
-Asymmetric、不同大小的cards、有的带image有的只有文字、有的跨列——这才像真设计师做的。
 
 ## 内容准则
 
@@ -122,31 +103,24 @@ Asymmetric、不同大小的cards、有的带image有的只有文字、有的跨
 
 「One thousand no's for every yes」。
 
-### 2. Ask before adding material
+### 2. 加内容属于范围变化
 
-你觉得多加一段/一页/一个section会更好？先问用户，不要单方面加。
-
-原因：
-- 用户知道他的受众比你清楚
-- 加内容有成本，用户可能不想要
-- 单方面加内容违反了"junior designer汇报工作"的关系
+多加一页/一个区块/一个功能不是设计自由度，是**范围漂移**：先说明它服务哪个真实目标，需要用户拍板时才问；用户没要求的默认不加（`SKILL.md` §0 范围冻结）。
 
 ### 3. Create a system up front
 
-探索完design context后，**先口头说出你要用的系统**，让用户确认：
+探索完 design context 后，**把设计系统写进 `design-brief.md`** 的视觉定位与 token 计划，不停轮等确认：
 
 ```markdown
-我的设计系统：
-- 色彩：#1A1A1A主体 + #F0EEE6背景 + #D97757 accent（来自你的品牌）
-- 字型：Instrument Serif做display + Geist Sans做body
-- 节奏：section title用full-bleed彩色背景 + 白字；普通section用白背景
-- 图像：hero用full-bleed照片，feature section用placeholder等你提供
-- 最多用2种背景色，避免杂乱
-
-确认这个方向我就开始做。
+设计系统（写入 brief，随方向一起验证）：
+- 色彩：语义 token（背景 / 表面 / 主色 / on_*），来自品牌或平台色板
+- 字型：display + body 配对，中文按平台字体栈
+- 层级：app bar / 内容区 / 底部导航的密度与间距节奏
+- 图像：按资产计划（槽位、职责、来源），不用占位图冒充完成
+- 表面：材质语言 ≤2 种，层级不超过必要层数
 ```
 
-用户确认后再动手。这个check-in能避免"做完一半发现方向错"。
+不停轮不等于不沟通：方向阶段用真实概念图与 `direction-approved.md` 呈现判断；只有**业务规则冲突、范围变化、授权边界、关键业务取舍**需要用户拍板（`workflow.md` §3）。
 
 ## Scale 规范
 
@@ -164,7 +138,7 @@ Asymmetric、不同大小的cards、有的带image有的只有文字、有的跨
 |---|---|---|---|
 | Android | `sp` | `dp`（4/8 栅格） | ≥48dp |
 | iOS | `pt`（Dynamic Type） | `pt` | ≥44pt |
-| HTML 原型 | CSS px（按 1x 设计基准） | px | ≥44px |
+| HTML 原型 | CSS px（按 1x 设计基准） | px | iOS ≥44px；Android ≥48px（与目标平台一致） |
 
 ### 对比度（三档判定 · 不得混为一谈）
 
@@ -180,74 +154,14 @@ Asymmetric、不同大小的cards、有的带image有的只有文字、有的跨
 
 **典型陷阱**：品牌金/橙等暖色在白底上常在 2–3:1（如 `#C8A44D` on `#FFFDF8` ≈ 2.33:1）——**只能当档 ② 图形/描边，绝不能当档 ① 正文**；金色小字一律换深色版。
 
-## CSS 神器
+## 原型里的 CSS 边界
 
-**高级CSS特性**是设计师的好朋友，大胆用：
+HTML 原型可以用现代 CSS（`text-wrap`、container queries、`color-mix`、`@view-transition` 等），但**它是移动端原型的表现手段，不是桌面网页设计**：
 
-### 排版
-
-```css
-/* 让标题换行更自然，不会最后一行孤单单一个词 */
-h1, h2, h3 { text-wrap: balance; }
-
-/* 正文换行，避免寡孀和孤儿 */
-p { text-wrap: pretty; }
-
-/* 中文排版神器：标点挤压、行首行尾控制 */
-p { 
-  text-spacing-trim: space-all;
-  hanging-punctuation: first;
-}
-```
-
-### Layout
-
-```css
-/* CSS Grid + named areas = 可读性爆表 */
-.layout {
-  display: grid;
-  grid-template-areas:
-    "header header"
-    "sidebar main"
-    "footer footer";
-  grid-template-columns: 240px 1fr;
-  grid-template-rows: auto 1fr auto;
-}
-
-/* Subgrid对齐卡片内容 */
-.card { display: grid; grid-template-rows: subgrid; }
-```
-
-### 视觉效果
-
-```css
-/* 有设计感的滚动条 */
-* { scrollbar-width: thin; scrollbar-color: #666 transparent; }
-
-/* 玻璃拟态（克制使用） */
-.glass {
-  backdrop-filter: blur(20px) saturate(150%);
-  background: color-mix(in oklch, white 70%, transparent);
-}
-
-/* View transitions API让页面切换丝滑 */
-@view-transition { navigation: auto; }
-```
-
-### 交互
-
-```css
-/* :has()选择器让条件样式变容易 */
-.card:has(img) { padding-top: 0; } /* 有图片的卡片无顶padding */
-
-/* container queries让组件真的响应式 */
-@container (min-width: 500px) { ... }
-
-/* 新的color-mix函数 */
-.button:hover {
-  background: color-mix(in oklch, var(--primary) 85%, black);
-}
-```
+- 用单列/移动断点布局；不引入 sidebar、桌面 Dashboard 网格、hover 才出现的操作。
+- 设备外框与系统栏只用 `assets/ios_frame.jsx` / `assets/android_frame.jsx`，不手写。
+- CSS px 只用于原型；原生落地按 dp/pt 与平台 token 重述（`SKILL.md` 阶段 5）。
+- 动效必须可中断、尊重 `prefers-reduced-motion`，并跑 `scripts/check-motion.py`。
 
 ## 决策速查：当你犹豫时
 
@@ -269,7 +183,7 @@ p {
 
 > 2026-10-27 从 SKILL.md 移入，内容逐字保留；入口见 `SKILL.md` §4 设计质量红线。
 
-完整的反 slop 规则在本文件「AI Slop 完整黑名单」（视觉 / 字体 / 色彩 / Layout 陷阱），字体配对逻辑见 `references/typography.md`。以下只列黑名单没覆盖的补充项：
+完整的反 slop 规则在本文件「AI Slop 完整黑名单」（视觉 / 字体 / 色彩），字体配对逻辑见 `references/typography.md`。以下只列黑名单没覆盖的补充项：
 
 | 类别 | 避免 | 采用 |
 |------|------|------|

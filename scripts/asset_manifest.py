@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from datetime import datetime
@@ -36,20 +37,29 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+class ManifestError(Exception):
+    """清单文件本身不可用（截断、非 JSON、结构不符）：按用法/环境错误返回 2。"""
+
+
 def load(path: Path) -> dict:
     if not path.exists():
         return {"version": 1, "task": "", "updated_at": "", "assets": []}
-    data = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ManifestError(f"invalid manifest: {path} ({exc})") from exc
     if not isinstance(data, dict) or not isinstance(data.get("assets"), list):
-        raise SystemExit(f"invalid manifest: {path} (expected object with 'assets' list)")
+        raise ManifestError(f"invalid manifest: {path} (expected object with 'assets' list)")
     return data
 
 
 def save(path: Path, data: dict) -> None:
+    """原子写：先写同目录临时文件再 os.replace，避免中断留下半截 JSON。"""
     data["updated_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
-    path.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    text = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def resolve(path_str: str, base: Path) -> Path:
@@ -58,15 +68,18 @@ def resolve(path_str: str, base: Path) -> Path:
 
 
 def image_meta(path: Path) -> dict:
+    """读图片尺寸/格式；Pillow 缺失返回空，文件损坏返回 {"error": ...}（不静默放行）。"""
     meta: dict = {}
     try:
         from PIL import Image  # optional
-
+    except ImportError:
+        return meta
+    try:
         with Image.open(path) as im:
             meta["size"] = f"{im.width}x{im.height}"
             meta["format"] = (im.format or "").lower()
-    except Exception:
-        pass
+    except Exception as exc:  # 损坏/伪装成图片的文件
+        meta["error"] = str(exc)
     return meta
 
 
@@ -146,7 +159,8 @@ def cmd_register(args: argparse.Namespace) -> int:
             print(f"ERROR: variant not found: {vp}", file=sys.stderr)
             return 1
         entry = {"file": v, "sha256": sha256_file(vp)}
-        entry.update(image_meta(vp))
+        vm = image_meta(vp)
+        entry.update({k: val for k, val in vm.items() if k in ("size", "format")})
         variants.append(entry)
     meta = {}
     meta_asset = {}
@@ -248,6 +262,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
                 errors.append(f"{label}: file missing: {fp}")
             else:
                 actual_meta = image_meta(fp)
+                if actual_meta.get("error"):
+                    errors.append(f"{label}: image unreadable: {actual_meta['error']}")
                 if asset.get("sha256"):
                     checked += 1
                     actual = sha256_file(fp)
@@ -368,7 +384,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except ManifestError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

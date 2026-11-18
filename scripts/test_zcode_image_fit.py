@@ -168,6 +168,15 @@ def main():
     check("5/JPEG 无 alpha 通道", im.mode == "RGB", im.mode)
     check("5/JPEG 留白合成白底（无黑底）", px(im, 2, 50)[:3] == (255, 255, 255), str(px(im, 2, 50)))
 
+    # convert_format 把透明 PNG 转 JPEG 时也必须合成到白底（透明像素 RGB 常为黑）
+    trans = S("trans_black.png")
+    tim = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+    tim.putpixel((0, 0), (10, 20, 30, 255))
+    tim.save(trans)
+    zi.convert_format(trans, "jpeg")
+    im = Image.open(trans)
+    check("5/透明转 JPEG 无黑底", min(px(im, 7, 7)[:3]) >= 200, str(px(im, 7, 7)))
+
     # ---- 场景 6：非法目标尺寸、损坏图片 → 明确失败
     out = S("bad_input.png")
     with open(out, "wb") as f:

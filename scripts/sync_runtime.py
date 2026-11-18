@@ -164,6 +164,21 @@ def main():
             print("❌ 目标不像 DesignWise skill（缺 SKILL.md 或 name: designwise）；"
                   "确认目标后用 --force")
             return 2
+    elif args.prune and os.path.isdir(target):
+        # --force + --prune 会删掉目标里所有源码不存在的文件：拒绝明显的错误目标
+        if os.path.isdir(os.path.join(target, ".git")):
+            print("❌ 目标是 git 工作区；--force + --prune 拒绝在仓库里执行")
+            return 2
+        skill_md = os.path.join(target, "SKILL.md")
+        if os.path.isfile(skill_md):
+            try:
+                with open(skill_md, encoding="utf-8", errors="replace") as fh:
+                    other_skill = re.search(r"(?m)^name:\s*(\S+)\s*$", fh.read(4096))
+            except OSError:
+                other_skill = None
+            if other_skill and other_skill.group(1) != "designwise":
+                print(f"❌ 目标属于另一个 skill（name: {other_skill.group(1)}）；拒绝 prune")
+                return 2
 
     src, missing, different, extra = compare(source, target)
     print(f"源码：{source}（{len(src)} 个可同步文件）")

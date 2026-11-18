@@ -1,9 +1,9 @@
 # App 原型专属守则（iOS / Android）· 完整操作手册
 
-> 从 SKILL.md 下沉的完整版：架构选型、取图渠道与代码、AppPhone JSX 骨架、ios_frame 三步用法、品位锚点全表。文末附录是 7 条硬规则速查，正文是每条规则的展开。
+> 从 SKILL.md 下沉的完整版：架构选型、取图渠道与代码、AppPhone JSX 骨架、ios_frame 三步用法、品位锚点全表。
 
 
-做 iOS/Android/移动 app 原型时（触发：「app 原型」「iOS mockup」「移动应用」「做个 app」），下面四条**覆盖**通用 placeholder 原则——app 原型是 demo 现场，静态摆拍和米白占位卡没有说服力。
+做 iOS/Android/移动 app 原型时（触发：「app 原型」「iOS mockup」「移动应用」「做个 app」），下面这些守则**覆盖**通用 placeholder 原则——app 原型是 demo 现场，静态摆拍和米白占位卡没有说服力。
 
 ### 0. 架构选型（必先决定）
 
@@ -17,13 +17,13 @@
 
 | 场景 | 架构 | 交付方式 |
 |------|------|----------|
-| 单人做 4-6 屏原型（主流） | 单页 inline（库可本地 vendor） | 一个 `.html` 双击开 |
+| 单人做常规多屏原型（常见） | 单页 inline（库可本地 vendor） | 一个 `.html` 双击开 |
 | 单人做大型 App（>10 屏） | 多 jsx + server | 附启动命令 |
 | 多 agent 并行 | 多 HTML + iframe | `index.html` 聚合，每屏独立可开 |
 
-### 1. 先找真图，不是 placeholder 摆着
+### 1. 内容必需的图用真图，装饰不放
 
-默认主动去取真实图片填充，不要画 SVG、不要拿米白卡摆着、不要等用户要求。常用渠道：
+**只有内容必需的图才主动取真实素材**；纯装饰图默认不加（`image-assets.md` §2 真图诚实性测试）。不要画 SVG、不要拿米白卡摆着、不要用 stock 氛围图凑数。常用渠道：
 
 | 场景 | 首选渠道 |
 |------|---------|
@@ -89,7 +89,7 @@ function AppPhone({ initial }) {
   );
 }
 
-// 平铺：4-6 台并排，每台 initial 落在不同主界面
+// 平铺：每台 initial 落在不同主界面，台数由覆盖矩阵决定
 <div style={{display: 'flex', gap: 32, flexWrap: 'wrap', padding: 48, alignItems: 'flex-start'}}>
   {mainScreens.map(s => (
     <div key={s.id}>
@@ -172,20 +172,3 @@ Screen 组件接 callback props（`onTabChange`、`onOpen`、`onClose`、`onTogg
 ```
 
 **例外**：只有用户明确要求「假装是 iPhone 14 非 Pro 的刘海」「做 Android 不是 iOS」「自定义设备形态」时才绕过——此时读对应 `android_frame.jsx` 或修改 `ios_frame.jsx` 的常量，**不要**在项目 HTML 里另起一套 island/status bar。
-
-
----
-
-## 附录：App / iOS 原型专属守则（速查版）
-
-> 2026-10-27 从 SKILL.md 移入，内容逐字保留；入口见 SKILL.md 对应小节。
-
-做移动 app 原型时（触发：「app 原型」「iOS mockup」「移动应用」「做个 app」），以下硬规则**覆盖**通用 placeholder 原则——app 原型是 demo 现场，静态摆拍没有说服力。完整操作细节（架构选型表 / 取图渠道与代码 / AppPhone JSX 骨架 / ios_frame 三步用法 / 品位锚点全表）见本文档正文 §0–§4：
-
-1. **架构默认单页 inline React**：屏代码、样式、图片都在同一页（React/Babel 等库可用本地 `vendor/` 副本），`file://` 双击就能开；仅 >1000 行难维护或多 agent 并行写不同屏才按屏拆文件（拆了必须附 `python3 -m http.server` 启动说明）
-2. **先找真图再设计**：渠道见本文 §1 与 `references/image-assets.md`；取图前过**真图诚实性测试**——「去掉这张图信息是否有损？」无损 = 装饰 = slop，不加
-3. **交付形态默认「平铺 4-6 主屏 + 每台可交互」**，不要问用户二选一；每台是独立迷你状态机（tab 可切 / 按钮可点 / 能弹 modal），仅用户明确说「只要静态」或「单流程 demo」才偏离
-4. 🔴 **设备框必须用现成组件**：iOS 用 `assets/ios_frame.jsx`，Android 用 `assets/android_frame.jsx`；禁止手写 Dynamic Island / status bar / home indicator / bezel / 导航栏——自己写 99% 撞位置 bug（iOS 岛是固定 124×36，两侧 status bar 空间极窄；Android 系统栏高度随版本与手势模式变化）
-5. **信息密度分型**：默认克制型（少一层容器 / 少一个 border / 少一个装饰 icon）；产品卖点是 AI / 数据 / 上下文感知时走**高密度型**——每屏 ≥3 处**有内容的**差异化信息，装饰 icon 照样忌讳
-6. **交付前 Playwright 跑 3 项点击测试**（进详情 / 关键标注点 / tab 切换），`pageerror` 为 0 再交付
-7. **品位锚点**：衬线 display（Newsreader/Source Serif/EB Garamond）+ `-apple-system` body；一个有温度的底色 + 单 accent 贯穿；留一处「值得截图」的 120% 细节签名

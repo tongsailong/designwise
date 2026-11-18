@@ -36,7 +36,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CHECK_UI = os.path.join(HERE, "check-ui.mjs")
 
 CHROME_CANDIDATES = (
-    "/home/ctyun/.local/bin/google-chrome",
     "/usr/bin/google-chrome",
     "/usr/bin/google-chrome-stable",
     "/usr/bin/chromium",
@@ -104,6 +103,9 @@ def capture_url(url: str, shot_path: str, chrome: str, width: int, height: int,
     if not os.path.isfile(CHECK_UI):
         raise RefBoardError(f"找不到 {CHECK_UI}")
     os.makedirs(os.path.dirname(os.path.abspath(shot_path)), exist_ok=True)
+    # 先删掉上一次的截图：本次采集失败时不能把陈图当成本次成功
+    if os.path.isfile(shot_path):
+        os.remove(shot_path)
     cmd = [
         node, CHECK_UI, "--url", url, "--shot", shot_path,
         "--width", str(width), "--height", str(height),
@@ -115,6 +117,11 @@ def capture_url(url: str, shot_path: str, chrome: str, width: int, height: int,
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired as exc:
         raise RefBoardError(f"截图超时（{timeout}s）：{url}") from exc
+
+    # 0 = 全部通过；1 = 页面有阻塞项但截图已生成（参考站点不要求达标）；>=2 是环境/用法错误
+    if proc.returncode not in (0, 1):
+        detail = (proc.stderr.strip().splitlines() or ["未知错误"])[0]
+        raise RefBoardError(f"截图失败：{url} → check-ui 退出码 {proc.returncode}：{detail}")
 
     data = {}
     if proc.stdout.strip():
@@ -185,7 +192,8 @@ def compose_sheet(entries: list[dict], out_path: str, thumb_width: int = 420) ->
     return {"ok": True, "path": out_path, "columns": cols, "count": len(thumbs)}
 
 
-def build_board_html(entries: list[dict], title: str, created: str) -> str:
+def build_board_html(entries: list[dict], title: str, created: str,
+                     notes: list[str] | None = None) -> str:
     """生成自包含看板（只引本地截图，不联网）。"""
     cards = []
     for i, entry in enumerate(entries, 1):
@@ -236,6 +244,7 @@ def build_board_html(entries: list[dict], title: str, created: str) -> str:
   header {{ max-width: 1400px; margin: 0 auto 24px; }}
   h1 {{ margin: 0 0 6px; font-size: 22px; letter-spacing: .2px; }}
   .sub {{ color: #9aa0aa; font-size: 13px; }}
+  .board-note {{ margin-top: 6px; color: #c8cbd2; font-size: 13px; }}
   .board {{ max-width: 1400px; margin: 0 auto; display: grid; gap: 18px;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }}
   .card {{ margin: 0; background: #1c1d24; border: 1px solid #2a2c35; border-radius: 12px;
@@ -264,6 +273,7 @@ def build_board_html(entries: list[dict], title: str, created: str) -> str:
 <header>
   <h1>{html.escape(title)}</h1>
   <div class="sub">真实参考像素 · {len(entries)} 个来源 · 生成于 {html.escape(created)}</div>
+  {''.join(f'<div class="board-note">{html.escape(n)}</div>' for n in (notes or []) if n.strip())}
 </header>
 <main class="board">
 {''.join(cards)}
@@ -383,7 +393,7 @@ def main(argv: list[str] | None = None) -> int:
     created = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
     board_html = os.path.join(out_dir, "board.html")
     with open(board_html, "w", encoding="utf-8") as fh:
-        fh.write(build_board_html(entries, args.title, created))
+        fh.write(build_board_html(entries, args.title, created, args.note))
 
     sheet = compose_sheet(entries, os.path.join(out_dir, "board.jpg"))
 

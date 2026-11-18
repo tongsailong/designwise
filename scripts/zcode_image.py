@@ -102,7 +102,9 @@ def load_endpoint():
             c = pr.get("config") or {}
             base = ((c.get("api") or {}).get("baseUrl") or "").rstrip("/")
             key = ((c.get("access") or {}).get("apiKey") or "").strip()
-            if base and key and ("8317" in base or "cpa" in json.dumps(pr).lower()):
+            label = f"{pr.get('name') or ''} {pr.get('id') or ''}".lower()
+            # 只看名称/id 与 baseUrl，不对整条 rule（含密钥字段）做子串匹配
+            if base and key and ("8317" in base or "cpa" in label or "cpa" in base.lower()):
                 return base, key
     except (OSError, KeyError, TypeError, ValueError) as exc:
         raise ConfigError(f"无法读取 provider 配置：{config}（{type(exc).__name__}）") from exc
@@ -339,7 +341,13 @@ def convert_format(path, fmt, compression=None):
             if src == fmt and not (fmt in ("jpeg", "webp") and compression is not None):
                 return ""
             if fmt == "jpeg":
-                out = im.convert("RGB")
+                # JPEG 无 alpha：透明像素直接丢 alpha 会露出黑底/杂色，先合成到白底
+                if im.mode in ("RGBA", "LA") or "transparency" in im.info:
+                    rgba = im.convert("RGBA")
+                    out = Image.new("RGB", rgba.size, (255, 255, 255))
+                    out.paste(rgba, mask=rgba.split()[-1])
+                else:
+                    out = im.convert("RGB")
             elif im.mode in ("RGBA", "LA") or "transparency" in im.info:
                 out = im.convert("RGBA")
             else:

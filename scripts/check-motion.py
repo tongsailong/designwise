@@ -46,8 +46,6 @@ LAYOUT_PROPS = {
     "padding", "padding-top", "padding-right", "padding-bottom", "padding-left",
     "filter", "box-shadow",
 }
-# 允许的绘制型属性：不触发布局重排；仅用于共享元素圆角等有明确理由的转场。
-PAINT_PROPS = {"border-radius"}
 MOTION_PROPS = {"transition", "transition-duration", "transition-property",
                 "animation", "animation-duration", "animation-name",
                 "animation-iteration-count"}
@@ -82,6 +80,24 @@ def ms_values(text):
             continue
         out.append(int(round(num * 1000)) if unit.lower() == "s" else int(round(num)))
     return out
+
+
+def duration_values(prop, value):
+    """只取时长，不把 shorthand 里的 delay 当 duration。
+
+    CSS 简写中每个逗号分段里的**第一个**时间值是 duration，第二个是 delay
+    （如 `transition: transform 300ms ease 2s`）。把 delay 算进时长预算会误报超长。
+    """
+    if prop in ("transition-duration", "animation-duration"):
+        return ms_values(value)
+    if prop in ("transition", "animation"):
+        out = []
+        for segment in value.split(","):
+            times = ms_values(segment)
+            if times:
+                out.append(times[0])
+        return out
+    return []
 
 
 def split_decls(body):
@@ -125,7 +141,7 @@ def scan_rule(selector, declarations, file_label, vars_map, keyframes):
         if prop not in MOTION_PROPS:
             continue
         resolved = resolve_vars(value, vars_map)
-        durations = ms_values(resolved)
+        durations = duration_values(prop, resolved)
         infinite = bool(re.search(r"\binfinite\b", resolved, re.I))
         layout = layout_properties(resolved)
         first_tokens = resolved.split(",")[0].strip().split()
@@ -231,8 +247,6 @@ def evaluate(results, strict):
                     add("warning", "motion_infinite",
                         "存在无限循环动画；必须有暂停/降级且不得抢注意力", name, sel)
             for prop in rule["layout_properties"]:
-                if prop in PAINT_PROPS:
-                    continue
                 add("warning", "motion_layout_property",
                     "动画布局属性 %s 易掉帧；优先 transform/opacity" % prop, name, sel)
             if rule.get("all_property"):

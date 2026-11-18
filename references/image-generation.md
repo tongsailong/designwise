@@ -1,7 +1,7 @@
 # 生图方法论与执行手册 · GPT-image（App UI 版）
 
 > **读这份文档的时机**：要写生图 prompt、要判断模型能不能做、要批量出图/抠图/转换、或出图失败要查原因时。
-> **本文吸收自** huashu-gpt-image 的提示词方法论、能力边界、批量与失败处理经验，并**按 App UI 场景重写**；生成入口统一为 DesignWise 的 `scripts/zcode_image.py`，不依赖其他 skill。
+> **本文吸收自** huashu-gpt-image 的提示词方法论、能力边界、批量与失败处理经验，并**按 App UI 场景重写**；生成入口统一为 DesignWise 的 `scripts/zcode_image.py`，不依赖其他 skill。来源、版权与许可见 `THIRD_PARTY_NOTICES.md`。
 > **不重复的规则**：概念方向的流程位置、方向数量、结构骨架与不可迁移声明、差异实测与决策记录，见 `direction-strategy.md` 与 `app-visual-workflow.md` 阶段 1；素材登记与复用见 `image-assets.md`。
 
 ---
@@ -21,17 +21,9 @@
 
 ### 1.1 视觉资产计划（先规划，再生成）
 
-生图不是“用户点名才做”的可选项。**阶段 0 结束前先做一张视觉资产计划**，再决定生成哪些；计划写入 `design-brief.md` 或 `asset-manifest.json` 的 `plan` 段。
+生图不是“用户点名才做”的可选项。**阶段 0 结束前先做一张视觉资产计划**，再决定生成哪些。
 
-| 字段 | 要写什么 |
-|---|---|
-| 位置 | 哪个 `P*`/`S*`/`X*`、哪个区块 |
-| 角色 | hero / illustration / background / texture / empty / celebration / icon / photo |
-| 内容职责 | 它替用户回答什么（去掉后损失什么信息） |
-| 素材来源 | 复用 / 真实资产 / 生成 / 程序化 / 矢量化 |
-| 尺寸与比例 | 目标屏幕区域、最终像素、裁切焦点、透明需求 |
-| 主题变体 | 亮/暗、空/加载/错误、不同场景 |
-| 消费者 | 原型文件、原生页面 |
+**七个字段（位置 / 角色 / 内容职责 / 素材来源 / 尺寸与比例 / 主题变体 / 消费者）与模板只在 `references/image-assets.md` §1.5 维护**，本文不复述。
 
 **决策顺序**：内容必需 → 真实资产优先 → 能程序化/矢量化的不生成位图 → 需要原创叙事才生成 → 装饰默认不生成。
 
@@ -151,20 +143,19 @@ Prompt 的有效信息 ≠ 字数。决定质量的是**单字承载的设计决
 
 ---
 
-## 4. 能力边界（以现场实测为准）
+## 4. 历史口径（gpt-image-2）
 
-| 维度 | 实测口径 | 对 App UI 的含义 |
+> 下表是 `gpt-image-2` 时期的实测记录，**不是当前默认链路**。默认模型是 `gpt-image-2.6-sunburst`，参数语义以 §4.1 为准；`quality` 在 2.6 有 `auto/low/medium/high/xhigh/max` 六档，不要按下面三档使用。
+
+| 维度 | 历史实测口径 | 对 App UI 的含义 |
 |---|---|---|
 | **中文** | 20+ 字符可准确生成；成语/古诗/对联/印章可做 | 概念图里可放中文示意，但**仍不得当作文案依据** |
 | **均匀网格** | 4×4 稳定；5×5 需技巧，末行易压缩 | 批量 icon/角色集 ≤4×4；超过拆批 |
 | **画布** | 官方预设 1024²、1024×1536、1536×1024、2560×1440；最大边 <3840、总像素 65 万–830 万、比例 ≤3:1 | App 概念图用 1024×1536 竖版 |
-| **quality** | low / medium / high；密集布局、中文、卡牌必须 high | 方向图与正式素材用 high（由上游默认/参数控制） |
 | **`--size`** | CPA **可能不遵守**，模型自选画布 | 比例写进 prompt；最终像素用 `--fit` 落地 |
 | **透明背景** | 默认不稳；不要假定能出透明底 | 需要透明 → 纯色幕布 + 抠图（§7） |
 | **文字下标** | 模型画文字标签做「下标」易乱码 | 用顺序映射/图例，不靠图内小字 |
 | **辅助元素** | 一切「辅助装饰」都是污染源 | prompt 明确不要无关元素 |
-
-> 以上是 `gpt-image-2` 的实测口径；2.6 的差异化能力以 §4.1/§4.2 与当次 `--health`、真实出图结果为准。
 
 ### 4.1 GPT-Image-2.6 双模型与参数（官方口径）
 
@@ -177,18 +168,10 @@ Prompt 的有效信息 ≠ 字数。决定质量的是**单字承载的设计决
 | `quality` | `auto` / `low` / `medium` / `high` / `xhigh` / `max` | 渲染细节、纹理、小字；**不是规划算力** |
 | `size` | `auto` / `1024x1024` / `1536x1024` / `1024x1536` / 自定义 | 自定义宽高为 16 的倍数，比例 1:3–3:1 |
 | `background` | `auto` / `opaque` / `transparent` | PNG/WebP 透明必须回读 alpha |
-| `output_format` | `png` / `jpeg` / `webp`（生成也支持 `svg` / `gif`） | 仅 JPEG/WebP 支持 `output_compression` |
-| `markup` | edits 的透明叠加层 | 与 `mask` / `prompt_rewriter` 互斥 |
+| `output_format` | `png` / `jpeg` / `webp`（上游生成也支持 `svg` / `gif`） | 仅 JPEG/WebP 支持 `output_compression`；**本仓库脚本只落 png/jpeg/webp** |
+| `markup` | edits 的透明叠加层 | 与 `mask` / `prompt_rewriter` 互斥；**本仓库脚本未暴露这些参数**，需要透明叠加时用 `--ref` + 纯色幕布 + `chroma_key.py` |
 
-**DesignWise 路由（与 `SKILL.md` §6.1 一致）**：
-
-| profile | 模型 | complexity | quality | 适用 |
-|---|---|---|---|---|
-| `final`（默认） | Sunburst | high | high | 正式素材、常规插画、场景背景 |
-| `premium` | Sunburst | high | xhigh | 核心主题插画、首页主视觉、精细编辑 |
-| `max` | Sunburst | high | max | 少量最高优先级精品 |
-| `explore` | Flare | medium | medium | 快速探索、多方案初稿 |
-| `draft` | Flare | low | low | 低成本构图验证 |
+**DesignWise 路由**：profile 表（`final` / `premium` / `max` / `explore` / `draft`）**只在 `SKILL.md` §6.1 维护**，本文不复述；两者冲突时以 `SKILL.md` 为准。
 
 **选型原则**：正式视觉资产默认 Sunburst；只有明确的速度/成本优先探索才用 Flare；精品才升 `xhigh`/`max`，不把所有图一律 max。参考图编辑优先 Sunburst，因为跨轮主体一致性是它的强项。
 

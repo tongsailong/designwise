@@ -187,8 +187,12 @@ def check_references(root: str):
 
     for doc in find_docs(root):
         rel_doc = os.path.relpath(doc, root).replace(os.sep, "/")
-        with open(doc, encoding="utf-8") as f:
-            text = f.read()
+        try:
+            with open(doc, encoding="utf-8") as f:
+                text = f.read()
+        except (OSError, UnicodeDecodeError) as exc:
+            errors.append(f"{rel_doc} → 无法读取：{exc}")
+            continue
         for match in PATH_RE.finditer(text):
             ref = match.group(0).rstrip(".,;:)）」。、")
             if is_placeholder(ref):

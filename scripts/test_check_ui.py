@@ -29,7 +29,6 @@ def find_chrome():
     if env and os.path.isfile(env):
         return env
     for p in (
-        "/home/ctyun/.local/bin/google-chrome",
         "/usr/bin/google-chrome",
         "/usr/bin/google-chrome-stable",
         "/usr/bin/chromium",
@@ -135,6 +134,32 @@ class CheckUiTest(unittest.TestCase):
         self.assertEqual(report["images"]["broken"], 1)
         self.assertEqual(report["images"]["failures"][0]["alt"], "破图")
         self.assertIn("relative-asset", [w["code"] for w in report["warnings"]])
+
+    def test_hidden_and_lazy_broken_images_are_not_blocking(self):
+        """隐藏图与 loading=lazy 图可能只是尚未进入视口，不得当破图阻断正常页面。"""
+        url = self.clean_page(
+            "hidden-img.html",
+            "<p>正文</p>"
+            "<img src='missing-hidden.png' alt='隐藏破图' style='display:none'>"
+            "<img src='missing-lazy.png' alt='懒加载破图' loading='lazy'>",
+        )
+        proc, data = self.run_check(url)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        report = data["reports"][0]
+        self.assertTrue(report["pass"])
+        self.assertEqual(report["images"]["broken"], 0)
+        self.assertIn("image-unloaded-nonblocking",
+                      [w["code"] for w in report["warnings"]])
+
+    def test_inline_text_link_is_exempt_from_tap_target(self):
+        """正文中的行内链接按 WCAG 2.5.8 例外处理，不按 48px 块级目标判。"""
+        url = self.clean_page(
+            "inline-link.html",
+            "<p>正文里有一个 <a href='#'>行内链接</a>，不应该按块级触控目标判定。</p>",
+        )
+        proc, data = self.run_check(url)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(data["reports"][0]["tap"]["failures"], [])
 
     def test_relative_image_is_yellow_only(self):
         with open(os.path.join(self.tmp, "px.png"), "wb") as fh:

@@ -7,8 +7,10 @@
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 import ref_board
 
@@ -56,6 +58,51 @@ class BoardHtmlTest(unittest.TestCase):
         html = ref_board.build_board_html([], "空板", "2026-10-31 10:00")
         self.assertIn("还没有来源", html)
         self.assertIn("0 个来源", html)
+
+    def test_board_notes_are_rendered(self):
+        """--note 是被接受的参数，就必须出现在看板上，不能静默丢弃。"""
+        html = ref_board.build_board_html([], "板", "2026-10-31 10:00",
+                                          ["只看版式", "忽略广告图"])
+        self.assertIn("只看版式", html)
+        self.assertIn("忽略广告图", html)
+
+
+class CaptureFreshnessTest(unittest.TestCase):
+    """截图失败时不得把上一次的陈图当成本次采集成功。"""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="dw-ref-capture-")
+        self.shot = os.path.join(self.tmp, "shots", "url-01.png")
+        os.makedirs(os.path.dirname(self.shot), exist_ok=True)
+        with open(self.shot, "wb") as fh:
+            fh.write(b"stale-bytes")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_failed_capture_does_not_reuse_stale_screenshot(self):
+        fake = subprocess.CompletedProcess(args=[], returncode=2, stdout="", stderr="boom")
+        with mock.patch.object(ref_board.subprocess, "run", return_value=fake):
+            with self.assertRaises(ref_board.RefBoardError):
+                ref_board.capture_url("https://example.com", self.shot,
+                                      "/usr/bin/google-chrome", 800, 600)
+        self.assertFalse(os.path.exists(self.shot), "旧截图必须被删除，不能冒充本次采集")
+
+    def test_blocker_exit_code_with_real_shot_is_accepted(self):
+        png = (b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
+
+        def fake_run(cmd, **kwargs):
+            with open(self.shot, "wb") as fh:
+                fh.write(png)
+            report = {"reports": [{"shot": {"path": self.shot}, "title": "T"}]}
+            return subprocess.CompletedProcess(args=cmd, returncode=1,
+                                               stdout=json.dumps(report), stderr="")
+
+        with mock.patch.object(ref_board.subprocess, "run", side_effect=fake_run):
+            info = ref_board.capture_url("https://example.com", self.shot,
+                                         "/usr/bin/google-chrome", 800, 600)
+        self.assertEqual(info["title"], "T")
+        self.assertEqual(info["bytes"], len(png))
 
 
 class BlankDetectTest(unittest.TestCase):

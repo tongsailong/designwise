@@ -7,8 +7,7 @@ This document declares every network destination, credential touchpoint, subproc
 | Path | Leaves your machine when |
 |---|---|
 | `scripts/zcode_image.py` — real image generation | you (or the agent, inside an agreed task) generate concept/direction/asset images |
-| `scripts/zcode_vision.py` — external GPT visual review | you explicitly authorise that channel **and** the call passes `--confirm-gpt-review` |
-| `~/.zcode/skills/copilot/scripts/bridge_evidence.py` + `call_gpt.py` — Copilot direction selection | stage 3 of the standard flow runs: brief text + the three concept images go to the configured model endpoint |
+| `scripts/zcode_vision.py` — external visual second opinion (advisory only) | you explicitly authorise that channel **and** the call passes `--confirm-gpt-review` |
 | `scripts/fetch_images.py` — Wikimedia Commons | the agent fetches CC/public-domain imagery for a design |
 | `scripts/ref_board.py` / `scripts/check-ui.mjs` — headless Chrome | you pass reference URLs or a page that itself loads remote assets |
 | Brand asset protocol — brand official sites | the design is brand-specific and no local brand asset exists |
@@ -22,8 +21,7 @@ There is **no telemetry**, no analytics, no author-controlled server, and no bac
 | Host | Where | What is sent | When |
 |---|---|---|---|
 | **Image endpoint** — configured `baseUrl` (default the local CPA proxy `http://127.0.0.1:8317`, OpenAI-compatible `/v1/images/generations` and `/v1/images/edits`) | `scripts/zcode_image.py` | Your prompt, model/profile, complexity/quality, size/format/background parameters, and any `--ref` reference images (base64) | Only when the script is invoked; `--health` performs a zero-cost reachability check |
-| **Vision endpoint** — same `baseUrl`, `/v1/responses` | `scripts/zcode_vision.py` | The image under review plus the review prompt | Only with `--confirm-gpt-review`; every non-health call without it is refused **before** any request is made |
-| **Model endpoint** — Copilot's configured endpoint (CPA), via `call_gpt.py --mode CONSULT` | Copilot direction selection (stage 3) | The design brief, the three concept images and the selection request | Only when stage 3 runs; every call is written to the audit log (see §4) |
+| **Vision endpoint** — same `baseUrl`, `/v1/responses` | `scripts/zcode_vision.py` | The image under review plus the requested observation prompt | Only with `--confirm-gpt-review`; every non-health call without it is refused **before** any request is made. Advisory only — not a design verdict |
 | `commons.wikimedia.org` (official Wikimedia API) | `scripts/fetch_images.py` | Search keywords; downloads CC/public-domain images with licence info printed for review | Only when the agent fetches stock imagery |
 | Brand official sites, `simpleicons.org`, Google favicon service | `references/brand-asset-protocol.md` (instructions, no script) | Plain GET requests for publicly served logos/brand assets | Only for a brand-specific design |
 | Reference URLs you supply | `scripts/ref_board.py` → `scripts/check-ui.mjs` (headless Chrome) | A normal page load of the URL you passed | Only when you ask for a reference board |
@@ -53,20 +51,19 @@ Every hit must map to a row above.
 
 `scripts/zcode_image.py` is the only generation path. Three rules apply:
 
-- **Scope and cost.** Generation is a normal model capability inside an agreed design task — concept directions at stage 2, prototype support at stage 4, assets at stage 5. It is not per-image approval-gated, but it is also not unbounded: one image per direction, no "just to probe" batches, no unconditional retries, reference-image editing (`--ref`) for tweaks, and reuse before regeneration. A genuinely larger scope is handled as a normal task-scope change with the user.
+- **Scope and cost.** Generation is a normal model capability inside an agreed design task — concept directions at stage 1, prototype support at stages 2–3, assets at stage 3. It is not per-image approval-gated, but it is also not unbounded: one image per direction, no "just to probe" batches, no unconditional retries, reference-image editing (`--ref`) for tweaks, and reuse before regeneration. A genuinely larger scope is handled as a normal task-scope change with the user.
 - **Honesty.** If generation is unavailable, report the limit and pause that step; you may hand over complete prompts so the user can generate externally and return real files. Never substitute HTML/SVG drawings or placeholders and present them as generated concept images.
 - **Not relaxed.** Using generation does not permit changing credentials, model routing or account configuration, opening new paid services, widening file/system/network permissions, or bypassing any other authorisation rule (commit, push, release and production changes keep their own gates).
 
 ---
 
-## 4. Copilot direction selection (stage 3)
+## 4. Design decisions stay local
 
-Stage 3 is the one place where the design itself is sent to an external model, and it is deliberate — the point is a real-pixel decision by a party other than the executor.
+Direction selection and design review are performed by the ZCode agent on the local machine, from real image files and real renderings. **DesignWise sends no brief, image or decision to a remote model for approval or direction choice.**
 
-- `bridge_evidence.py` packs the goal/brief and the three concept images into a local evidence bundle (`.designwise/evidence-direction.md` + `.json`). Nothing leaves the machine at this step.
-- `call_gpt.py --mode CONSULT` sends that bundle to the configured model endpoint and writes the reply locally. It also appends one audit line to `~/.zcode/skills/copilot/.audit/copilot.jsonl` (subject, timestamps, model identity, evidence digest, reply digest) — **not** the images themselves.
-- Fail-closed conditions (missing/undecodable/duplicate image, image not actually in the request, model identity check failure, a reply admitting it cannot see the images, or a verdict with no clear recommendation) mean **no verdict**, and are recorded as such. They are not retried into a fabricated answer.
-- The resulting `direction-approved.md` is design evidence, **not** a formal REVIEW, and it does not constitute authorisation for commit, push, release or deployment.
+- The retired `call_gpt.py --mode CONSULT` / `bridge_evidence.py --image` path is **not part of the current code and must not be invoked**; if any document or script reintroduces it, treat that as a defect.
+- `scripts/zcode_vision.py` is an opt-in, user-authorised external visual second opinion (see §1). Its output is advisory observation only: it is not a design verdict, not a gate, and not authorisation for commit, push, release or deployment.
+- `direction-approved.md` is the agent's own recorded design decision, not an external approval.
 
 ---
 
@@ -108,7 +105,7 @@ Mainstream registry packages only — `playwright` and `sharp` via npm, `Pillow`
 
 ## 9. Hooks
 
-This skill installs **no** hooks and writes nothing to any host configuration. The old render-time gate hook was retired with the video/PPT export chain; the direction gate now lives in the flow as stage 3 evidence (`direction-approved.md` + Copilot audit record), enforced by instruction and by `asset_manifest.py` / `check-skill.py` checks rather than by a process hook.
+This skill installs **no** hooks and writes nothing to any host configuration. The old render-time gate hook was retired with the video/PPT export chain; the direction gate now lives in the flow as stage 1 evidence (`direction-approved.md`), enforced by instruction and by `check-deliverables.py` checks rather than by a process hook.
 
 Whatever hooks exist in your host configuration are yours and are outside this skill's scope.
 

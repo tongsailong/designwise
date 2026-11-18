@@ -303,7 +303,7 @@
 
 ## 风格提示词心法（Mood, Not Layout，只适用于配图/氛围图）
 
-> **方向图是例外**：方向图必须给结构骨架与不可迁移声明，不能只给情绪（见 `references/app-visual-workflow.md` 阶段 2）。
+> **方向图是例外**：方向图必须给结构骨架与不可迁移声明，不能只给情绪（见 `SKILL.md` 阶段 1 与 `references/direction-strategy.md` §3）。
 
 短提示词 > 长提示词。描述情绪和内容，比堆 30 行布局细节有效。
 

@@ -12,7 +12,6 @@
 | 工程执行 | 当前 Agent（Read / Write / Edit / Bash / Agent） | 设计与验收由主 Agent 负责；子 Agent 只用于可拆分的并行调查或独立只读复核 |
 | 真实生图 | `python3 scripts/zcode_image.py` | 本 skill 自带适配器，不依赖其他 skill |
 | **设计判断（阶段 1/3）** | ZCode 主 Agent 读真实图片、渲染截图与运行结果，按 `SKILL.md` §4 判据决策 | 不外包给远程模型；可选派 ZCode 内置子 Agent 做只读复核 |
-| 外部 GPT 视觉评审（授权后，可选） | `python3 scripts/zcode_vision.py --confirm-gpt-review` | 只在用户明确授权后作为补充证据；不构成设计批准，也不等同 Copilot 正式 REVIEW |
 | 任务治理（可选） | `~/.zcode/skills/copilot/scripts/`（合同/状态/证据/收口） | 本地脚本、不调远程模型；**不做设计裁决**；不是普通开发前置门 |
 | 浏览器渲染与截图 | `scripts/verify.py`（需 playwright）或本机 headless Chromium | 见 §3 实测状态 |
 | 真机安装与运行 | **只用** `~/.zcode/skills/app-testing/runtime/mi6-verify/adb-auto-install.sh` | **禁止裸 `adb install`**；多台设备在线即停 |
@@ -32,23 +31,23 @@ python3 scripts/zcode_image.py --prompt "<中文提示词>" --out out.webp \
   --meta-out out.meta.json [--ref ref.png] [--n 2]
 ```
 
-- OpenAI 兼容 `/v1/images/generations`；带 `--ref` 走 `/images/edits`。
+- OpenAI 兼容 `/v1/images/generations`；带 `--ref` 走 `/images/edits`。**baseUrl 契约：配置里的 base 必须已包含 `/v1`**（脚本直接拼 `/images/...` 与 `/models`，不自动补前缀）。
 - 默认 `--profile final` = `gpt-image-2.6-sunburst` / complexity `high` / quality `high`；`premium`（xhigh）、`max`、`explore`（Flare）、`draft` 见 `SKILL.md` §6.1。`--model`/`--complexity`/`--quality` 可逐项覆盖。
 - `--size` 与 `--output-format` 是请求；当前 CPA 网关可能近似画布、把格式归为 PNG，脚本用 Pillow 适配并回读校验。网关响应 `quality` 与请求不一致会告警，不能当生效证据。
 - 返回非图片字节、`b64_json` 缺失、魔数或完整性校验失败 → **非零退出，不写占位文件**；模型失败不静默回退旧模型。
 - 凭据：优先 `ZCODE_CPA_BASE_URL` + `ZCODE_CPA_API_KEY`，否则读 `~/.zcode/v2/provider_config.json`（可用 `ZCODE_PROVIDER_CONFIG` 改路径）。**不打印、不落盘、不进 prompt、不进 metadata。**
 
-### 2.2 `scripts/zcode_vision.py`（可选，流程不依赖）
+### 2.2 `scripts/zcode_vision.py`（非流程能力，默认不用）
 
 ```bash
 python3 scripts/zcode_vision.py --health
 python3 scripts/zcode_vision.py --confirm-gpt-review \
-  --image a.png --image b.png --prompt "<逐张方向 + 推荐 + 依据 + 风险>"
+  --image a.png --image b.png --prompt "<逐张事实观察 + 疑问 + 依据>"
 ```
 
 - 只接受磁盘真实图片（存在性、大小、magic number 校验）；文字或 base64 字符串直接拒绝。
-- 默认路径是**原生视觉自检**；此脚本只在用户明确要求外部第二意见时使用，是补充证据，**不是**设计批准、**不是** Gate、**不是** Copilot 正式 REVIEW，缺它不影响任何阶段推进。
-- 状态非 completed、带 `incomplete_details` 或输出被截断 → 报告「未获得视觉裁决」，按缺证处理。
+- **设计判断仍在 ZCode**：本脚本只在用户点名要外部第二意见时提供补充观察；输出只作为**待核实的观察**，不得直接采纳为方向或评审结论，**不是**设计批准、**不是** Gate、**不是** Copilot 正式 REVIEW，缺它不影响任何阶段推进。
+- 状态非 completed、带 `incomplete_details` 或输出被截断 → 报告「未获得外部观察」，按缺证处理。
 
 ---
 
@@ -61,11 +60,10 @@ python3 scripts/zcode_vision.py --confirm-gpt-review \
 | 真实生图 | `python3 scripts/zcode_image.py --health`，再真实出一张 | 报告限制并暂停生图，不换链路冒充 |
 | 概念差异实测 | `python3 scripts/direction_divergence.py --help`（需 Pillow） | 缺 Pillow → 报告；改用人工并排比对并标注"未实测" |
 | 原生只读复核（可选） | 派 ZCode 内置子 Agent，确认其不修改文件 | 不可用 → 主 Agent 自评并说明"未经独立复核" |
-| HTML 渲染 | `node scripts/check-ui.mjs <file>`；需要 Playwright 时先 `import playwright` 试导入 | 用可用的解释器/浏览器路径，或报告渲染缺口 |
+| HTML 渲染 | `node scripts/check-ui.mjs --url file:///path/index.html`（本机 Chrome/Chromium + Node ≥22）；`scripts/verify.py` 才需要 Playwright | 用可用的浏览器路径，或报告渲染缺口 |
 | 图片处理 | `python3 -c "import PIL; print(PIL.__version__)"` | 用 `scripts/` 里不依赖 Pillow 的路径，或报告缺口 |
 | 对比度 | `python3 scripts/check-contrast.py <pairs>`（纯 stdlib） | 视为验证工具缺失，不声称已测 |
 | 真机 | `adb devices` 现场核对 | 无设备 → `PARTIAL` / `BLOCKED`；装包只走 `adb-auto-install.sh` |
-| 视频/音频/PPT 导出 | 不需要核验 | 已移出范围，相关脚本不随本 skill 分发 |
 
 ---
 
