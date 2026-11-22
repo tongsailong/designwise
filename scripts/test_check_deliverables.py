@@ -85,10 +85,16 @@ class CheckDeliverablesTest(unittest.TestCase):
         )
         (self.task / "direction-approved.md").write_text(body, encoding="utf-8")
 
-    def write_brief(self, ids=("P1", "X6")):
+    def write_brief(self, ids=("P1", "X6"), priority=True):
         rows = "\n".join(f"| {i} | 页面 |" for i in ids)
+        extra = ""
+        if priority:
+            extra = (
+                "\n## 信息优先级\n| id | 第一眼看什么 | 下一层 | 不进首屏 |\n|---|---|---|---|\n"
+                + "\n".join(f"| {i} | 主任务 | 次级信息 | 明细 |" for i in ids) + "\n"
+            )
         (self.task / "design-brief.md").write_text(
-            "# brief\n\n| id | 标题 |\n|---|---|\n" + rows + "\n", encoding="utf-8")
+            "# brief\n\n| id | 标题 |\n|---|---|\n" + rows + "\n" + extra, encoding="utf-8")
 
     @staticmethod
     def coverage_items():
@@ -132,6 +138,27 @@ class CheckDeliverablesTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, data)
         self.assertTrue(data["ok"])
         self.assertEqual(data["errors"], [])
+        self.assertNotIn("brief-priority-missing", self.codes(data))
+
+    def test_brief_without_info_priority_warns(self):
+        """信息优先级是四原则在生图前的输入；缺了只提示，不阻断局部任务。"""
+        self.write_concept_index()
+        self.write_direction()
+        self.write_brief(priority=False)
+        proc, data = self.run_check()
+        self.assertEqual(proc.returncode, 0, data)
+        self.assertIn("brief-priority-missing", self.codes(data))
+
+    def test_brief_priority_is_checked_via_state_map_too(self):
+        """只把页面 id 写进 state-map 也不能绕过信息优先级检查。"""
+        self.write_concept_index()
+        self.write_direction()
+        (self.task / "design-brief.md").write_text("# brief\n\n无优先级\n", encoding="utf-8")
+        (self.task / "state-map.md").write_text(
+            "# 地图\n\n| id | 标题 |\n|---|---|\n| P1 | 今日 |\n", encoding="utf-8")
+        proc, data = self.run_check()
+        self.assertEqual(proc.returncode, 0, data)
+        self.assertIn("brief-priority-missing", self.codes(data))
 
     def test_stage5_inherited_handoff_warns_not_errors(self):
         """从阶段 5 承接既有 handoff：缺本目录方向记录要提示，但不当作伪造通过。"""
@@ -366,6 +393,48 @@ class CheckDeliverablesTest(unittest.TestCase):
         codes = self.codes(data)
         self.assertIn("coverage-id-missing", codes)   # P2 在地图里消失
         self.assertIn("coverage-id-unmapped", codes)  # X6 不在 map 里
+
+    def test_stage6_rejects_unfinished_native_item(self):
+        """阶段 6 不得留下 native=todo：没做就标 not-applicable 或如实 PARTIAL。"""
+        self.write_brief(("P1", "X6"))
+        self.write_concept_index()
+        self.write_direction()
+        self.write_coverage()
+        proc, data = self.run_check("--skip-artifacts", stage="6")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("coverage-native-incomplete", self.codes(data))
+
+    def test_stage6_native_done_requires_device_evidence(self):
+        self.write_brief(("P1", "X6"))
+        self.write_concept_index()
+        self.write_direction()
+
+        def mutate(data):
+            item = data["items"][1]
+            item["native"] = "done"
+            item["device"] = {}
+
+        self.write_coverage(mutate=mutate)
+        proc, data = self.run_check("--skip-artifacts", stage="6")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("coverage-device-missing", self.codes(data))
+
+    def test_stage6_all_untested_device_is_warning_only(self):
+        """全 not-tested 是诚实的 PARTIAL，不阻断结构自检，但也只能支撑 PARTIAL。"""
+        self.write_brief(("P1", "X6"))
+        self.write_concept_index()
+        self.write_direction()
+
+        def mutate(data):
+            for item in data["items"]:
+                item["native"] = "done"
+                item["device"] = {"1.0": "not-tested"}
+                item["notes"] = "设备未连：本轮无真机证据"
+
+        self.write_coverage(mutate=mutate)
+        proc, data = self.run_check("--skip-artifacts", stage="6")
+        self.assertEqual(proc.returncode, 0, data)
+        self.assertIn("coverage-device-untested", self.codes(data))
 
     def test_rendered_requires_screen_names(self):
         self.write_brief(("P1", "X6"))

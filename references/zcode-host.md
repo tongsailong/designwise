@@ -13,7 +13,7 @@
 | 真实生图 | `python3 scripts/zcode_image.py` | 本 skill 自带适配器，不依赖其他 skill |
 | **设计判断（阶段 1/3）** | ZCode 主 Agent 读真实图片、渲染截图与运行结果，按 `SKILL.md` §4 判据决策 | 不外包给远程模型；可选派 ZCode 内置子 Agent 做只读复核 |
 | 任务治理（可选） | `~/.zcode/skills/copilot/scripts/`（合同/状态/证据/收口） | 只做治理；可能按其自身生命周期调用 SOL 做认知建议，但**不做设计裁决**、不是普通开发前置门；DesignWise 不调度也不等待其结论 |
-| 浏览器渲染与截图 | `scripts/verify.py`（需 playwright）或本机 headless Chromium | 见 §3 实测状态 |
+| 浏览器渲染与截图 | `node scripts/check-ui.mjs --url file:///path/index.html`（本机 Chrome/Chromium + Node ≥22；`--shot` 截图、`--click/--expect` 交互断言、`--record` 连续帧） | 无浏览器 → 报告渲染缺口，**不得声称已验证** |
 | 真机安装与运行 | **只用** `~/.zcode/skills/app-testing/runtime/mi6-verify/adb-auto-install.sh` | **禁止裸 `adb install`**；多台设备在线即停 |
 | 全局规则 | `~/.zcode/AGENTS.md` | 安全、授权、Git、委派、记忆、联网纪律以它为准 |
 
@@ -50,7 +50,7 @@ python3 scripts/zcode_image.py --prompt "<中文提示词>" --out out.webp \
 | 真实生图 | `python3 scripts/zcode_image.py --health`，再真实出一张 | 报告限制并暂停生图，不换链路冒充 |
 | 概念差异实测 | `python3 scripts/direction_divergence.py --help`（需 Pillow） | 缺 Pillow → 报告；改用人工并排比对并标注"未实测" |
 | 原生只读复核（可选） | 派 ZCode 内置子 Agent，确认其不修改文件 | 不可用 → 主 Agent 自评并说明"未经独立复核" |
-| HTML 渲染 | `node scripts/check-ui.mjs --url file:///path/index.html`（本机 Chrome/Chromium + Node ≥22）；`scripts/verify.py` 才需要 Playwright | 用可用的浏览器路径，或报告渲染缺口 |
+| HTML 渲染 | `node scripts/check-ui.mjs --url file:///path/index.html`（本机 Chrome/Chromium + Node ≥22；`--click/--expect` 交互断言） | 用可用的浏览器路径，或报告渲染缺口 |
 | 图片处理 | `python3 -c "import PIL; print(PIL.__version__)"` | 用 `scripts/` 里不依赖 Pillow 的路径，或报告缺口 |
 | 对比度 | `python3 scripts/check-contrast.py <pairs>`（纯 stdlib） | 视为验证工具缺失，不声称已测 |
 | 真机 | `adb devices` 现场核对 | 无设备 → `PARTIAL` / `BLOCKED`；装包只走 `adb-auto-install.sh` |

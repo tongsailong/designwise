@@ -195,7 +195,7 @@ class SyncExclusionContractTests(unittest.TestCase):
 
     def test_runtime_scripts_are_not_excluded(self):
         for rel in ("scripts/sync_runtime.py", "scripts/zcode_image.py",
-                    "scripts/verify.py", "scripts/check-skill.py",
+                    "scripts/check-motion.py", "scripts/check-skill.py",
                     "scripts/check-motion.py"):
             self.assertFalse(self.mod.skip_file(rel), rel)
 
@@ -216,14 +216,14 @@ class SyncExclusionContractTests(unittest.TestCase):
             write_file(src, "SKILL.md", "---\nname: designwise\n---\n")
             write_file(src, "LICENSE", "MIT\n")
             write_file(src, "AGENTS.md", "rules\n")
-            write_file(src, "scripts/verify.py", "print(1)\n")
-            write_file(src, "scripts/test_verify_status.py", "pass\n")
+            write_file(src, "scripts/check-motion.py", "print(1)\n")
+            write_file(src, "scripts/test_check_motion.py", "pass\n")
             m = self.mod.manifest(src)
             self.assertNotIn("AGENTS.md", m)
-            self.assertNotIn("scripts/test_verify_status.py", m)
+            self.assertNotIn("scripts/test_check_motion.py", m)
             self.assertIn("LICENSE", m)
             self.assertIn("SKILL.md", m)
-            self.assertIn("scripts/verify.py", m)
+            self.assertIn("scripts/check-motion.py", m)
 
     def test_copilot_tasks_dir_is_excluded(self):
         """`.copilot-tasks/` 是本地治理台账（合同/状态/证据），不得随分发。"""
@@ -231,7 +231,7 @@ class SyncExclusionContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sync_copilot_") as tmp:
             src = os.path.join(tmp, "src")
             write_file(src, "SKILL.md", "---\nname: designwise\n---\n")
-            write_file(src, "scripts/verify.py", "print(1)\n")
+            write_file(src, "scripts/check-motion.py", "print(1)\n")
             write_file(src, ".copilot-tasks/task/state.json", "{}\n")
             m = self.mod.manifest(src)
             self.assertEqual([k for k in m if k.startswith(".copilot-tasks/")], [])
@@ -242,7 +242,7 @@ class SyncExclusionContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="sync_zcode_") as tmp:
             src = os.path.join(tmp, "src")
             write_file(src, "SKILL.md", "---\nname: designwise\n---\n")
-            write_file(src, "scripts/verify.py", "print(1)\n")
+            write_file(src, "scripts/check-motion.py", "print(1)\n")
             write_file(src, ".zcode/plans/plan-sess_123.md", "会话计划\n")
             write_file(src, ".zcode/settings.json", "{}\n")
             write_file(src, ".zcode/skills/local/SKILL.md", "local skill\n")
@@ -250,21 +250,21 @@ class SyncExclusionContractTests(unittest.TestCase):
             self.assertEqual([k for k in m if k.startswith(".zcode/")], [],
                              f".zcode/ 下的内容不得进入同步清单：{sorted(m)}")
             self.assertIn("SKILL.md", m)
-            self.assertIn("scripts/verify.py", m)
+            self.assertIn("scripts/check-motion.py", m)
 
     def test_apply_does_not_write_host_workspace_dir(self):
         with tempfile.TemporaryDirectory(prefix="sync_zcode_apply_") as tmp:
             src = os.path.join(tmp, "src")
             dst = os.path.join(tmp, "dst")
             write_file(src, "SKILL.md", "---\nname: designwise\n---\n")
-            write_file(src, "scripts/verify.py", "print(1)\n")
+            write_file(src, "scripts/check-motion.py", "print(1)\n")
             write_file(src, ".zcode/plans/plan-sess_123.md", "会话计划\n")
             os.makedirs(dst)
             r = self.run_sync(src, dst, "--apply")
             self.assertEqual(r.returncode, 0, r.stdout)
             self.assertFalse(os.path.exists(os.path.join(dst, ".zcode")),
                              ".zcode/ 不得写入运行时副本")
-            self.assertTrue(os.path.isfile(os.path.join(dst, "scripts", "verify.py")))
+            self.assertTrue(os.path.isfile(os.path.join(dst, "scripts", "check-motion.py")))
             self.assertEqual(self.run_sync(src, dst, "--check").returncode, 0)
 
     def test_legacy_dev_assets_in_target_are_invisible_and_survive_prune(self):
@@ -274,7 +274,7 @@ class SyncExclusionContractTests(unittest.TestCase):
             dst = os.path.join(tmp, "dst")
             write_file(src, "SKILL.md", "---\nname: designwise\n---\n")
             write_file(src, "LICENSE", "MIT\n")
-            write_file(src, "scripts/verify.py", "print(1)\n")
+            write_file(src, "scripts/check-motion.py", "print(1)\n")
             write_file(src, "AGENTS.md", "rules\n")
             write_file(src, "scripts/test_a.py", "pass\n")
             os.makedirs(dst)
@@ -291,7 +291,7 @@ class SyncExclusionContractTests(unittest.TestCase):
                              "开发测试文件不得写入副本")
             self.assertTrue(os.path.exists(os.path.join(dst, "LICENSE")),
                             "LICENSE 必须随分发")
-            self.assertTrue(os.path.exists(os.path.join(dst, "scripts", "verify.py")),
+            self.assertTrue(os.path.exists(os.path.join(dst, "scripts", "check-motion.py")),
                             "运行所需脚本必须照常同步")
 
             r = self.run_sync(src, dst, "--check")

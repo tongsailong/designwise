@@ -11,12 +11,21 @@
  *   node scripts/check-ui.mjs --url ... --font-ignore .device-status-bar      # 非产品文本单独排除并留痕
  *   node scripts/check-ui.mjs --url "file:///...?fs=13" --url "file:///...?fs=15" --tap 48
  *   node scripts/check-ui.mjs --url file:///path/index.html --shot /tmp/ref.png [--full]
+ *   node scripts/check-ui.mjs --url file:///path/index.html \
+ *     --click "#tab-profile" --expect "#profile-panel" --click "#tab-home" --expect "#home-panel"
+ *   node scripts/check-ui.mjs --url file:///path/index.html --record /tmp/frames
  *   node scripts/check-ui.mjs --url file:///path/index.html --ledger-add 项目名 [--ledger-check 10]
  *   node scripts/check-ui.mjs --ledger 20            # 只查账本，不做页面检查
  *
- * 红灯（进 pass / 退出码 1，客观事实）：触控/字号/溢出/控制台错误/图片加载失败/正文对比度不足。
- * 黄灯（只提示，不改退出码）：相对路径引图、对比度无法自动判定（渐变或图片背景）、外观与历史交付同族。
- * 账本只记录本机设计产物指纹，不是记忆系统；写不进去只报黄灯，不影响页面检查结论。
+ * `--click` 用真实指针事件（Input.dispatchMouseEvent）点元素中心。`--expect` 断言**点击造成了可观察的状态变化**：
+ * 目标由不可见变可见，或文本 / aria 与 data-* 状态 / URL 发生变化；点击前后状态一致即失败
+ * （目标本来就可见且什么都没变，只能证明"元素在"，不能证明"点击生效"）。确需只断言存在时显式加
+ * `--allow-static-expect`，该选择会写进 JSON。未捕获异常与控制台 error 照常计入红灯。
+ * `--record` 用 CDP screencast 落连续帧（jpg），供动效首/中/末帧评审；不依赖 Playwright。
+ *
+ * 红灯（进 pass / 退出码 1，客观事实）：触控/字号/溢出/控制台错误/图片加载失败/正文对比度不足/
+ * 交互断言失败。黄灯（只提示，不改退出码）：相对路径引图、对比度无法自动判定（渐变或图片背景）、
+ * 外观与历史交付同族、连续帧为空。账本只记录本机设计产物指纹，不是记忆系统；写不进去只报黄灯。
  *
  * 退出码：0 全部通过；1 有阻塞项；2 环境/用法错误（含 --shot 截图失败）。
  * 依赖：本机 Chrome/Chromium（可用 --chrome 或 CHROME 指定）+ Node >= 22（原生 WebSocket）。
@@ -42,6 +51,9 @@ let chromePath = process.env.CHROME || '';
 let timeout = 30000;
 let shotPath = '';
 let fullPage = false;
+let recordDir = '';
+const interactions = [];
+let allowStaticExpect = false;
 let ledgerAdd = '';
 let ledgerQuery = false;
 let ledgerCheck = false;
@@ -65,6 +77,13 @@ for (let i = 0; i < args.length; i += 1) {
   else if (a === '--chrome') chromePath = next();
   else if (a === '--shot') shotPath = path.resolve(next());
   else if (a === '--full') fullPage = true;
+  else if (a === '--click') interactions.push({ click: next(), expect: null });
+  else if (a === '--expect') {
+    const last = interactions[interactions.length - 1];
+    if (!last || last.expect !== null) fail('--expect 必须紧跟一个 --click（先点击，再断言结果可见）');
+    last.expect = next();
+  } else if (a === '--allow-static-expect') allowStaticExpect = true;
+  else if (a === '--record') recordDir = path.resolve(next());
   else if (a === '--ledger-add') ledgerAdd = next();
   else if (a === '--ledger') {
     ledgerQuery = true;
@@ -85,6 +104,7 @@ if (!Number.isFinite(fontMin) || fontMin < 12) {
     + '--font-ignore <选择器> 单独排除，不要下调全局阈值；正文档用默认 14，标签档才显式传 12');
 }
 if (shotPath && urls.length !== 1) fail('--shot 只支持单个 --url（多页请逐个调用）');
+if (recordDir && urls.length !== 1) fail('--record 只支持单个 --url（多页请逐个调用）');
 if (fullPage && !shotPath) fail('--full 只与 --shot 一起使用');
 if (!Number.isFinite(ledgerWindow) || ledgerWindow <= 0) fail('账本窗口必须是正整数');
 if (typeof WebSocket === 'undefined') fail('需要 Node >= 22（原生 WebSocket）');
@@ -94,7 +114,9 @@ function usage(code) {
     'Usage: node scripts/check-ui.mjs --url <url> [--url <url>...] [--tap 48] [--tap-width 48] '
     + '[--font-min 14] [--font-ignore <selector>]... [--width 460] [--height 960] '
     + '[--settle 300] [--chrome <path>]\n'
-    + '       [--shot <png> [--full]] [--ledger-add <项目名>] [--ledger-check [N]] [--ledger [N]]\n',
+    + '       [--shot <png> [--full]] [--click <selector> [--expect <selector>]]... [--record <dir>]\n'
+    + '       [--allow-static-expect]（--expect 默认要求可观察状态变化）\n'
+    + '       [--ledger-add <项目名>] [--ledger-check [N]] [--ledger [N]]\n',
   );
   process.exit(code);
 }
@@ -134,6 +156,45 @@ function findChrome() {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function evalValue(cdp, expression) {
+  const res = await cdp.send('Runtime.evaluate', {
+    expression,
+    returnByValue: true,
+    awaitPromise: false,
+  });
+  if (res.exceptionDetails) throw new Error(res.exceptionDetails.text || '页面求值失败');
+  return res.result ? res.result.value : null;
+}
+
+const clickExpression = (selector) => `(() => {
+  const el = document.querySelector(${JSON.stringify(selector)});
+  if (!el) return { ok: false, error: '找不到点击目标' };
+  el.scrollIntoView({ block: 'center', inline: 'center' });
+  const cs = getComputedStyle(el);
+  const r = el.getBoundingClientRect();
+  if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0
+      || r.width <= 0 || r.height <= 0) {
+    return { ok: false, error: '点击目标不可见' };
+  }
+  return { ok: true, x: r.left + r.width / 2, y: r.top + r.height / 2 };
+})()`;
+
+// 点击前后各探一次：可见性、文本、aria/data 状态、URL——用于证明"点击生效"而不是"元素在"
+const probeExpression = (selector) => `(() => {
+  const el = document.querySelector(${JSON.stringify(selector)});
+  if (!el) return { exists: false, visible: false, text: '', state: '', url: location.href };
+  const cs = getComputedStyle(el);
+  const r = el.getBoundingClientRect();
+  const visible = cs.display !== 'none' && cs.visibility !== 'hidden'
+    && Number(cs.opacity) !== 0 && r.width > 0 && r.height > 0;
+  const attrs = ['aria-selected', 'aria-expanded', 'aria-pressed', 'aria-hidden', 'hidden', 'open',
+                 'data-state', 'data-active', 'disabled'];
+  const state = attrs.map((name) => name + '=' + (el.getAttribute ? el.getAttribute(name) : null))
+    .concat(['propValue=' + (typeof el.value === 'string' ? el.value : '')]).join('|');
+  const text = String(el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+  return { exists: true, visible, text, state, url: location.href };
+})()`;
 
 async function httpJson(port, pathname, method = 'GET') {
   const res = await fetch(`http://127.0.0.1:${port}${pathname}`, { method });
@@ -622,6 +683,38 @@ async function checkUrl(chrome, url) {
     cdp.on('Page.loadEventFired', () => {
       loaded = true;
     });
+
+    let record = null;
+    if (recordDir) {
+      mkdirSync(recordDir, { recursive: true });
+      record = { dir: recordDir, frames: [], capped: false };
+      cdp.on('Page.screencastFrame', (p) => {
+        if (Array.isArray(record.frames) && record.frames.length < 240) {
+          const stamp = Math.round(((p.metadata && p.metadata.timestamp) || Date.now() / 1000) * 1000);
+          const file = path.join(
+            recordDir,
+            `frame-${String(record.frames.length + 1).padStart(4, '0')}-${stamp}.jpg`,
+          );
+          try {
+            writeFileSync(file, Buffer.from(p.data, 'base64'));
+            record.frames.push(file);
+          } catch (err) {
+            record.error = String(err && err.message ? err.message : err);
+          }
+        } else {
+          record.capped = true;
+        }
+        cdp.send('Page.screencastFrameAck', { sessionId: p.sessionId }).catch(() => {});
+      });
+      await cdp.send('Page.startScreencast', {
+        format: 'jpeg',
+        quality: 75,
+        maxWidth: width,
+        maxHeight: height,
+        everyNthFrame: 1,
+      });
+    }
+
     const nav = await cdp.send('Page.navigate', { url });
     const loadError = (nav && nav.errorText) || '';
     const loadDeadline = Date.now() + timeout;
@@ -640,6 +733,82 @@ async function checkUrl(chrome, url) {
     const result = await cdp.send('Runtime.evaluate', params);
     if (result.exceptionDetails) throw new Error(result.exceptionDetails.text || '页面求值失败');
     const data = result.result.value || {};
+
+    // ---- 交互断言：真实指针事件 + 状态可见性；异常/控制台 error 同属红灯 ----
+    let interactionReport = null;
+    if (interactions.length) {
+      interactionReport = [];
+      for (const step of interactions) {
+        const rec = { click: step.click, expect: step.expect, ok: false };
+        const errorsBefore = exceptions.length + consoleErrors.length;
+        try {
+          const box = await evalValue(cdp, clickExpression(step.click));
+          if (!box || !box.ok) {
+            rec.error = (box && box.error) || '点击目标不可用';
+          } else {
+            const before = step.expect
+              ? await evalValue(cdp, probeExpression(step.expect)) : null;
+            const at = { x: box.x, y: box.y };
+            await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at });
+            await cdp.send('Input.dispatchMouseEvent', {
+              type: 'mousePressed', ...at, button: 'left', clickCount: 1,
+            });
+            await cdp.send('Input.dispatchMouseEvent', {
+              type: 'mouseReleased', ...at, button: 'left', clickCount: 1,
+            });
+            await sleep(Math.max(settle, 350));
+            rec.ok = true;
+            if (step.expect) {
+              const after = await evalValue(cdp, probeExpression(step.expect));
+              if (!after || !after.exists) {
+                rec.ok = false;
+                rec.error = '断言目标不存在';
+              } else if (!after.visible) {
+                rec.ok = false;
+                rec.error = '断言目标不可见';
+              } else if (!before || !before.visible) {
+                rec.change = 'appeared';
+              } else if (before.text !== after.text) {
+                rec.change = 'text';
+              } else if (before.state !== after.state) {
+                rec.change = 'state';
+              } else if (before.url !== after.url) {
+                rec.change = 'url';
+              } else if (allowStaticExpect) {
+                rec.change = 'static';
+              } else {
+                rec.ok = false;
+                rec.error = '断言目标点击前已可见且状态未变化（只能证明元素存在）。'
+                  + '请改为断言会被点击改变的状态（出现/文本/aria 或 data-state/URL），'
+                  + '确需只断言存在时显式加 --allow-static-expect';
+              }
+            }
+          }
+        } catch (err) {
+          rec.error = String(err && err.message ? err.message : err);
+        }
+        rec.newErrors = exceptions.length + consoleErrors.length - errorsBefore;
+        if (rec.newErrors > 0) rec.ok = false;
+        interactionReport.push(rec);
+      }
+    }
+
+    if (record) {
+      await sleep(300);
+      await cdp.send('Page.stopScreencast').catch(() => {});
+      record.count = record.frames.length;
+      record.samples = record.frames.length
+        ? [record.frames[0], record.frames[Math.floor(record.frames.length / 2)], record.frames[record.frames.length - 1]]
+        : [];
+      record.frames = undefined;
+      if (!record.count) {
+        data.warnings = data.warnings || [];
+        data.warnings.push({
+          code: 'record-empty',
+          message: '连续帧为空：录制期间页面没有可见变化；动效证据需重新录制或改用首/中/末帧',
+        });
+      }
+    }
 
     let shot = null;
     if (shotPath) {
@@ -678,7 +847,8 @@ async function checkUrl(chrome, url) {
     const pass = !data.tapFailures?.length && !data.fontFailures?.length
       && !overflowFail && !consoleErrors.length && !exceptions.length
       && !loadError && !loadTimedOut
-      && !brokenImages.length && !contrastFailures.length;
+      && !brokenImages.length && !contrastFailures.length
+      && (!interactionReport || interactionReport.every((s) => s.ok));
 
     return {
       url,
@@ -707,6 +877,10 @@ async function checkUrl(chrome, url) {
       fingerprint: data.fingerprint || null,
       warnings: data.warnings || [],
       shot,
+      record: record
+        ? { dir: record.dir, count: record.count, samples: record.samples, capped: record.capped, error: record.error }
+        : null,
+      interactions: interactionReport,
       overflow: { ...data.overflow, fail: overflowFail },
       consoleErrors,
       exceptions,
@@ -862,7 +1036,7 @@ const payload = {
   fontMin,
   viewport: `${width}x${height}`,
   checks: {
-    blocker: ['tap', 'font', 'overflow', 'consoleErrors', 'exceptions', 'images.broken', 'contrast.failures'],
+    blocker: ['tap', 'font', 'overflow', 'consoleErrors', 'exceptions', 'images.broken', 'contrast.failures', 'interactions'],
     warning: ['images.anyRelativeRef', 'contrast.unknown', 'warnings'],
     note: '红灯阻断交付；绿灯/黄灯不改变退出码。对比度只算纯色背景，渐变/图片背景记 unknown 交人工。',
   },
@@ -895,10 +1069,16 @@ for (const r of reports) {
   if (r.loadError) blockers.push(`${r.url}：加载失败`);
   if (r.images && r.images.broken) blockers.push(`${r.url}：${r.images.broken} 张图片加载失败`);
   if (r.contrast && r.contrast.failures.length) blockers.push(`${r.url}：${r.contrast.failures.length} 处对比度不足`);
+  if (r.interactions) {
+    const failed = r.interactions.filter((s) => !s.ok);
+    for (const step of failed.slice(0, 3)) {
+      blockers.push(`${r.url}：点击 ${step.click} 失败${step.error ? `（${step.error}）` : ''}`);
+    }
+  }
 }
 if (blockers.length) {
   process.stderr.write(`check-ui: 存在不达标项（${blockers.slice(0, 6).join('；')}）\n`);
-  process.stderr.write('check-ui: 明细见 JSON 的 tap/font/overflow/consoleErrors/images/contrast\n');
+  process.stderr.write('check-ui: 明细见 JSON 的 tap/font/overflow/consoleErrors/images/contrast/interactions\n');
 }
 
 if (shotFailed) process.exit(2);

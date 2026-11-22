@@ -238,15 +238,30 @@ class DirectionContractTests(unittest.TestCase):
         cls.stage = stage_block(cls.skill, 1)
         cls.strategy = read("references/direction-strategy.md")
 
-    def test_01_direction_count_is_divergence_driven(self):
-        self.assertIn("**方向数量按实质分歧决定**", self.stage)
-        for phrase in ("**1 个最优方向**", "**2–3 个**", "先出候选再融合", "**全部拒绝并重做**"):
+    def test_01_direction_count_is_scenario_driven(self):
+        self.assertIn("**方向数量按场景决定**", self.stage)
+        for phrase in ("**默认 3 个独立结构假设**", "**1 个最优方向**",
+                       "**2–3 个**", "先出候选再融合", "**全部拒绝并重做**"):
             self.assertIn(phrase, self.stage)
+        self.assertIn("**独立结构假设**", self.stage)
         self.assertIn("**不为展示选项制造 A/B/C。**", self.stage)
 
     def test_02_strategy_table_matches_the_rule(self):
-        for phrase in ("按实质分歧决定", "同骨架换皮", "先拒绝，再重出"):
+        for phrase in ("按场景决定", "同骨架换皮", "先拒绝，再重出",
+                       "**① 新产品概念**", "**3（默认）**"):
             self.assertIn(phrase, self.strategy)
+
+    def test_02b_scenario_precedence_resolves_the_gray_zone(self):
+        """新产品概念与「已有产品重建视觉体系」重叠时必须有固定判定顺序。"""
+        for phrase in ("**判定顺序固定**", "**① 新产品概念**", "**② 已有产品**",
+                       "**灰区判定**", "**有则归 ②**"):
+            self.assertIn(phrase, self.stage)
+        # 重建视觉体系不改信息架构时默认 1 个，不能靠多出图冒充探索
+        self.assertIn("只换视觉体系、信息架构与导航不变时默认 1 个", self.stage)
+        for phrase in ("**② 已有产品，只重建视觉体系**", "**1（默认）**"):
+            self.assertIn(phrase, self.strategy)
+        self.assertNotIn("新产品 / 新视觉体系", self.skill)
+        self.assertNotIn("新产品 / 新视觉体系", self.strategy)
 
     def test_03_direction_card_has_six_columns(self):
         for phrase in ("逻辑与来源", "借用的是什么", "主角信息与素材",
@@ -726,9 +741,10 @@ class ProductPrincipleContractTests(unittest.TestCase):
         self.assertIn("项目规则定义产品原则时**项目优先**", self.skill)
         self.assertIn("只在项目未定义时作为默认方法", self.skill)
 
-    def test_06_product_value_doc_does_not_claim_fixed_three(self):
+    def test_06_product_value_doc_defers_count_to_skill(self):
         self.assertNotIn("恰好 3 个方向", self.value)
-        self.assertIn("不固定三方向", self.value)
+        self.assertIn("方向数按场景定", self.value)
+        self.assertIn("SKILL.md` 阶段 1", self.value)
 
 
 class ScopeContractTests(unittest.TestCase):

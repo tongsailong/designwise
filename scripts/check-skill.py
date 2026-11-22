@@ -68,7 +68,6 @@ REQUIRED_ASSETS = [
 
 REQUIRED_SCRIPTS = [
     "scripts/zcode_image.py",
-    "scripts/verify.py",
     "scripts/check-ui.mjs",
     "scripts/check-contrast.py",
     "scripts/check-motion.py",

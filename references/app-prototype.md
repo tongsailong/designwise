@@ -104,7 +104,16 @@ Screen 组件接 callback props（`onTabChange`、`onOpen`、`onClose`、`onTogg
 
 ### 3. 交付前跑真实点击测试
 
-静态截图只能看 layout，交互 bug 要点过才发现。用 Playwright 跑 3 项最小点击测试：进入详情 / 关键标注点 / tab 切换。检查 `pageerror` 为 0 再交付。Playwright 可用 `npx playwright` 调用，或按本机全局安装路径（`npm root -g` + `/playwright`）。
+静态截图只能看 layout，交互 bug 要点过才发现。用 `check-ui.mjs` 跑 3 项最小点击测试：进入详情 / 关键标注点 / tab 切换——每条「动作 + 结果断言」，异常为 0 再交付：
+
+```bash
+node scripts/check-ui.mjs --url "file://$PWD/prototype/index.html" \
+  --click "[data-go='detail']" --expect "#detail-panel" \
+  --click "#marker-1" --expect "#marker-sheet" \
+  --click "#tab-home" --expect "#home-panel"
+```
+
+`--click` 用真实指针事件，`--expect` 断言**点击造成了可观察状态变化**（出现 / 文本 / aria 与 `data-state` / URL）；目标本来就可见且什么都没变一律判失败——要断言状态变化，而不是断言元素在。失败或点击期间出现新异常即退出码 1。**不要用 `sleep` 后截图冒充点击验证。**
 
 ### 3.1 平铺是展示形态，不是覆盖上限
 

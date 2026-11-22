@@ -24,8 +24,9 @@
 如果用户有上线的 App 但没给代码，优先要**真实设备截图、商店页截图或项目已有截图**；不要用桌面浏览器视口反推 App 的视觉与布局。只有参考对象本身是移动 Web 时，才用移动视口抓取：
 
 ```bash
-# 仅用于移动 Web 参考，不用于推断原生 App
-npx playwright screenshot https://example.com screenshot.png --viewport-size=390,844
+# 仅用于移动 Web 参考，不用于推断原生 App（本机 Chrome + Node ≥22，无 npm 依赖）
+node scripts/check-ui.mjs --url "https://example.com" --width 390 --height 844 \
+  --shot /tmp/mobile-ref.png
 ```
 
 让你看到真实的视觉vocabulary。

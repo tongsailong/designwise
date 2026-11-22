@@ -313,6 +313,29 @@ def _map_ids(text: str) -> set[str]:
     return set(MAP_ID_RE.findall(text))
 
 
+def check_brief(task: Path, rep: Report) -> None:
+    """brief 的信息优先级是四原则在生图前的稳定落点（SKILL 阶段 0 / SG0）。
+
+    id 的判定取 brief 与 state-map 的并集：页面-状态地图是范围内页面的正式来源，
+    只写在 map 里也算有范围，避免「brief 不写 id 就绕过检查」。只查存在性，不评审内容。
+    """
+    path = task / "design-brief.md"
+    if not path.exists():
+        return
+    map_path = task / "state-map.md"
+    scope_ids = _map_ids(read_text(path))
+    if map_path.exists():
+        scope_ids |= _map_ids(read_text(map_path))
+    if not scope_ids:
+        return
+    text = read_text(path)
+    rep.mark("design-brief.md 信息优先级")
+    if not any(marker in text for marker in ("信息优先级", "第一眼看什么", "不进首屏")):
+        rep.warn("brief-priority-missing", str(path),
+                 "范围内已声明页面 id（brief 或 state-map），但 brief 缺少「信息优先级」"
+                 "（第一眼看什么 / 下一层 / 不进首屏，以及系统承担什么）；"
+                 "它是原则转译与方向提示词的输入，不是可选装饰")
+
 def check_coverage(root: Path, task: Path, rep: Report, stage: int) -> None:
     """校验 `coverage.json` 的结构与 id 集合（不判断覆盖去向是否合理）。
 
@@ -466,6 +489,22 @@ def check_coverage(root: Path, task: Path, rep: Report, stage: int) -> None:
             rep.error("coverage-notes-missing", str(coverage_path),
                       f"{cid} 有 fail / not-tested 档位但没有 notes 说明缺什么条件或怎么修")
 
+        if stage >= 6:
+            if native == "todo":
+                rep.error("coverage-native-incomplete", str(coverage_path),
+                          f"{cid} 在阶段 6 的 native='todo'；交付前原生项必须实现（done），"
+                          "或标 not-applicable，或整体如实给 PARTIAL")
+            elif native == "done":
+                states = [v for v in device.values() if v]
+                if not states:
+                    rep.error("coverage-device-missing", str(coverage_path),
+                              f"{cid} 的 native='done'，但 device 为空；真机验收必须有档位证据"
+                              "（无设备时记 not-tested 并写 notes，整体 PARTIAL）")
+                elif all(v == "not-tested" for v in states):
+                    rep.warn("coverage-device-untested", str(coverage_path),
+                             f"{cid} 的 device 全部为 not-tested；只能支撑 PARTIAL，"
+                             "不得在验证矩阵或报告里写成 PASS")
+
     if brief_ids:
         extra = coverage_ids - brief_ids
         missing = brief_ids - coverage_ids
@@ -600,6 +639,7 @@ def main() -> int:
         check_artifacts(root, task, args.stage, rep)
     check_concept_index(root, task, args.min_concepts, rep)
     check_direction(root, task, rep, args.stage)
+    check_brief(task, rep)
     check_baselines(task, rep)
     check_coverage(root, task, rep, args.stage)
     check_manifest(root, task, rep)

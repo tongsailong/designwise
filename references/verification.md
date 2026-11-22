@@ -9,7 +9,7 @@
 
 **在相信任何渲染结果之前，先确认渲染器本身能正确渲染。**
 
-- 截图必须来自真实渲染（Playwright / 真机截图），**缩略图、设计稿预览、源码推断都不能当验收依据**。
+- 截图必须来自真实渲染（`check-ui.mjs --shot` / 真机截图），**缩略图、设计稿预览、源码推断都不能当验收依据**。
 - 怀疑是工具问题时做**对照实验**：拿一个已知正确的同类页面/同类设备截图过同一条链路，看是否同样异常。
 - 渲染器骗得了眼睛，骗不过计数：文字逐字比对（`re.sub(r'\s+','')` 后相等）、元素数量比对，作为机械兜底。
 
@@ -74,7 +74,7 @@ node scripts/check-ui.mjs --url <file:///...> --tap 48 --font-ignore '[data-dw-c
 
 ### 1.3 机械通过 ≠ 设计通过
 
-`check-ui` / 对比度 / Playwright 全部绿灯，只说明「没有坏」，不说明「设计对了」。阶段 3 结束前必须再用**当前版本真实渲染截图**（含弹层与空/错/大字体）做设计评审（`critique-guide.md`「原型设计评审」）；阶段 5–6 必须用旧版 / HTML / 新版三方真实证据判断落地。**不得把脚本退出码 0 写成设计验收通过。**
+`check-ui` / 对比度 / 动效静态检查全部绿灯，只说明「没有坏」，不说明「设计对了」。阶段 3 结束前必须再用**当前版本真实渲染截图**（含弹层与空/错/大字体）做设计评审（`critique-guide.md`「原型设计评审」）；阶段 5–6 必须用旧版 / HTML / 新版三方真实证据判断落地。**不得把脚本退出码 0 写成设计验收通过。**
 
 ### 1.4 测试能力边界（哪些结论不能由哪类证据得出）
 
@@ -85,7 +85,7 @@ node scripts/check-ui.mjs --url <file:///...> --tap 48 --font-ignore '[data-dw-c
 | 绘制层级 / 谁盖住谁 | **不能** | Canvas/自定义 View 的层级核验 + 截图 |
 | 裁切与可达性（关闭按钮、键盘遮挡） | **不能** | 最大字号渲染 + 点击路径 |
 | 图标/文字颜色实际呈现 | **不能**（只能证明传了值） | 截图取色或 DevTools 实测 |
-| 交互可用（能点、有结果、可返回） | **不能**（除非真跑 UI） | Playwright/真机点击 + 断言 |
+| 交互可用（能点、有结果、可返回） | **不能**（除非真跑 UI） | `check-ui.mjs --click/--expect` 或真机点击 + 断言 |
 | 设计质量（层级、气质、方向一致性） | **不能** | 逐屏看图 + 判据评审 |
 
 **这张表是 D10 类"2742 个测试全绿但几何仍错"的对策**：测试数量不能替代渲染证据；也不能用"契约测试锁住了"当设计不落地的理由。
@@ -99,36 +99,36 @@ node scripts/check-ui.mjs --url <file:///...> --tap 48 --font-ignore '[data-dw-c
 ### 2.1 渲染与控制台
 
 ```bash
-python3 scripts/verify.py path/to/prototype/index.html
+node scripts/check-ui.mjs --url "file://$PWD/prototype/index.html"
 ```
 
-用 headless Chromium 打开、截图、抓控制台错误并报告 status。**白屏必然有控制台错误**，先看错误再谈视觉。
+用本机 Chrome/Chromium + Node ≥22（CDP）打开真实渲染，采集控制台错误、未捕获异常、溢出、触控、字号、图片完整性与对比度。**白屏必然有控制台错误**，先看错误再谈视觉。退出码 1 = 有阻塞项，0 = 本次采集全过（**不等于设计通过**）。
 
 ### 2.2 多视口
 
-App 原型按目标机型宽度抓，不按桌面断点：
+App 原型按目标机型宽度抓，不按桌面断点。`check-ui.mjs` 一次只跑一个视口，用循环逐档跑，每档留基准图：
 
 ```bash
-python3 scripts/verify.py prototype/index.html --viewports 360x800,390x844,412x915,768x1024
+for wh in 360x800 390x844 412x915 768x1024; do
+  node scripts/check-ui.mjs --url "file://$PWD/prototype/index.html" \
+    --width "${wh%x*}" --height "${wh#*x}" --shot "prototype/screenshots/$wh.png"
+done
 ```
 
 ### 2.3 交互
 
 静态截图看不到 Tab 切换、弹层、选中态。**每条关键交互都要「动作 + 结果断言」**：
 
-```python
-context = browser.new_context(
-    record_video_dir="videos/",
-    record_video_size={"width": 412, "height": 915},
-)
-page = context.new_page()
-page.goto(url)
-page.click("#tab-profile")
-assert page.locator("#profile-panel").is_visible()   # 动作 + 断言
-context.close()  # 关闭 context 后才落盘视频
+```bash
+node scripts/check-ui.mjs --url "file://$PWD/prototype/index.html" \
+  --click "#tab-profile" --expect "#profile-panel" \
+  --click "#tab-home" --expect "#home-panel" \
+  --record prototype/motion-frames
 ```
 
-录屏只是证据，不等于功能验证：**没有断言的视频不能作为「交互正常」的证明**。
+- `--click` 用真实指针事件（CDP `Input.dispatchMouseEvent`）点元素中心；`--expect` 紧跟其后，断言**点击造成了可观察状态变化**：目标由不可见变可见，或文本 / aria 与 `data-*` 状态 / URL 发生变化。目标点击前已可见且状态未变即判失败（那只能证明元素在）；确需只断言存在时显式加 `--allow-static-expect`，JSON 里记 `change: "static"`。任一失败、或点击期间出现新异常/控制台 error，退出码为 1。
+- `--record <dir>` 用 CDP screencast 落连续 JPEG 帧，取首/中/末帧作动效证据；不依赖 Playwright。**没有断言的录制不能作为「交互正常」的证明。**
+- 录屏只作动态证据；功能结论仍以断言为准。
 
 ### 2.4 状态覆盖
 
@@ -161,14 +161,13 @@ python3 scripts/check-motion.py prototype/index.html --strict   # 高风险：wa
 
 ## 3. 截图与基准图
 
-```python
-page.screenshot(path='full.png', full_page=True)      # 整页
-page.screenshot(path='viewport.png')                   # 可见区
-element.screenshot(path='hero.png')                    # 单元素
-browser.new_page(device_scale_factor=2)                 # 2x
-page.wait_for_timeout(2000)                             # 等动效 settle
+```bash
+node scripts/check-ui.mjs --url "file://$PWD/prototype/index.html" --shot prototype/screenshots/p1.png
+node scripts/check-ui.mjs --url "file://$PWD/prototype/index.html" --shot prototype/screenshots/p1-full.png --full
 ```
 
+- `--shot` 截当前视口，`--full` 截整页；与 `--click` 同用时截点击后的状态，用于状态闭环证据。
+- 单元素截图或 2x 图用 DevTools 或系统截图；**不得用源码推断代替真实渲染**。
 - 基准图（`handoff/baselines/`）与页面/状态一一命名，来自真实渲染。
 - 发给用户时用 Markdown 图片引用或绝对路径链接；远程协作者需要链接时由用户用自己的图床，**不上传非公开内容**。
 

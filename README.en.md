@@ -10,7 +10,7 @@
 [![Agent](https://img.shields.io/badge/Agent-Agnostic-blueviolet)](https://skills.sh)
 [![skills.sh](https://img.shields.io/badge/skills.sh-Compatible-green)](https://skills.sh)
 
-One job, end to end: take an App UI requirement from **whole-app product understanding** to **dual engineering/design acceptance on a real device** — first build a page-state map with real provenance, then generate 1..N real concept directions by actual structural divergence (usually 1–3; more only for independent hypotheses) and measure it, let ZCode decide adopt / fuse / reject from real pixels, take the HTML high-fidelity prototype through coverage closure, native platform grammar, motion and a professional design review on real screenshots and recordings, and finally hand the design intent (structure, visuals, motion and states — not just colours) to a native app, verified with an old ↔ HTML ↔ new three-way comparison and a four-state device matrix.
+One job, end to end: take an App UI requirement from **whole-app product understanding** to **dual engineering/design acceptance on a real device** — first build a page-state map with real provenance, then generate concept directions by scenario (a **new product concept** defaults to three independent structural hypotheses; an **existing product** uses actual structural divergence, 1..N — a visual-system rebuild with unchanged information architecture defaults to one) and measure it, let ZCode decide adopt / fuse / reject from real pixels, take the HTML high-fidelity prototype through coverage closure, native platform grammar, motion and a professional design review on real screenshots and recordings, and finally hand the design intent (structure, visuals, motion and states — not just colours) to a native app, verified with an old ↔ HTML ↔ new three-way comparison and a four-state device matrix.
 
 ```bash
 npx skills add tongsailong/designwise
@@ -22,7 +22,7 @@ npx skills add tongsailong/designwise
 
 > **TL;DR**
 > **What it is** — a design skill that serves **App UI only**: information architecture, navigation, layout, visual, motion and interaction specs, HTML high-fidelity prototype, native translation, image asset generation and reuse, on-device acceptance.
-> **How it runs** — one standard flow, no L1/L2/L3 tiers: whole-app understanding and page-state map → 1..N real concept directions by divergence (usually 1–3) → ZCode direction decision → HTML prototype and coverage closure (native grammar, motion and complete states included) → six-dimension review and polish → assets → native handoff and implementation → four-state device acceptance with separate engineering/design verdicts.
+> **How it runs** — one standard flow, no L1/L2/L3 tiers: whole-app understanding and page-state map → concept directions by scenario (new product concept: three independent hypotheses; existing product: divergence-driven) → ZCode direction decision → HTML prototype and coverage closure (native grammar, motion and complete states included) → six-dimension review and polish → assets → native handoff and implementation → four-state device acceptance with separate engineering/design verdicts.
 > **What cannot be skipped** — the page-state map and provenance for whole-app redesigns, real concept images with measured divergence, the real-screenshot and recording design review, the four handoff contracts, the native landing map, and four-state device evidence. Local iteration reuses the chosen direction and does not re-explore.
 > **What it does not do** — slides, video, audio, infographics, posters, production web apps, backend systems.
 
@@ -37,7 +37,7 @@ npx skills add tongsailong/designwise
 | Stage | Goal | Evidence gate |
 |---|---|---|
 | **0 Product understanding & design goal** | Pin down the real product, rules, states, visual positioning and this task's goal | Pages/sheets/global states have stable ids and real provenance (`file:line` or `ASSUMPTION`); goals are judgeable; native feasibility checked; visual positioning and asset plan written; counts and screenshots do not prove understanding |
-| **1 Concept directions** | Explore and decide the design direction in real pixels (material, light, graphics, motion personality) | Direction count is justified (1..N, usually 1–3, by real divergence); images real, same ratio, hard constraints unbroken; divergence measured; decision records kept/dropped reasons and experience tone; reject-all has a next step |
+| **1 Concept directions** | Explore and decide the design direction in real pixels (material, light, graphics, motion personality) | Direction count matches the scenario rule (new product concept: three independent structural hypotheses by default; existing product: real structural divergence, one when only the visual system is rebuilt); images real, same ratio, hard constraints unbroken; divergence measured; decision records kept/dropped reasons and experience tone; reject-all has a next step |
 | **2 HTML prototype & coverage** | Turn the chosen direction into real interactive visuals (platform grammar, motion, complete states) | Real render, zero console errors; every coverage item has a destination; structures that need it rendered at max scale; motion playable and reduced-motion respected; a green render is not a pass |
 | **3 Design review & polish** | Find real defects by criteria and converge, including native feel and motion | Review uses current real screenshots and recordings; fatal items cleared; important items fixed or justified; re-verification covers affected items; a score does not replace a defect list |
 | **4 Native handoff** | Turn design intent (motion, haptics, state transitions included) into a spec the implementer does not have to guess | Seven-piece package; four contract areas complete (component equivalence incl. motion/haptics, draw order, scroll/reachability, rule provenance); no need to read screenshots to infer structure |
@@ -103,7 +103,7 @@ Image generation is built in and depends on no other skill: `scripts/zcode_image
 | Capability | Deliverables |
 |---|---|
 | Product understanding & design goal | `design-brief.md` (page-state map with provenance, goal → problem mapping, constraint tiers, success criteria, non-goals, assumptions), `coverage.json` (initial) |
-| Direction exploration | Direction cards + 1..N real concept images (usually 1–3) + `concept-prompts.md` + `concept-index.json` (with sha256) + `direction-divergence.json` |
+| Direction exploration | Direction cards + real concept images in the scenario-driven count (new product concept: three independent hypotheses) + `concept-prompts.md` + `concept-index.json` (with sha256) + `direction-divergence.json` |
 | Direction decision | `direction-approved.md` (per-direction eligibility, adopt / fuse / reject, target plan, rationale, risks) |
 | High-fidelity prototype | `prototype/index.html` (single-page inline React, libraries vendored locally, real device frame, clickable), coverage matrix, scale matrix, motion matrix, baseline screenshots, review and polish record, `prototype-notes.md` |
 | Native feel & motion | Platform grammar/density/touch feedback/surface-layer rules, motion tokens, basic and advanced motion inventory, reduced-motion fallback, `check-motion.py` static checks |
@@ -164,9 +164,8 @@ git clone https://github.com/tongsailong/designwise.git ~/.claude/skills/designw
 
 | Dependency | Used for |
 |---|---|
-| Node.js | `scripts/check-ui.mjs` (structure/overflow/images/contrast collection, `--shot` screenshots, `--ledger-*` appearance ledger; no npm deps), Playwright browser verification |
-| Python 3 | `scripts/zcode_image.py` (real generation), `scripts/verify.py` (Playwright render + screenshots), `scripts/check-contrast.py`, `scripts/asset_manifest.py`, `scripts/check-deliverables.py` (read-only consistency check for artifacts and `coverage.json`), `scripts/direction_divergence.py` (measured direction divergence), `scripts/ref_board.py` (reference board, needs Chrome), `scripts/extract_grid.py` / `contact_sheet.py` / `chroma_key.py` (image processing), `scripts/check-skill.py`; Pillow (image I/O, optional but recommended) |
-| Playwright + Chromium | Real rendering, click tests and baseline screenshots for the HTML prototype |
+| Node.js >=22 + Chrome/Chromium | `scripts/check-ui.mjs` (structure/overflow/images/contrast/tap/font collection, `--shot` screenshots, `--click/--expect` interaction assertions (observable state change required), `--record` frame capture, `--ledger-*` appearance ledger; no npm deps) |
+| Python 3 | `scripts/zcode_image.py` (real generation), `scripts/check-contrast.py`, `scripts/asset_manifest.py`, `scripts/check-deliverables.py` (read-only consistency check for artifacts and `coverage.json`), `scripts/direction_divergence.py` (measured direction divergence), `scripts/ref_board.py` (reference board, needs Chrome), `scripts/extract_grid.py` / `contact_sheet.py` / `chroma_key.py` (image processing), `scripts/check-skill.py`; Pillow (image I/O, optional but recommended) |
 | Android SDK / Xcode | Native builds; on-device installs go only through the host-authorised installer (see [SECURITY.md](SECURITY.md)) |
 
 **Image credentials**: `ZCODE_CPA_BASE_URL` / `ZCODE_CPA_API_KEY`, or the local `~/.zcode/v2/provider_config.json`. Not distributed with the repo, never written into deliverables.

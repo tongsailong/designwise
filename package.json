@@ -1,6 +1,9 @@
 {
-  "dependencies": {
-    "playwright": "^1.59.1",
-    "sharp": "^0.34.5"
-  }
+  "name": "designwise",
+  "private": true,
+  "description": "DesignWise App UI skill runtime. No npm dependencies: scripts use Node.js built-ins, a local Chrome/Chromium, and Python with Pillow.",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {}
 }

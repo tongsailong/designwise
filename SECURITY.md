@@ -64,7 +64,7 @@ Direction selection and design review are performed by the ZCode agent on the lo
 
 ## 5. Subprocesses
 
-All subprocess calls invoke local tools only: Playwright/Chromium (via `scripts/verify.py`, `scripts/check-ui.mjs`, `scripts/ref_board.py`), `node`, `git` (used read-only by `check-skill.py` and the version self-check), `python3`, and — for native verification — the host-authorised Android installer described below. No curl-pipe-sh patterns, no shell-to-network combinations.
+All subprocess calls invoke local tools only: Chrome/Chromium (via `scripts/check-ui.mjs`, `scripts/ref_board.py`), `node`, `git` (used read-only by `check-skill.py` and the version self-check), `python3`, and — for native verification — the host-authorised Android installer described below. No curl-pipe-sh patterns, no shell-to-network combinations.
 
 `scripts/check-ui.mjs` launches local Chrome/Chromium in headless mode against the URL you pass (normally `file://` or loopback) and talks to it over a loopback CDP port. The script itself makes no outbound requests; the browser loads the page as it normally would. It writes only to a temporary profile directory it creates and removes.
 
@@ -94,7 +94,7 @@ The single exception is the explicit maintenance flag `python3 scripts/sync_runt
 
 ## 8. Dependencies
 
-Mainstream registry packages only — `playwright` and `sharp` via npm, `Pillow` via pip/uv. No binary downloads from arbitrary URLs and no post-install scripts that fetch code at runtime. `node_modules/` is gitignored and excluded from runtime sync.
+The runtime has **no npm dependencies**: `scripts/check-ui.mjs` uses Node.js built-ins (≥22) plus a locally installed Chrome/Chromium over CDP, and `package.json` declares an empty dependency set. Python code uses the standard library plus `Pillow` (via pip/uv) for image I/O. No binary downloads from arbitrary URLs and no post-install scripts that fetch code at runtime. If a local checkout installs anything, `node_modules/` stays gitignored and excluded from runtime sync.
 
 ---
 

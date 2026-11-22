@@ -10,7 +10,7 @@
 [![Agent](https://img.shields.io/badge/Agent-Agnostic-blueviolet)](https://skills.sh)
 [![skills.sh](https://img.shields.io/badge/skills.sh-Compatible-green)](https://skills.sh)
 
-只做一件事：把一个 App UI 需求，从**全页面产品理解**一路做到**真机双验收**——先建页面-状态地图与真实出处，再按实质分歧生成 1..N 个真实概念方向（通常 1–3，有独立结构假设才增加）并实测差异，由 ZCode 基于真实像素决定采用 / 融合 / 拒绝，HTML 高保真原型经覆盖闭合、原生平台语法、动效与真实截图的专业设计评审，最后把设计意图（结构、视觉、动效、状态，不是只把配色）交接并落到原生 App，用旧版 / HTML / 新版三方真机对照与四态矩阵验收。
+只做一件事：把一个 App UI 需求，从**全页面产品理解**一路做到**真机双验收**——先建页面-状态地图与真实出处，再按场景与实质分歧生成真实概念方向（新产品概念默认三个独立结构假设，已有产品 1..N）并实测差异，由 ZCode 基于真实像素决定采用 / 融合 / 拒绝，HTML 高保真原型经覆盖闭合、原生平台语法、动效与真实截图的专业设计评审，最后把设计意图（结构、视觉、动效、状态，不是只把配色）交接并落到原生 App，用旧版 / HTML / 新版三方真机对照与四态矩阵验收。
 
 ```bash
 npx skills add tongsailong/designwise
@@ -22,7 +22,7 @@ npx skills add tongsailong/designwise
 
 > **TL;DR**
 > **这是什么** — 一个**只服务 App UI** 的设计 skill：信息架构、导航、布局、视觉与交互动效规范、HTML 高保真原型、原生转译、图片素材生成与复用、真机验收。
-> **怎么走** — 唯一标准流程，没有 L1/L2/L3 分层：全页面理解与页面-状态地图 → 按分歧生成 1..N 个真实概念方向（通常 1–3）→ ZCode 方向决策 → HTML 原型与覆盖闭合（含原生质感、动效与完整状态）→ 六维评审与打磨 → 素材 → 原生交接与实现 → 真机四态与工程/设计双验收。
+> **怎么走** — 唯一标准流程，没有 L1/L2/L3 分层：全页面理解与页面-状态地图 → 按场景生成真实概念方向（新产品概念默认三个独立假设，已有产品按结构分歧）→ ZCode 方向决策 → HTML 原型与覆盖闭合（含原生质感、动效与完整状态）→ 六维评审与打磨 → 素材 → 原生交接与实现 → 真机四态与工程/设计双验收。
 > **不能跳的** — 整机重设计的页面-状态地图与出处、真实概念图与差异实测、真实截图与录屏设计评审、四类等价交接契约、原生落地映射、四态真机证据。局部迭代复用已定方向，不重新探索。
 > **不做的** — 幻灯片、视频、音频、信息图、海报，生产级 Web App 与后端系统。
 
@@ -37,7 +37,7 @@ npx skills add tongsailong/designwise
 | 阶段 | 目标 | 证据门 |
 |---|---|---|
 | **0 产品理解与设计目标** | 搞清真实产品、真实规则、真实状态、视觉定位与本次目标 | 页面/弹层/全局状态有稳定 id 与真实出处（`file:line` 或 `ASSUMPTION`）；目标可判定；原生可行性已检查；视觉定位与资产计划已写；数量与截图不证明理解 |
-| **1 概念方向** | 用真实像素探索并决定设计方向（含材质、光影、图形与动效人格） | 方向数有依据（1..N，通常 1–3，按实质分歧）；图真实、同比例、硬约束不破；差异有实测；决策写明保留/舍弃/理由与体验基调；全部拒绝有下一步 |
+| **1 概念方向** | 用真实像素探索并决定设计方向（含材质、光影、图形与动效人格） | 方向数符合场景规则（新产品概念默认三个独立结构假设；已有产品按实质分歧）；图真实、同比例、硬约束不破；差异有实测；决策写明保留/舍弃/理由与体验基调；全部拒绝有下一步 |
 | **2 HTML 原型与覆盖** | 把选定方向变成可交互真实视觉（含平台语法、动效与完整状态） | 真实渲染、控制台 0 error；覆盖矩阵每项有去向；需渲染的已在最大缩放档渲染；动效可演且尊重减少动态；渲染成功不算通过 |
 | **3 设计评审与完善** | 用判据找真缺陷并改到收敛，含原生质感与动效 | 评审基于当前版本真实截图与录屏；致命项清零；重要项已改或写明依据；复验覆盖受影响项；打分不替代缺陷清单 |
 | **4 原生交接** | 把设计意图（含动效/触感/状态转场）变成实现端不需要猜的规格 | 七件套齐；组件等价与禁用替代、绘制层级、滚动可达、业务出处四类契约齐全（动效/触感并入组件等价）；实现端不需要看图猜结构 |
@@ -47,7 +47,7 @@ npx skills add tongsailong/designwise
 ### 不可省略的规则
 
 1. **整机重设计先建页面-状态地图，不能只数页面、收截图。** 每页/每个弹层/全局状态用稳定 id 写清用户目标、入口出口、主要功能、关键信息与数据/规则出处、状态集合、平台约束、当前问题、值得保留的成熟体验与依据、要重构的部分。每个展示值与规则必须有真实出处（`file:line`），文档与 UI 路径冲突列为待决，不静默选一个。
-2. **方向数量按实质分歧决定，不按惯例。** 结构明确且无分歧 → 1 个最优；存在真实结构分歧 → 2–3 个（确有更多独立结构假设才增加）；互补 → 先出候选再融合；全部违反硬约束 → 全部拒绝并重做。**不为展示选项制造 A/B/C。** 每个方向先写方向卡（七栏，含核心交互），差异必须落在布局骨架 / 信息组织 / 视觉母题等结构层；只换配色、圆角、间距不算方向。
+2. **方向数量按场景决定，不按惯例。** 新产品概念 → 默认三个独立结构假设（增减要写依据）；已有产品且结构无分歧 → 1 个最优；存在真实结构分歧 → 2–3 个；互补 → 先出候选再融合；全部违反硬约束 → 全部拒绝并重做。**不为展示选项制造 A/B/C。** 每个方向先写方向卡（七栏，含核心交互），必须有独立结构假设，差异落在布局骨架 / 信息组织 / 视觉母题等结构层；只换配色、圆角、间距不算方向。
 3. **多方向时共享任务块与原则转译块。** 所有 prompt 逐字共用**任务块**（产品/用户/本页问题/业务规则与数据口径/硬约束/禁止项）与**原则转译块**（把「有用 → 好懂 → 舒服 → 有意义」转成本页可检查的要求）；差异只落在方向块。每个方向一个 prompt、一次真实生图，App 默认竖版 `1024x1536`，同比例同尺寸同模型，并用 `scripts/direction_divergence.py` 实测色板距离与骨架相关性——**不得用「看起来不一样」替代实测**。
 4. **方向由 ZCode 基于真实像素决策，不外包给远程模型。** 先逐方向判合格性，再给**采用 / 融合为统一方案 / 全部拒绝**之一：融合要说明取用、舍弃与统一层级交互逻辑，结构性融合须补真实整合图；全部拒绝时给出可执行修正，只重出受影响方向。复杂或高风险任务可派 **ZCode 内置子 Agent 做只读复核**，复核是补充证据，不是审批节点。`call_gpt.py` / 远程 `CONSULT` / 把 SOL 当设计批准者的旧链路已退役。当前 Copilot 可依其自身生命周期调用 SOL 做认知建议，但 SOL 不是设计批准者；DesignWise 不调度也不等待它。
 5. **HTML 原型必须表达真实状态与交互。** tab 可切、按钮/弹层可开可关、返回可达；每个页面/弹层/全局状态要么可到达，要么在覆盖矩阵写 `deferred-native` + 理由 + 原生验证义务。`coverage.json` 与页面地图的 id 集合必须一致；`1.0/1.3/1.6/2.0` 缩放矩阵中，多列/同行 label+value/固定高度结构必须在最大档渲染。
@@ -103,7 +103,7 @@ npx skills add tongsailong/designwise
 | 能力 | 交付物 |
 |---|---|
 | 产品理解与设计目标 | `design-brief.md`（页面-状态地图与出处、目标→问题映射、约束分层、成功标准、非目标、假设）、`coverage.json`（初版） |
-| 方向探索 | 方向卡 + 真实概念图（1..N，通常 1–3 个）+ `concept-prompts.md` + `concept-index.json`（含 sha256）+ `direction-divergence.json` |
+| 方向探索 | 方向卡 + 真实概念图（按场景定数：新产品默认 3 个独立假设）+ `concept-prompts.md` + `concept-index.json`（含 sha256）+ `direction-divergence.json` |
 | 方向决策 | `direction-approved.md`（逐方向合格性、采用/融合/拒绝、目标方案、理由、风险） |
 | 高保真原型 | `prototype/index.html`（单页 inline React，库用本地 vendor，真机机身、可点击）、覆盖矩阵、缩放矩阵、动效矩阵、基准截图、评审与打磨记录、`prototype-notes.md` |
 | 原生质感与动效 | 平台语法/密度/触控反馈/表面层级规范、motion token、基础与高级动效清单、减少动态降级、`check-motion.py` 静态校验 |
@@ -166,9 +166,8 @@ git clone https://github.com/tongsailong/designwise.git ~/.claude/skills/designw
 
 | 依赖 | 用途 |
 |---|---|
-| Node.js | `scripts/check-ui.mjs`（结构/溢出/图片/对比度采集，`--shot` 截图，`--ledger-*` 外观账本；无 npm 依赖）、Playwright 浏览器验证 |
-| Python 3 | `scripts/zcode_image.py`（真实生图）、`scripts/verify.py`（Playwright 渲染与截图）、`scripts/check-contrast.py`、`scripts/asset_manifest.py`、`scripts/check-deliverables.py`（产物与 `coverage.json` 一致性只读自检）、`scripts/direction_divergence.py`（方向差异实测）、`scripts/ref_board.py`（参考板，需 Chrome）、`scripts/extract_grid.py` / `contact_sheet.py` / `chroma_key.py`（图片处理）、`scripts/check-skill.py`；Pillow（图片读写，可选但推荐） |
-| Playwright + Chromium | HTML 原型真实渲染、点击测试与基准截图 |
+| Node.js ≥22 + Chrome/Chromium | `scripts/check-ui.mjs`（结构/溢出/图片/对比度/触控/字号采集，`--shot` 截图、`--click/--expect` 交互断言（要求可观察状态变化）、`--record` 连续帧，`--ledger-*` 外观账本；无 npm 依赖） |
+| Python 3 | `scripts/zcode_image.py`（真实生图）、`scripts/check-contrast.py`、`scripts/asset_manifest.py`、`scripts/check-deliverables.py`（产物与 `coverage.json` 一致性只读自检）、`scripts/direction_divergence.py`（方向差异实测）、`scripts/ref_board.py`（参考板，需 Chrome）、`scripts/extract_grid.py` / `contact_sheet.py` / `chroma_key.py`（图片处理）、`scripts/check-skill.py`；Pillow（图片读写，可选但推荐） |
 | Android SDK / Xcode | 原生构建；真机装包只走宿主授权的安装入口（见 [SECURITY.md](SECURITY.md)） |
 
 **生图凭据**：`ZCODE_CPA_BASE_URL` / `ZCODE_CPA_API_KEY`，或本机 `~/.zcode/v2/provider_config.json`。不随仓库分发，不写入产物。

@@ -372,6 +372,132 @@ class CheckUiTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 2, proc.stderr)
         self.assertIn("--shot", proc.stderr)
 
+    def test_click_and_expect_assert_state_without_playwright(self):
+        """--click 走真实指针事件，--expect 断言点击后状态可见；失败进红灯。"""
+        url = self.clean_page(
+            "flow.html",
+            "<button id='tab'>打开</button><div id='panel' style='display:none;height:60px'>面板</div>"
+            "<script>document.getElementById('tab').addEventListener('click',()=>{"
+            "document.getElementById('panel').style.display='block'})</script>",
+            "#tab{height:48px;width:120px}",
+        )
+        proc, data = self.run_check(
+            url, extra=["--click", "#tab", "--expect", "#panel"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        report = data["reports"][0]
+        self.assertTrue(report["pass"])
+        self.assertEqual(report["interactions"],
+                         [{"click": "#tab", "expect": "#panel", "ok": True, "newErrors": 0,
+                           "change": "appeared"}])
+
+        proc, data = self.run_check(
+            url, extra=["--click", "#tab", "--expect", "#missing"])
+        self.assertEqual(proc.returncode, 1)
+        step = data["reports"][0]["interactions"][0]
+        self.assertFalse(step["ok"])
+        self.assertIn("不存在", step["error"])
+
+    def test_expect_requires_observable_change(self):
+        """目标点击前已可见且什么都没变 → 不得判为交互通过（防"元素在=点击生效"）。"""
+        url = self.clean_page(
+            "static.html",
+            "<button id='noop'>空点</button><div id='panel' style='height:60px'>一直在</div>"
+            "<script>document.getElementById('noop').addEventListener('click',()=>{})</script>",
+            "#noop{height:48px;width:120px}",
+        )
+        proc, data = self.run_check(url, extra=["--click", "#noop", "--expect", "#panel"])
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        step = data["reports"][0]["interactions"][0]
+        self.assertFalse(step["ok"])
+        self.assertIn("状态未变化", step["error"])
+
+        proc, data = self.run_check(
+            url, extra=["--click", "#noop", "--expect", "#panel", "--allow-static-expect"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        step = data["reports"][0]["interactions"][0]
+        self.assertTrue(step["ok"])
+        self.assertEqual(step["change"], "static")
+
+    def test_expect_accepts_state_and_text_change(self):
+        """状态（aria/data）或文本变化都算点击生效的证据。"""
+        state_url = self.clean_page(
+            "state.html",
+            "<button id='tab' aria-selected='false'>页签</button>"
+            "<div id='panel' aria-selected='false' style='height:60px'>面板</div>"
+            "<script>document.getElementById('tab').addEventListener('click',()=>{"
+            "document.getElementById('panel').setAttribute('aria-selected','true')})</script>",
+            "#tab{height:48px;width:120px}",
+        )
+        proc, data = self.run_check(
+            state_url, extra=["--click", "#tab", "--expect", "#panel"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(data["reports"][0]["interactions"][0]["change"], "state")
+
+        text_url = self.clean_page(
+            "text.html",
+            "<button id='next'>下一题</button><div id='q' style='height:60px'>第一题</div>"
+            "<script>document.getElementById('next').addEventListener('click',()=>{"
+            "document.getElementById('q').textContent='第二题'})</script>",
+            "#next{height:48px;width:120px}",
+        )
+        proc, data = self.run_check(
+            text_url, extra=["--click", "#next", "--expect", "#q"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(data["reports"][0]["interactions"][0]["change"], "text")
+
+    def test_click_failure_modes_are_blocking(self):
+        throw_url = self.clean_page(
+            "throw.html",
+            "<button id='boom'>炸</button>"
+            "<script>document.getElementById('boom').addEventListener('click',()=>{"
+            "throw new Error('click-boom')})</script>",
+            "#boom{height:48px;width:120px}",
+        )
+        proc, data = self.run_check(throw_url, extra=["--click", "#boom"])
+        self.assertEqual(proc.returncode, 1)
+        report = data["reports"][0]
+        self.assertFalse(report["pass"])
+        self.assertFalse(report["interactions"][0]["ok"])
+        self.assertEqual(report["interactions"][0]["newErrors"], 1)
+
+        proc, data = self.run_check(
+            throw_url, extra=["--click", "#nope"])
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("找不到点击目标", data["reports"][0]["interactions"][0]["error"])
+
+        bad = subprocess.run(
+            [NODE, SCRIPT, "--url", throw_url, "--expect", "#boom", "--chrome", CHROME],
+            capture_output=True, text=True, timeout=180,
+        )
+        self.assertEqual(bad.returncode, 2, bad.stderr)
+        self.assertIn("--expect 必须紧跟", bad.stderr)
+
+    def test_record_writes_frames_and_requires_single_url(self):
+        url = self.clean_page(
+            "motion.html",
+            "<button id='tab'>动</button><div id='panel' style='display:none'>内容</div>"
+            "<style>#panel.on{display:block;animation:fade .3s linear}</style>"
+            "<style>@keyframes fade{from{opacity:0}to{opacity:1}}</style>"
+            "<script>document.getElementById('tab').addEventListener('click',()=>{"
+            "document.getElementById('panel').classList.add('on')})</script>",
+            "#tab{height:48px;width:120px}",
+        )
+        out = os.path.join(self.tmp, "frames")
+        proc, data = self.run_check(
+            url, extra=["--click", "#tab", "--record", out])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        record = data["reports"][0]["record"]
+        self.assertGreaterEqual(record["count"], 2, "动画期间应落多帧")
+        for sample in record["samples"]:
+            with open(sample, "rb") as fh:
+                self.assertEqual(fh.read(2), b"\xff\xd8", "连续帧应为 JPEG")
+
+        second = self.clean_page("motion2.html", "<p>二</p>")
+        cmd = [NODE, SCRIPT, "--url", url, "--url", second, "--record", out, "--chrome", CHROME]
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("--record", proc.stderr)
+
     def test_font_min_floor_and_default(self):
         """正文档默认 14；低于 12 的全局阈值是用法错误，只能按选择器排除非产品文本。"""
         thirteen = self.clean_page("f13.html", "<p class='l'>13px 正文档不该出现</p>",

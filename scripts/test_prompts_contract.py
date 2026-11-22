@@ -68,7 +68,8 @@ REQUIRED_COVERAGE = {
     "产品三问": "产品三问",
     "原生可行性前置": "原生可行性前置检查",
     "范围冻结": "范围冻结",
-    "方向数按分歧决定": "按实质分歧决定",
+    "方向数按场景决定": "按场景决定",
+    "新产品默认三方向": "默认 3 个独立结构假设",
     "单方向最优": "1 个最优方向",
     "两到三方向": "2–3 个",
     "全部拒绝并重做": "全部拒绝",
@@ -205,9 +206,11 @@ class PromptsContractTests(unittest.TestCase):
                 self.assertNotIn(phrase, blob,
                                  "id=%s 残留废止表述《%s》" % (entry["id"], phrase))
 
-    def test_04_direction_count_is_divergence_driven(self):
-        # V3 方向数是设计判断，不得写回「固定 3 个」；同时必须保留自适应与拒绝出口。
-        self.assertTrue("按实质分歧决定" in self.blob, "缺少方向数自适应判据")
+    def test_04_direction_count_is_scenario_driven(self):
+        # 新产品默认三个独立结构假设；已有体系按分歧。数量是设计判断，不是固定仪式。
+        self.assertTrue("按场景决定" in self.blob, "缺少方向数场景判据")
+        self.assertTrue("默认 3 个独立结构假设" in self.blob, "缺少新产品三方向默认")
+        self.assertTrue("独立结构假设" in self.blob, "缺少结构假设独立性判据")
         self.assertTrue("不为展示选项制造 A/B/C" in self.blob, "缺少反凑数判据")
         self.assertTrue("全部拒绝" in self.blob, "缺少全部拒绝出口")
         blocks = re.findall(r"[^。；\n]*\d+ 个方向[^。；\n]*", self.blob)
