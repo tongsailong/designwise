@@ -141,18 +141,20 @@
   "items": [
     {
       "id": "P3", "kind": "page", "title": "今日",
-      "prototype": "rendered", "screens": ["p1-today", "p6-today-1.45"],
+      "prototype": "rendered", "screens": ["p1-today", "p6-today-1.6"],
       "scales_rendered": ["1.0", "1.6"],
+      "review": "reviewed",
       "native": "done",
       "device": {"1.0": "pass", "1.3": "not-tested", "1.6": "pass", "2.0": "not-tested"},
-      "notes": "1.3/2.0 未测：设备档位只有 1.0/1.45/1.6"
+      "notes": "1.3/2.0 未测：设备只支持 1.0/1.6 两档"
     },
     {
       "id": "S9", "kind": "overlay", "title": "城市详情",
       "prototype": "rendered", "screens": ["p2-city-done"],
       "scales_rendered": ["1.0", "1.6"],
+      "review": "not-reviewed",
       "native": "todo", "device": {},
-      "notes": "需在 1.6 下确认关闭按钮可达"
+      "notes": "尚未在 1.6 下逐屏评审关闭按钮可达性；评审后改 reviewed"
     },
     {
       "id": "X6", "kind": "state", "title": "激励视频不可用",
@@ -171,14 +173,16 @@
 |---|---|
 | `kind` | `page` / `overlay` / `state` |
 | `prototype` | `rendered` / `deferred-native` / `not-applicable` |
+| `review` | `reviewed` / `not-reviewed` / `not-applicable` |
 | `native` | `todo` / `done` / `not-applicable` |
 | `device.<scale>` | `pass` / `fail` / `not-tested` / `not-applicable` |
 
 约束：
 
+- `rendered` 项从阶段 3 起必须有 `review`；阶段 6 只能是 `reviewed`。`not-reviewed` 必须有 `notes` 说明还差哪一屏/哪一档；**「已渲染、未评审」不得被当成完成覆盖**。
 - `deferred-native` 必须有 `defer_reason` 且 `native_verify: true`。
 - `not-tested` / `fail` 必须有 `notes` 说明缺什么条件或怎么修。
-- `scales_rendered` 是实际渲染过的档位，不是打算渲染的档位。
+- `scales_rendered` 是实际渲染过的档位，不是打算渲染的档位；`rendered` 项至少记录一档，高风险结构必须包含最大档。
 - **地图与 coverage 的 id 集合必须一致**；不得新增未登记的 id，也不得让已登记 id 消失。
 - 文件由 `scripts/check-deliverables.py` 校验结构、枚举与 id 集合；**结构合法不等于覆盖合理**，语义仍由设计判断。
 

@@ -46,6 +46,7 @@ STAGE_ARTIFACTS = {
 COVERAGE_SCHEMA = "designwise-coverage/v1"
 COVERAGE_KINDS = ("page", "overlay", "state")
 COVERAGE_PROTOTYPE = ("rendered", "deferred-native", "not-applicable")
+COVERAGE_REVIEW = ("reviewed", "not-reviewed", "not-applicable")
 COVERAGE_NATIVE = ("todo", "done", "not-applicable")
 COVERAGE_DEVICE = ("pass", "fail", "not-tested", "not-applicable")
 MAP_ID_RE = re.compile(r"(?<![A-Za-z0-9])([PSX]\d{1,3})(?![0-9])")
@@ -312,7 +313,7 @@ def _map_ids(text: str) -> set[str]:
     return set(MAP_ID_RE.findall(text))
 
 
-def check_coverage(root: Path, task: Path, rep: Report) -> None:
+def check_coverage(root: Path, task: Path, rep: Report, stage: int) -> None:
     """校验 `coverage.json` 的结构与 id 集合（不判断覆盖去向是否合理）。
 
     结构规则来自 SKILL.md §6.3；id 集合规则来自 references/state-map.md §7：
@@ -393,6 +394,29 @@ def check_coverage(root: Path, task: Path, rep: Report) -> None:
                     rep.error("coverage-item-invalid", str(coverage_path),
                               f"{cid} 的 screens 含空值或非字符串：{s!r}")
 
+        review = item.get("review")
+        if review is not None and review not in COVERAGE_REVIEW:
+            rep.error("coverage-review-invalid", str(coverage_path),
+                      f"{cid} 的 review={review!r}，只能是 {'/'.join(COVERAGE_REVIEW)}")
+        rendered_done = proto == "rendered"
+        if rendered_done:
+            if stage >= 3 and review is None:
+                rep.error("coverage-review-missing", str(coverage_path),
+                          f"{cid} 标为 rendered，但阶段 {stage} 起必须有 review 状态；"
+                          "「已渲染、未评审」不算完成覆盖")
+            if stage >= 6 and review != "reviewed":
+                rep.error("coverage-review-incomplete", str(coverage_path),
+                          f"{cid} 在阶段 6 的 review={review!r}；交付前每个 rendered 项"
+                          "必须逐屏评审为 reviewed")
+            if review == "not-applicable":
+                rep.error("coverage-review-invalid", str(coverage_path),
+                          f"{cid} 标为 rendered，review 不能是 not-applicable")
+            if review == "not-reviewed":
+                notes = item.get("notes")
+                if not isinstance(notes, str) or not notes.strip():
+                    rep.error("coverage-review-notes-missing", str(coverage_path),
+                              f"{cid} 的 review=not-reviewed，但没有 notes 说明还差哪一屏/哪一档")
+
         if proto == "deferred-native":
             reason = item.get("defer_reason")
             if not isinstance(reason, str) or not reason.strip():
@@ -404,6 +428,11 @@ def check_coverage(root: Path, task: Path, rep: Report) -> None:
 
         rendered = item.get("scales_rendered")
         needs_notes = False
+        if proto == "rendered" and stage >= 2:
+            if not isinstance(rendered, list) or not [s for s in rendered if str(s).strip()]:
+                rep.error("coverage-scales-missing", str(coverage_path),
+                          f"{cid} 标为 rendered，但没有记录实际渲染过的 scales_rendered"
+                          "（不是计划档位，至少一档；高风险结构须含最大档）")
         if rendered is not None:
             if not isinstance(rendered, list):
                 rep.error("coverage-item-invalid", str(coverage_path),
@@ -483,12 +512,18 @@ def check_manifest(root: Path, task: Path, rep: Report) -> None:
         rep.error("manifest-verify-failed", str(path), "asset_manifest.py verify 未通过：" + " / ".join(tail))
 
 
-def check_prototype_notes(root: Path, task: Path, rep: Report) -> None:
+def check_prototype_notes(root: Path, task: Path, rep: Report, stage: int) -> None:
     notes = task / "prototype-notes.md"
     if not notes.exists():
         return
     rep.mark("prototype-notes.md")
     text = read_text(notes)
+    if stage >= 3:
+        markers = ("设计评审", "评审轮次", "评审范围", "打磨轮次", "打磨记录")
+        if not any(marker in text for marker in markers):
+            rep.error("prototype-notes-review-missing", str(notes),
+                      "阶段 3 起 prototype-notes.md 必须有设计评审/打磨记录"
+                      "（评审轮次、范围、缺陷与修复去向）；只有截图指纹不算评审")
     index: dict[str, int] = {}
     for path in task.rglob("*"):
         if path.is_file() and path.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
@@ -543,7 +578,7 @@ def main() -> int:
     ap.add_argument("--root", default=".", help="仓库根（解析记录里的相对路径用），默认当前目录")
     ap.add_argument("--stage", type=int, default=6, help="已完成的最高阶段（0-6），默认 6")
     ap.add_argument("--min-concepts", type=int, default=1,
-                    help="要求的最少方向数（V3 按分歧决定 1-3），默认 1")
+                    help="要求的最少方向数（V3 按分歧决定 1..N，通常 1–3），默认 1")
     ap.add_argument("--json", action="store_true", help="输出机器可读结果")
     ap.add_argument("--skip-artifacts", action="store_true",
                     help="跳过阶段产物存在性检查（局部迭代或只需校验已存在记录时）")
@@ -566,9 +601,9 @@ def main() -> int:
     check_concept_index(root, task, args.min_concepts, rep)
     check_direction(root, task, rep, args.stage)
     check_baselines(task, rep)
-    check_coverage(root, task, rep)
+    check_coverage(root, task, rep, args.stage)
     check_manifest(root, task, rep)
-    check_prototype_notes(root, task, rep)
+    check_prototype_notes(root, task, rep, args.stage)
     check_report(task, args.stage, rep)
     check_duplicate_baselines(task, rep)
 

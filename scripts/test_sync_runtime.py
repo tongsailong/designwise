@@ -190,13 +190,13 @@ class SyncExclusionContractTests(unittest.TestCase):
 
     def test_scripts_dev_tests_are_excluded(self):
         for rel in ("scripts/test_x.py", "scripts/test_sync_runtime.py",
-                    "scripts/test_design_gate_hook_hyperframes.py"):
+                    "scripts/test_check_deliverables.py"):
             self.assertTrue(self.mod.skip_file(rel), rel)
 
     def test_runtime_scripts_are_not_excluded(self):
-        for rel in ("scripts/design-gate-check.js", "scripts/sync_runtime.py",
+        for rel in ("scripts/sync_runtime.py", "scripts/zcode_image.py",
                     "scripts/verify.py", "scripts/check-skill.py",
-                    "scripts/design-gate-hook-hyperframes.sh"):
+                    "scripts/check-motion.py"):
             self.assertFalse(self.mod.skip_file(rel), rel)
 
     def test_license_and_docs_are_not_excluded(self):
@@ -224,6 +224,17 @@ class SyncExclusionContractTests(unittest.TestCase):
             self.assertIn("LICENSE", m)
             self.assertIn("SKILL.md", m)
             self.assertIn("scripts/verify.py", m)
+
+    def test_copilot_tasks_dir_is_excluded(self):
+        """`.copilot-tasks/` 是本地治理台账（合同/状态/证据），不得随分发。"""
+        self.assertTrue(self.mod.skip_dir(".copilot-tasks"))
+        with tempfile.TemporaryDirectory(prefix="sync_copilot_") as tmp:
+            src = os.path.join(tmp, "src")
+            write_file(src, "SKILL.md", "---\nname: designwise\n---\n")
+            write_file(src, "scripts/verify.py", "print(1)\n")
+            write_file(src, ".copilot-tasks/task/state.json", "{}\n")
+            m = self.mod.manifest(src)
+            self.assertEqual([k for k in m if k.startswith(".copilot-tasks/")], [])
 
     def test_host_workspace_dir_is_excluded(self):
         """`.zcode/` 是宿主工作区（会话计划/命令/本地 skill），不得随分发。"""

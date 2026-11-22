@@ -12,14 +12,14 @@
 | 工程执行 | 当前 Agent（Read / Write / Edit / Bash / Agent） | 设计与验收由主 Agent 负责；子 Agent 只用于可拆分的并行调查或独立只读复核 |
 | 真实生图 | `python3 scripts/zcode_image.py` | 本 skill 自带适配器，不依赖其他 skill |
 | **设计判断（阶段 1/3）** | ZCode 主 Agent 读真实图片、渲染截图与运行结果，按 `SKILL.md` §4 判据决策 | 不外包给远程模型；可选派 ZCode 内置子 Agent 做只读复核 |
-| 任务治理（可选） | `~/.zcode/skills/copilot/scripts/`（合同/状态/证据/收口） | 本地脚本、不调远程模型；**不做设计裁决**；不是普通开发前置门 |
+| 任务治理（可选） | `~/.zcode/skills/copilot/scripts/`（合同/状态/证据/收口） | 只做治理；可能按其自身生命周期调用 SOL 做认知建议，但**不做设计裁决**、不是普通开发前置门；DesignWise 不调度也不等待其结论 |
 | 浏览器渲染与截图 | `scripts/verify.py`（需 playwright）或本机 headless Chromium | 见 §3 实测状态 |
 | 真机安装与运行 | **只用** `~/.zcode/skills/app-testing/runtime/mi6-verify/adb-auto-install.sh` | **禁止裸 `adb install`**；多台设备在线即停 |
 | 全局规则 | `~/.zcode/AGENTS.md` | 安全、授权、Git、委派、记忆、联网纪律以它为准 |
 
 ---
 
-## 2. 两个适配器的硬边界
+## 2. 生图适配器的硬边界
 
 ### 2.1 `scripts/zcode_image.py`
 
@@ -37,17 +37,7 @@ python3 scripts/zcode_image.py --prompt "<中文提示词>" --out out.webp \
 - 返回非图片字节、`b64_json` 缺失、魔数或完整性校验失败 → **非零退出，不写占位文件**；模型失败不静默回退旧模型。
 - 凭据：优先 `ZCODE_CPA_BASE_URL` + `ZCODE_CPA_API_KEY`，否则读 `~/.zcode/v2/provider_config.json`（可用 `ZCODE_PROVIDER_CONFIG` 改路径）。**不打印、不落盘、不进 prompt、不进 metadata。**
 
-### 2.2 `scripts/zcode_vision.py`（非流程能力，默认不用）
-
-```bash
-python3 scripts/zcode_vision.py --health
-python3 scripts/zcode_vision.py --confirm-gpt-review \
-  --image a.png --image b.png --prompt "<逐张事实观察 + 疑问 + 依据>"
-```
-
-- 只接受磁盘真实图片（存在性、大小、magic number 校验）；文字或 base64 字符串直接拒绝。
-- **设计判断仍在 ZCode**：本脚本只在用户点名要外部第二意见时提供补充观察；输出只作为**待核实的观察**，不得直接采纳为方向或评审结论，**不是**设计批准、**不是** Gate、**不是** Copilot 正式 REVIEW，缺它不影响任何阶段推进。
-- 状态非 completed、带 `incomplete_details` 或输出被截断 → 报告「未获得外部观察」，按缺证处理。
+> **已退役**：旧的 `zcode_vision` 外部 GPT 视觉评审入口已移除。设计判断与评审由 ZCode 主 Agent 依据真实图片、真实渲染与真机证据完成；可选独立复核只派 ZCode 内置只读子 Agent。文档或脚本若重新引入远程设计裁决路径，按缺陷处理。
 
 ---
 
@@ -93,7 +83,7 @@ DesignWise 的运行只依赖本仓库文件与 ZCode 宿主能力：
 | 曾经的外部依赖 | 现状 |
 |---|---|
 | `huashu-gpt-image`（生图与方法论） | 方法论已吸收进 `references/image-generation.md`；生图走自带 `zcode_image.py`；**不再引用、不注册、不探测** |
-| `copilot`（任务治理） | 长任务/跨会话/高风险时可选用其合同、状态与证据脚本；**不做设计裁决、不调远程模型、不是前置门**；不假设其内部实现 |
+| `copilot`（任务治理） | 长任务/跨会话/高风险时可选用其合同、状态与证据脚本；**只做治理、不做设计裁决、不是前置门**；它可按自身生命周期调用 SOL 做认知建议，DesignWise 不调度也不等待；不假设其内部实现 |
 | huashu 上游仓库 | 只保留 MIT 代码的必要署名与许可证；无同步、无继承、无运行时关联 |
 
 > 其他 skill 的改动、升级或退场不应影响 DesignWise 的流程；若发现隐式依赖，按缺陷处理。

@@ -181,7 +181,7 @@ class SingleFlowContractTests(unittest.TestCase):
 
     def test_09_scope_scaled_work_is_not_repeated(self):
         self.assertIn("直接沿用，不重新生成", stage_block(self.skill, 1))
-        self.assertIn("未改动屏复用现有渲染与截图", stage_block(self.skill, 2))
+        self.assertIn("未改动且不受全局 token/视觉语言变化影响的屏复用现有渲染与截图", stage_block(self.skill, 2))
         self.assertIn("不重复跑", stage_block(self.skill, 3))
         self.assertIn("矩阵按本次改动范围取行与档位", stage_block(self.skill, 6))
         self.assertIn("复用不等于免检", stage_block(self.skill, 6))
@@ -328,7 +328,8 @@ class DecisionOwnershipContractTests(unittest.TestCase):
         self.assertIn("也是**设计判断主体**", self.skill)
 
     def test_02_copilot_governs_only(self):
-        self.assertIn("**不做设计裁决**；不调远程模型；不是普通开发前置门", self.skill)
+        self.assertIn("**不做设计裁决**、不是普通开发前置门", self.skill)
+        self.assertIn("DesignWise 不调度也不等待", self.skill)
         self.assertIn("**Copilot**", self.skill)
         self.assertNotIn("Copilot v", self.skill)
         self.assertIn("只做轻量治理", self.skill)

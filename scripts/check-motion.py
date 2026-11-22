@@ -6,8 +6,10 @@
 不能替代录屏与设计评审。
 
 覆盖范围：`<style>` 块、元素 `style="..."`、React/JS 字面量里的
-`transition:'...'` / `animation:'...'` / `transitionProperty`；解析 CSS 变量时长、
-逗号分隔的多段 transition、`@keyframes` 体内的布局属性。
+`transition:'...'` / `animation:'...'` / `transitionProperty`；同目录相对路径的
+`<link rel="stylesheet">` 与 `<script src>` 会一并读入扫描。解析 CSS 变量时长、
+逗号分隔的多段 transition、`@keyframes` 体内的布局属性。远程或缺失的本地外链
+不会被静默放过：缺失报错，远程只提示（静态扫描无法读取）。
 
 用法：
     python3 scripts/check-motion.py prototype/index.html
@@ -36,6 +38,12 @@ VAR_USE_RE = re.compile(r"var\(\s*(--motion-duration-[\w-]+)\s*(?:,[^)]*)?\)")
 STYLE_BLOCK_RE = re.compile(r"<style[^>]*>(.*?)</style>", re.I | re.S)
 RULE_RE = re.compile(r"([^{}]+)\{([^{}]*)\}", re.S)
 INLINE_STYLE_RE = re.compile(r"""style\s*=\s*(["'])(.*?)\1""", re.I | re.S)
+LINK_TAG_RE = re.compile(r"<link\b[^>]*>", re.I | re.S)
+SCRIPT_TAG_RE = re.compile(r"<script\b[^>]*>", re.I | re.S)
+HREF_RE = re.compile(r"""href\s*=\s*(["'])(.*?)\1""", re.I | re.S)
+SRC_RE = re.compile(r"""src\s*=\s*(["'])(.*?)\1""", re.I | re.S)
+CSS_IMPORT_RE = re.compile(
+    r"""@import\s+(?:url\(\s*)?(["'])(.*?)\1""", re.I | re.S)
 JS_STYLE_RE = re.compile(
     r"""(transition|animation|transitionProperty|animationName)\s*:\s*(["'`])(.*?)\2""",
     re.I | re.S,
@@ -169,11 +177,72 @@ def scan_rule(selector, declarations, file_label, vars_map, keyframes):
     return rows
 
 
+def collect_local_sources(path, text):
+    """Return (css_text, js_text, local_files, missing, remote).
+
+    原型要求 file:// 可跑；同目录相对外链很常见，静态扫描必须跟进去，否则
+    “动效写在外部 CSS/JS 里”会得到假的通过。远程 URL 无法离线读取，只提示。
+    """
+    base = os.path.dirname(os.path.abspath(path))
+    css_parts, js_parts, local_files = [], [], []
+    missing, remote = [], []
+    seen = set()
+
+    def load(ref):
+        ref = (ref or "").strip()
+        if not ref:
+            return None
+        low = ref.lower()
+        if low.startswith(("http://", "https://", "//", "data:", "javascript:")):
+            remote.append(ref)
+            return None
+        if ref.startswith("#"):
+            return None
+        target = os.path.normpath(os.path.join(base, ref.split("#", 1)[0].split("?", 1)[0]))
+        if target in seen:
+            return None
+        seen.add(target)
+        if not os.path.isfile(target):
+            missing.append(ref)
+            return None
+        try:
+            with open(target, encoding="utf-8") as fh:
+                body = fh.read()
+        except (OSError, UnicodeDecodeError):
+            missing.append(ref)
+            return None
+        local_files.append(os.path.relpath(target, base))
+        return body
+
+    for tag in LINK_TAG_RE.findall(text):
+        if not re.search(r"""rel\s*=\s*["']?[^"'>]*stylesheet""", tag, re.I):
+            continue
+        href = HREF_RE.search(tag)
+        body = load(href.group(2) if href else "")
+        if body is not None:
+            css_parts.append(body)
+    for tag in SCRIPT_TAG_RE.findall(text):
+        src = SRC_RE.search(tag)
+        body = load(src.group(2) if src else "")
+        if body is not None:
+            js_parts.append(body)
+    # @import 只跟一层：原型里嵌套很深的 CSS 依赖本身就不该出现。
+    for _, ref in CSS_IMPORT_RE.findall("\n".join(css_parts)):
+        body = load(ref)
+        if body is not None:
+            css_parts.append(body)
+    return ("\n".join(css_parts), "\n".join(js_parts), local_files, missing, remote)
+
+
 def scan_file(path):
     with open(path, encoding="utf-8") as fh:
         text = fh.read()
     label = os.path.basename(path)
+    ext_css, ext_js, local_files, missing, remote = collect_local_sources(path, text)
     styles = " ".join(STYLE_BLOCK_RE.findall(text))
+    if ext_css:
+        styles += "\n" + ext_css
+    scan_text = text + "\n" + ext_js
     vars_map = {}
     for name, value in VAR_DEF_RE.findall(styles):
         vars_map[name] = value.strip()
@@ -185,10 +254,10 @@ def scan_file(path):
             continue
         rules.extend(scan_rule(selector, split_decls(body), label, vars_map, keyframes))
     # inline style="..." attributes
-    for _, body in INLINE_STYLE_RE.findall(text):
+    for _, body in INLINE_STYLE_RE.findall(scan_text):
         rules.extend(scan_rule("inline-style", split_decls(body), label, vars_map, keyframes))
     # JS object literals: transition:'...' / animation:'...'
-    for prop, _, value in JS_STYLE_RE.findall(text):
+    for prop, _, value in JS_STYLE_RE.findall(scan_text):
         prop = "transition" if prop.lower() == "transitionproperty" else (
             "animation" if prop.lower() == "animationname" else prop.lower())
         rules.extend(scan_rule("inline-js", [(prop, value)], label, vars_map, keyframes))
@@ -199,6 +268,9 @@ def scan_file(path):
         "keyframes": sorted(keyframes),
         "vars": vars_map,
         "rules": rules,
+        "external_files": local_files,
+        "external_missing": missing,
+        "external_remote": remote,
     }
 
 
@@ -213,6 +285,12 @@ def evaluate(results, strict):
         add("error", "motion_no_input", "没有可扫描的 HTML 文件")
     for scan in results:
         name = scan["file"]
+        for ref in scan.get("external_missing", []):
+            add("error", "motion_external_missing",
+                "原型引用的本地 CSS/JS 不存在，动效不可能按预期运行：%s" % ref, name)
+        for ref in scan.get("external_remote", []):
+            add("warning", "motion_external_remote",
+                "原型引用远程 CSS/JS，静态扫描读不到其中的动效：%s" % ref, name)
         if not scan["rules"]:
             add("warning", "motion_none",
                 "未检测到 transition/animation；若该页面本应有动效，说明尚未实现", name)
@@ -289,6 +367,7 @@ def main(argv):
         "errors": len(errors),
         "warnings": sum(1 for f in findings if f["level"] == "warning"),
         "infos": sum(1 for f in findings if f["level"] == "info"),
+        "external_files": sum(len(r.get("external_files", [])) for r in results),
         "findings": findings,
     }
     if args.json:

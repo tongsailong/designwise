@@ -95,6 +95,7 @@ class CheckDeliverablesTest(unittest.TestCase):
         return [
             {"id": "P1", "kind": "page", "title": "今日", "prototype": "rendered",
              "screens": ["p1-today"], "scales_rendered": ["1.0", "1.6"],
+             "review": "reviewed",
              "native": "done", "device": {"1.0": "pass", "1.6": "not-tested"},
              "notes": "1.6 未测：设备只有 1.0/1.45/1.6，待补"},
             {"id": "X6", "kind": "state", "title": "激励视频不可用",
@@ -257,7 +258,9 @@ class CheckDeliverablesTest(unittest.TestCase):
         self.write_direction()
         (self.task / "prototype").mkdir()
         (self.task / "prototype" / "index.html").write_text("<html></html>", encoding="utf-8")
-        (self.task / "prototype-notes.md").write_text("# notes\n", encoding="utf-8")
+        (self.task / "prototype-notes.md").write_text(
+            "# notes\n\n## 设计评审\n- 评审轮次：1\n- 评审范围：P1\n",
+            encoding="utf-8")
         proc, data = self.run_check(stage="3")
         self.assertEqual(proc.returncode, 0, data)
         self.assertNotIn("missing-artifact", self.codes(data))
@@ -269,7 +272,7 @@ class CheckDeliverablesTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, data)
         self.assertNotIn("missing-artifact", self.codes(data))
 
-    # --- 自适应方向数（V3：1-3 个，按分歧决定） ---
+    # --- 自适应方向数（V3：1..N 个，按实质分歧决定） ---
     def test_single_direction_is_accepted(self):
         self.write_concept_index(tags=("A",))
         self.write_direction(tags=("A",))
@@ -376,6 +379,70 @@ class CheckDeliverablesTest(unittest.TestCase):
         proc, data = self.run_check()
         self.assertEqual(proc.returncode, 1)
         self.assertIn("coverage-screens-missing", self.codes(data))
+
+    def test_rendered_requires_review_from_stage3(self):
+        self.write_brief(("P1", "X6"))
+        self.write_concept_index()
+        self.write_direction()
+
+        def mutate(data):
+            data["items"][0].pop("review")
+
+        self.write_coverage(mutate=mutate)
+        proc, data = self.run_check("--skip-artifacts", stage="3")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("coverage-review-missing", self.codes(data))
+
+    def test_not_reviewed_requires_notes(self):
+        self.write_brief(("P1", "X6"))
+        self.write_concept_index()
+        self.write_direction()
+
+        def mutate(data):
+            data["items"][0]["review"] = "not-reviewed"
+            data["items"][0].pop("notes")
+
+        self.write_coverage(mutate=mutate)
+        proc, data = self.run_check("--skip-artifacts", stage="3")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("coverage-review-notes-missing", self.codes(data))
+
+    def test_stage6_rejects_unreviewed_rendered_item(self):
+        self.write_brief(("P1", "X6"))
+        self.write_concept_index()
+        self.write_direction()
+
+        def mutate(data):
+            data["items"][0]["review"] = "not-reviewed"
+            data["items"][0]["notes"] = "1.6 档待复评"
+
+        self.write_coverage(mutate=mutate)
+        proc, data = self.run_check("--skip-artifacts", stage="6")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("coverage-review-incomplete", self.codes(data))
+
+    def test_rendered_requires_actual_rendered_scales(self):
+        self.write_brief(("P1", "X6"))
+        self.write_concept_index()
+        self.write_direction()
+
+        def mutate(data):
+            data["items"][0].pop("scales_rendered")
+
+        self.write_coverage(mutate=mutate)
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("coverage-scales-missing", self.codes(data))
+
+    def test_stage3_prototype_notes_require_review_record(self):
+        self.write_concept_index()
+        self.write_direction()
+        (self.task / "prototype").mkdir()
+        (self.task / "prototype" / "index.html").write_text("<html></html>", encoding="utf-8")
+        (self.task / "prototype-notes.md").write_text("# notes\n", encoding="utf-8")
+        proc, data = self.run_check(stage="3")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("prototype-notes-review-missing", self.codes(data))
 
     def test_coverage_missing_is_warning_when_map_exists(self):
         """地图有 id 但无 coverage.json：整机/多页面必需，但局部迭代可忽略 → warning。"""

@@ -28,11 +28,12 @@ import sys
 import tempfile
 
 SOURCE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# `.zcode/` 是宿主 Agent 的工作区目录（计划、命令、本地 skill 等），不是 skill 运行所需内容；
-# 不排除会把 .zcode/plans/*.md 这类会话产物写进运行时副本。
+# `.zcode/` 是宿主 Agent 的工作区目录（计划、命令、本地 skill 等），`.copilot-tasks/`
+# 是本地治理台账（合同/状态/证据）；两者都不是 skill 运行所需内容，不排除会把会话产物
+# 或内部任务状态写进运行时副本。
 EXCLUDE_DIRS = {".git", "node_modules", ".reasonix", "design-demos",
                 "__pycache__", ".pytest_cache", ".mypy_cache", ".vscode", ".idea",
-                ".zcode"}
+                ".zcode", ".copilot-tasks"}
 EXCLUDE_FILES = {".last-update-check", ".DS_Store",
                  "assets/personal-asset-index.json",
                  # 项目维护规则只属于源码仓库，不进入运行时副本

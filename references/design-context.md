@@ -21,11 +21,11 @@
 **读代码抄exact values**：hex codes、spacing scale、font stack、border radius。不要凭记忆重画。
 
 ### 3. 用户已发布的产品
-如果用户有上线的产品但没给代码，用Playwright或让用户提供截图。
+如果用户有上线的 App 但没给代码，优先要**真实设备截图、商店页截图或项目已有截图**；不要用桌面浏览器视口反推 App 的视觉与布局。只有参考对象本身是移动 Web 时，才用移动视口抓取：
 
 ```bash
-# 用Playwright截图一个公开URL
-npx playwright screenshot https://example.com screenshot.png --viewport-size=1920,1080
+# 仅用于移动 Web 参考，不用于推断原生 App
+npx playwright screenshot https://example.com screenshot.png --viewport-size=390,844
 ```
 
 让你看到真实的视觉vocabulary。
@@ -34,23 +34,20 @@ npx playwright screenshot https://example.com screenshot.png --viewport-size=192
 用户可能有：Logo文件、品牌色规范、营销物料、slide模板。这些都是context。
 
 ### 5. 竞品参考
-用户说"像XX网站那样"——让他提供URL或截图。**不要**凭你训练数据里的模糊印象做。
+用户说"像XX产品那样"——让他提供 App 截图、商店页或真实设备记录。**不要**凭你训练数据里的模糊印象做。
 
-### 6. 已知的design system（fallback）
-如果以上都没有，用公认的设计系统作为base：
-- Apple HIG
-- Material Design 3
-- Radix Colors（配色）
-- shadcn/ui（组件）
-- Tailwind默认palette
+### 6. 平台设计系统（fallback）
+如果以上都没有，用目标平台的公认设计系统作为骨架：
+- iOS → Apple HIG
+- Android → Material Design 3
 
-明确告诉用户你用的什么，让他知道这是起点不是定稿。
+**不要**把 Web 组件栈（Radix / shadcn/ui / Tailwind）当成 App 的 fallback。fallback 只解决导航、触控、状态与可读性的基线，**不代替方向探索**；结构差异与方向数量仍按 `direction-strategy.md` §1–§3 判断。明确告诉用户你用的什么，让他知道这是起点不是定稿。
 
 ## 获取Context的流程
 
-### Step 1：问用户
+### Step 1：先查现场，缺什么再问
 
-任务开始时的必问清单（来自`workflow.md`）：
+先读项目规则、代码、token、已有截图与素材；**已知信息不重复问**，也不设问题数量下限。只有下列信息缺失且实质影响方案、风险或授权时才问用户（`workflow.md` §1–§3）：
 
 ```markdown
 1. 你有现成的design system/UI kit/组件库吗？在哪？
@@ -131,23 +128,14 @@ npx playwright screenshot https://example.com screenshot.png --viewport-size=192
 
 用户执意要你做，按这个顺序做决策：
 
-### 1. 选一个aesthetic direction
-不要给generic结果。挑一个明确方向：
-- brutally minimal
-- editorial/magazine
-- brutalist/raw
-- organic/natural
-- luxury/refined
-- playful/toy
-- retro-futuristic
-- soft/pastel
+### 1. 按结构分歧定方向，不抽审美风格
+不要从“brutally minimal / editorial / brutalist / luxury”这类审美清单里抽一个当方向。先按 `direction-strategy.md` §1–§3 判断是否存在真实结构分歧；没有分歧就给 1 个最优结构假设，有分歧才出 2..N 个并写方向卡。风格与气质服务于产品定位，不是方向本身。
 
-告诉用户你选了哪个。
+### 2. 选目标平台设计系统作为骨架
+- iOS → Apple HIG 的导航、触控、状态与版式基线
+- Android → Material Design 3 的导航、密度、触控与组件基线
 
-### 2. 选一个known design system作为骨架
-- 用Radix Colors做配色（https://www.radix-ui.com/colors）
-- 用shadcn/ui做组件vocabulary（https://ui.shadcn.com）
-- 用Tailwind spacing scale（4的倍数）
+**不要**用 Radix Colors / shadcn/ui / Tailwind spacing 作为 App 的默认骨架；它们只适用于 Web 原型参考，不能替代原生平台语法。
 
 ### 3. 选有特点的字体配对
 

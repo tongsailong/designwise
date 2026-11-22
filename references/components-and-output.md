@@ -25,8 +25,8 @@
 
 ## 2. 产物与命名
 
-- 原型主文件：`prototype/index.html`；命名描述性（`onboarding-v2.html`），不用 `final-final`。
-- 大改版保留旧版：`index.html` → `index-v1.html`，便于并排比较。
+- 原型主文件固定为 `prototype/index.html`（唯一入口；引用、截图与检查都按它）。
+- 变体与历史版本单独归档：`prototype/archive/<name>.html` 或 `prototype/index-vN.html`，由主入口链接切换；不在主文件名上叠 `final-final`。
 - 单文件超过 ~1000 行再拆 `components.jsx` + `data.js`，并在交付说明里给启动命令。
 - 产物放项目目录，不散落到 `~/Downloads`。
 - 状态位置（当前屏、Tab、开关）需要刷新不丢时存 `localStorage`。

@@ -86,6 +86,12 @@ DELAY = f"""<!doctype html><html><head><style>
 @keyframes fade{{from{{opacity:0}}to{{opacity:1}}}}
 </style></head><body><div class="x"></div></body></html>"""
 
+EXTERNAL_CSS = f"""
+{TOKENS}
+{REDUCE}
+.card{{transition:transform var(--motion-duration-s) ease}}
+"""
+
 
 class CheckMotionTest(unittest.TestCase):
     def setUp(self):
@@ -173,6 +179,40 @@ class CheckMotionTest(unittest.TestCase):
         data = json.loads(proc.stdout)
         self.assertFalse(data["has_motion"])
         self.assertIn("motion_none", {f["code"] for f in data["findings"]})
+
+    def test_local_external_css_and_js_are_scanned(self):
+        self.write("motion.css", EXTERNAL_CSS)
+        self.write("app.js", "const s={transition:'width 800ms ease'};")
+        path = self.write(
+            "external.html",
+            '<!doctype html><html><head><link rel="stylesheet" href="motion.css">'
+            '</head><body><script src="app.js"></script></body></html>')
+        proc = self.run_check(path)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        data = json.loads(proc.stdout)
+        self.assertTrue(data["has_motion"])
+        self.assertTrue(data["has_reduced_motion"])
+        self.assertEqual(data["external_files"], 2)
+        self.assertIn("motion_layout_property", self.codes(proc))
+
+    def test_missing_local_external_source_is_blocking(self):
+        path = self.write(
+            "missing.html",
+            '<!doctype html><html><head><link rel="stylesheet" href="nope.css">'
+            '</head><body></body></html>')
+        proc = self.run_check(path)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("motion_external_missing", self.codes(proc))
+
+    def test_remote_external_source_warns_not_silently_passes(self):
+        path = self.write(
+            "remote.html",
+            '<!doctype html><html><head>'
+            '<link rel="stylesheet" href="https://cdn.example.com/a.css">'
+            '</head><body></body></html>')
+        proc = self.run_check(path)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("motion_external_remote", self.codes(proc))
 
     def test_strict_turns_warnings_into_failure(self):
         proc = self.run_check(self.write("static.html", STATIC), "--strict")
