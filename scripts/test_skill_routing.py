@@ -941,5 +941,171 @@ class ForbiddenSubstitutionContractTests(unittest.TestCase):
         self.assertIn("**不用叙述证明覆盖**", self.skill)
 
 
+class AestheticContractTests(unittest.TestCase):
+    """审美能力契约：艺术指导、构成判据、打磨顺序、参考校准与咨询边界。
+
+    只证明规则被写下且互相指向；不能证明真实设计变好——那要看真实截图与采纳记录。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.stage0 = stage_block(cls.skill, 0)
+        cls.stage1 = stage_block(cls.skill, 1)
+        cls.stage3 = stage_block(cls.skill, 3)
+        cls.critique = read("references/critique-guide.md")
+        cls.polish = read("references/polish-loop.md")
+        cls.depth = read("references/visual-depth.md")
+        cls.research = read("references/design-research.md")
+        cls.art = read("references/art-direction.md")
+        cls.handoff = read("references/design-review-handoff.md")
+
+    def test_01_art_direction_is_derived_from_product_content(self):
+        self.assertIn("art-direction.md", self.stage0)
+        self.assertIn("论证链", self.stage0)
+        self.assertIn("视觉论点", self.stage0)
+        self.assertIn("母题来源", self.stage1)
+        self.assertIn("form 来自产品的哪里", self.stage1)
+        for phrase in ("产品事实", "情绪目标", "视觉论点", "母题与形式",
+                       "具体决定", "默认答案测试"):
+            self.assertIn(phrase, self.art)
+        self.assertIn("不是选一种好看风格", self.art)
+        self.assertIn("「高级、简约、现代、科技感」不算艺术指导", self.skill)
+
+    def test_02_stage_three_uses_composition_relations(self):
+        self.assertIn("构成与视觉关系判据", self.stage3)
+        for phrase in ("第一眼对象", "视线路径", "字体节奏", "色彩关系",
+                       "密度与跨页节奏"):
+            self.assertIn(phrase, self.stage3)
+        self.assertIn("客观缺陷", self.stage3)
+        self.assertIn("主观偏好", self.stage3)
+        self.assertIn("design_measure.py", self.stage3)
+
+    def test_03_critique_guide_adds_relations_without_new_dimension(self):
+        for phrase in ("视觉重心", "第一眼对象", "视线路径", "版式比例",
+                       "字体节奏", "色彩关系", "形状与线条", "材质与光",
+                       "图形与图像语言", "密度与跨页节奏"):
+            self.assertIn(phrase, self.critique)
+        self.assertIn("不新增评分维度", self.critique)
+        self.assertIn("影响理解/主任务 → 重要", self.critique)
+        self.assertIn("测量值只作线索", self.critique)
+        self.assertIn("「看起来高级/简约/现代」不是判据", self.critique)
+
+    def test_04_polish_order_puts_composition_first(self):
+        self.assertIn("先整体，后局部", self.polish)
+        order = ["构图与主角", "层级与节奏", "关系与语言", "工艺细节"]
+        positions = [self.polish.index(word) for word in order]
+        self.assertEqual(positions, sorted(positions), "打磨顺序被改成工艺优先")
+        self.assertIn("不要往下修字号和间距", self.polish)
+        self.assertIn("不为凑轮次改", self.skill)
+
+    def test_05_visual_dna_is_required_for_cross_page_review(self):
+        self.assertIn("视觉 DNA 是阶段 3 的必需产物", self.depth)
+        self.assertIn("证据不足", self.depth)
+        self.assertIn("按重要缺陷处理", self.depth)
+        self.assertIn("跨页不一致的三种真实形态", self.depth)
+
+    def test_06_reference_calibration_covers_six_rows_and_comparison(self):
+        self.assertIn("六行都要回答", self.research)
+        self.assertIn("参考 → 本项目的对照表", self.research)
+        self.assertIn("差异是否有理由", self.research)
+        self.assertIn("不要求一致", self.research)
+
+    def test_07_review_handoff_is_advisory_and_evidence_based(self):
+        self.assertIn("它是补充证据，不是审批节点", self.handoff)
+        self.assertIn("不做审批门", self.handoff)
+        self.assertIn("不新建第二套记忆", self.handoff)
+        self.assertIn("不恢复旧链路", self.handoff)
+        self.assertIn("sha256", self.handoff)
+        self.assertIn("同一批像素 + 同一问题只问一次", self.handoff)
+        self.assertIn("可选审美咨询（Copilot/SOL）", self.stage3)
+        self.assertIn("不是审批节点", self.stage3)
+        self.assertIn("设计判断不外置", self.skill)
+
+    def test_08_measurement_tools_report_facts_not_verdicts(self):
+        self.assertTrue(os.path.exists(os.path.join(ROOT, "scripts/design_measure.py")))
+        self.assertTrue(os.path.exists(os.path.join(ROOT, "scripts/review_packet.py")))
+        measure = read("scripts/design_measure.py")
+        packet = read("scripts/review_packet.py")
+        self.assertIn("只给事实", measure)
+        self.assertIn("不判断设计好坏", measure)
+        self.assertIn("不调用任何模型", packet)
+
+    def test_09_consultation_cannot_replace_decision(self):
+        # 允许提交真实截图做咨询，但不允许把外部输出当批准或评分依据。
+        self.assertIn("**不做设计裁决**", self.skill)
+        self.assertIn("PASS 只能由真实产物与 §4 判据支撑", self.skill)
+        for rel in doc_paths():
+            text = read(rel)
+            self.assertNotIn("SOL 打分", text, "%s 把评分交给 SOL" % rel)
+            self.assertNotIn("等待 SOL 结论", text, "%s 把阶段交给 SOL" % rel)
+
+    def test_10_consult_trigger_is_autonomous_and_value_based(self):
+        # 用户只提设计需求；是否发起由 ZCode 按价值判断，不要求点名 SOL。
+        self.assertIn("自主判断", self.stage3)
+        self.assertIn("用户不需要额外点名 SOL", self.stage3)
+        for phrase in ("影响面大", "真实产物", "实质不确定", "三者同时成立"):
+            self.assertIn(phrase, self.handoff)
+        self.assertIn("跳过是正常结果", self.handoff)
+        self.assertIn("不需要额外指定 SOL", self.handoff)
+        self.assertIn("局部细节", self.handoff)
+        # 咨询只复用已有生命周期，不新增调度状态机或审批门。
+        self.assertIn("DesignWise 不调度也不等待", self.skill)
+        self.assertNotIn("审美调度状态机", self.skill)
+
+    def test_11_cognitive_and_visual_consult_are_separated(self):
+        # 阶段 0/1 可讨论论证链但没看画面；阶段 1/3/5 的画面判断必须有真实像素。
+        for phrase in ("认知咨询（可无图）", "视觉咨询（必须有图）",
+                       "未看画面", "不得评价像素", "不用 OCR"):
+            self.assertIn(phrase, self.handoff)
+        self.assertIn("无图认知咨询", self.stage0)
+        self.assertIn("不得评价视觉实现", self.stage0)
+        self.assertIn("无图咨询不得评价像素", self.skill)
+        # 两种模式不能互相冒充。
+        self.assertIn("两种模式不能混", self.handoff)
+
+    def test_12_consult_can_offer_creative_options_not_only_defects(self):
+        for phrase in ("创造性问题", "第二个更贴合内容的视觉母题",
+                       "值得放大成签名", "论证链", "只能保留一个视觉决定"):
+            self.assertIn(phrase, self.handoff)
+        self.assertIn("创造性建议是候选", self.handoff)
+        self.assertIn("不替代真实生图", self.handoff)
+        self.assertIn("可同时问创造性替代", read("references/app-visual-workflow.md"))
+
+    def test_13_stage_value_table_covers_zero_to_six(self):
+        for stage in ("0 产品理解", "1 概念", "3 原型/打磨", "5–6 交接/验收"):
+            self.assertIn(stage, self.handoff)
+        self.assertIn("常规还原", self.handoff)
+        self.assertIn("重要视觉偏差或设计意图损失",
+                      read("references/app-visual-workflow.md"))
+
+    def test_14_aesthetic_knowledge_has_five_categories(self):
+        handoff = read("references/design-handoff.md")
+        for category in ("跨项目设计原则", "项目视觉 DNA", "用户审美偏好",
+                         "一次性设计判断", "尚未验证的主观意见"):
+            self.assertIn(category, handoff)
+        self.assertIn("不自动成为其他项目的默认审美", handoff)
+        self.assertIn("第二个项目或实测证据", handoff)
+        self.assertIn("知识库候选", handoff)
+        self.assertIn("仍须用户授权正式写入", handoff)
+        # 复用现有 knowledge-manager / Memory，不新建审美记忆系统。
+        self.assertIn("不新建第二套记忆", self.handoff)
+
+    def test_15_local_iteration_reuses_existing_dna(self):
+        self.assertIn("局部迭代复用", self.depth)
+        self.assertIn("不重复生成整份文档", self.depth)
+        self.assertIn("只有这些决定实质变化时才重写", self.depth)
+        # 视觉 DNA 仍然是阶段 3 的必需产物，局部复用不等于取消要求。
+        self.assertIn("视觉 DNA 是阶段 3 的必需产物", self.depth)
+
+    def test_16_retired_adjudication_is_not_confused_with_consult(self):
+        # 退役的是"远程 CONSULT 决定方向/判定通过"，不是所有咨询性意见。
+        self.assertIn("旧的**设计裁决链路**", self.skill)
+        self.assertIn("**咨询性**认知/视觉意见不属于裁决链路", self.skill)
+        for rel in ("references/routing-table.md", "references/design-review-handoff.md"):
+            text = read(rel)
+            self.assertNotIn("不得调用 `CONSULT`", text, "%s 把咨询一并禁掉" % rel)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
