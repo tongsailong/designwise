@@ -4,6 +4,8 @@
 给评审提供"往哪里看"的事实，不提供结论：
   - 背景/留白占比、主色面积比、中性色占比、冷暖倾向
   - 视觉重心的位置与集中度、三分区能量分布、边缘密度、左右对称性
+  - 内容像素占比按主背景极性判定（亮底数更暗的内容、暗底数更亮的内容），
+    因此深色与浅色主题的同一版式给出可比数值，不会把暗底本身算成内容
   - 多图之间的色板重合、背景明度差、冷暖一致性与密度差
 
 用法：
@@ -36,7 +38,8 @@ PALETTE_BINS = 32          # 每通道 32 档，合并邻近色
 NEUTRAL_CHROMA = 12        # max-min ≤ 12 视为近中性
 WARM_DELTA = 6.0           # 平均 R−B 的冷暖分界（仅统计有色像素）
 BACKGROUND_TOLERANCE = 20  # 与主背景色的 RGB 欧氏距离 ≤ 20 视为背景
-INK_LUMA = 0.35            # 亮度低于此值视为深色内容（文字/控件）
+INK_LUMA_DELTA = 0.22    # 与主背景的明度差超过此值、且方向背离背景，视为内容像素
+DARK_BACKGROUND_MAX = 0.45  # 主背景明度低于此值判为深色主题（极性相反）
 
 
 def die(msg: str) -> None:
@@ -134,7 +137,8 @@ def symmetry_score(luma: np.ndarray) -> float:
     mirrored = small[:, ::-1]
     a = small.ravel()
     b = mirrored.ravel()
-    if float(a.std()) == 0 or float(b.std()) == 0:
+    # 均匀色面（std≈0）在 corrcoef 里会除以 ~0：给 NaN 既无意义，也会写出非法 JSON
+    if float(a.std()) <= 1e-6 or float(b.std()) <= 1e-6:
         return 1.0
     return round(float(np.corrcoef(a, b)[0, 1]), 4)
 
@@ -150,6 +154,13 @@ def analyze(path: Path) -> dict:
     bg = np.array(top[0]["rgb"], dtype=np.float32)
     distance = np.sqrt(((arr - bg) ** 2).sum(axis=2))
     background = distance <= BACKGROUND_TOLERANCE
+    # 内容极性按**主背景**判定，不用绝对亮度：深色主题下暗底本身不是"墨"。
+    bg_luma = float(0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2]) / 255.0
+    theme = "dark" if bg_luma < DARK_BACKGROUND_MAX else "light"
+    if theme == "dark":
+        ink_mask = luma > bg_luma + INK_LUMA_DELTA
+    else:
+        ink_mask = luma < bg_luma - INK_LUMA_DELTA
 
     chroma = arr.max(axis=2) - arr.min(axis=2)
     colored = chroma > NEUTRAL_CHROMA
@@ -171,7 +182,9 @@ def analyze(path: Path) -> dict:
         "width": w,
         "height": h,
         "background_ratio": round(float(background.mean()), 4),
-        "ink_ratio": round(float((luma < INK_LUMA).mean()), 4),
+        "theme": theme,
+        "background_luma": round(bg_luma, 4),
+        "ink_ratio": round(float(ink_mask.mean()), 4),
         "neutral_ratio": round(1.0 - colored_count / max(w * h, 1), 4),
         "temperature": temperature,
         "temperature_delta": round(delta, 2),

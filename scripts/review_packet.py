@@ -203,7 +203,8 @@ def main() -> int:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text + "\n", encoding="utf-8")
-        print(f"已写入 {out}")
+        # --json 时 stdout 必须是纯 JSON，否则调用方无法直接解析
+        print(f"已写入 {out}", file=sys.stderr if args.json else sys.stdout)
     else:
         print(text)
 

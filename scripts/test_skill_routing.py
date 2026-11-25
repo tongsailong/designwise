@@ -332,6 +332,13 @@ class DirectionContractTests(unittest.TestCase):
         self.assertIn("**`direction-approved.md` 在决策形成前不得创建**", self.skill)
         self.assertIn("旧任务的该文件不构成新任务的授权", self.skill)
 
+    def test_16_default_answer_test_is_a_recorded_step(self):
+        """默认答案测试必须落进决策记录，不能只写在艺术指导方法里。"""
+        self.assertIn("**八个决定的默认答案测试结论**", self.skill)
+        self.assertIn("更贵的默认值", self.skill)
+        self.assertIn("八个决定的默认答案测试结论", read("references/direction-strategy.md"))
+        self.assertIn("八个决定的默认答案测试有结论", read("references/app-visual-workflow.md"))
+
 
 class DecisionOwnershipContractTests(unittest.TestCase):
     @classmethod

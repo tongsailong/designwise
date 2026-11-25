@@ -89,6 +89,32 @@ class MeasureFactsTests(unittest.TestCase):
         for verdict in ("pass", "fail", "好", "差", "score"):
             self.assertNotIn(verdict, blob)
 
+    def test_ink_ratio_follows_background_polarity(self):
+        """深色主题的暗底是背景，不是"墨"；浅色主题反过来。"""
+        light = make_image(self.dir / "light.png", block=(40, 80, 80, 120),
+                           block_color=(20, 20, 20))
+        dark = make_image(self.dir / "dark.png", bg=(20, 20, 20),
+                          block=(40, 80, 80, 120), block_color=(240, 238, 232))
+        light_facts = DM.analyze(light)
+        dark_facts = DM.analyze(dark)
+        self.assertEqual(light_facts["theme"], "light")
+        self.assertEqual(dark_facts["theme"], "dark")
+        self.assertLess(dark_facts["background_luma"], 0.2)
+        # 同一块内容在亮/暗两种底色下应给出接近的内容占比
+        self.assertAlmostEqual(light_facts["ink_ratio"], dark_facts["ink_ratio"],
+                               delta=0.03)
+        self.assertLess(light_facts["ink_ratio"], 0.35)
+        self.assertLess(dark_facts["ink_ratio"], 0.35)
+
+    def test_dark_screen_is_not_counted_as_ink(self):
+        """纯深色底 + 少量亮内容：背景算背景，不能整屏算成墨。"""
+        path = make_image(self.dir / "darktext.png", bg=(18, 18, 16),
+                          block=(10, 10, 30, 14), block_color=(235, 232, 224))
+        facts = DM.analyze(path)
+        self.assertEqual(facts["theme"], "dark")
+        self.assertLess(facts["ink_ratio"], 0.02)
+        self.assertGreater(facts["background_ratio"], 0.9)
+
     def test_missing_file_fails_closed(self):
         with contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit) as ctx:

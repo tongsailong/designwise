@@ -54,6 +54,10 @@ MAP_ID_RE = re.compile(r"(?<![A-Za-z0-9])([PSX]\d{1,3})(?![0-9])")
 EXIT_CHOICES = ("采用", "融合", "全部拒绝")
 STATUS_CHOICES = ("实施基线", "实验推荐")
 SHA_RE = re.compile(r"\b[0-9a-f]{64}\b")
+# 默认答案测试的四个问题各有自己的关键词；只核「写了这一节且覆盖到问题」，
+# 不判断答案是否成立（语义判断留给评审）。
+DEFAULT_ANSWER_HEADING = "默认答案"
+DEFAULT_ANSWER_SIGNALS = ("换到同类", "换产品名", "截图检验", "去掉", "更贵的默认值")
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
@@ -275,7 +279,9 @@ def check_direction(root: Path, task: Path, rep: Report, stage: int = 6) -> None
     for cells in _table_rows(text):
         if len(cells) < 3:
             continue
-        rel, declared = cells[1], cells[2].lower()
+        # 表格里用 `path` / **path** 包起来是自然写法，先把修饰符去掉再判断
+        rel = cells[1].strip().strip("`*").strip()
+        declared = cells[2].strip().strip("`*").lower()
         if not rel.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
             continue
         if not SHA_RE.fullmatch(declared):
@@ -290,6 +296,20 @@ def check_direction(root: Path, task: Path, rep: Report, stage: int = 6) -> None
     if candidates == 0:
         rep.error("direction-candidates-missing", str(path),
                   "未找到带路径与 sha256 的候选图表（无法绑定送检像素）")
+
+    # 默认答案测试是 art-direction.md §3 的必过项。只写在方法文件里不会被执行——
+    # 真实的跳过就是把结论写进决策记录的这一步，所以这里要求记录里有这一节。
+    if stage >= 2:
+        hits = [s for s in DEFAULT_ANSWER_SIGNALS if s in text]
+        if DEFAULT_ANSWER_HEADING not in text:
+            rep.error("direction-default-answer-missing", str(path),
+                      "缺少「默认答案测试」结论：八个决定要逐条回答"
+                      "「换到同类产品是否仍成立 / 能否被截图检验 / 去掉是否变差 / "
+                      "是否只是更贵的默认值」，写进 direction-approved.md 再重跑")
+        elif len(hits) < 2:
+            rep.error("direction-default-answer-incomplete", str(path),
+                      "「默认答案测试」只覆盖了 %d 类问题（需 ≥2：换到同类/换产品名、截图检验、"
+                      "去掉是否变差、是否只是更贵的默认值）；逐条写结论，不要只留标题" % len(hits))
 
 
 def check_baselines(task: Path, rep: Report) -> None:

@@ -19,7 +19,7 @@
 | 阶段 | 最小产物 | Gate 一句话 |
 |---|---|---|
 | 0 | `design-brief.md` + `coverage.json`(初版) | 理解有出处、范围已闭合、目标可判定 |
-| 1 | `concept-prompts.md` + `concepts/` + `concept-index.json` + `direction-divergence.json` + `direction-approved.md` | 方向数有依据、图是真的、差异有实测、决策有理由 |
+| 1 | `concept-prompts.md` + `concepts/` + `concept-index.json` + `direction-divergence.json` + `direction-approved.md` | 方向数有依据、图是真的、差异有实测、**八个决定的默认答案测试有结论**、决策有理由 |
 | 2 | `prototype/index.html` + 截图 + 覆盖矩阵 | 能点、能看、覆盖有去向、大档不崩 |
 | 3 | `prototype-notes.md`(评审/打磨) + 素材 | 致命项清零、改动有前后图 |
 | 4 | `handoff/` 七件套 + baselines | 实现端不用猜 |

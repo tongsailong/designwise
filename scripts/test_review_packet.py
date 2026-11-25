@@ -139,7 +139,9 @@ class PacketTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         text = out.read_text(encoding="utf-8")
         self.assertIn("# 设计评审交接包", text)
-        summary = json.loads(proc.stdout[proc.stdout.index("{"):])
+        # --json 时 stdout 必须是纯 JSON：调用方要能直接 json.loads
+        summary = json.loads(proc.stdout)
+        self.assertIn("已写入", proc.stderr)
         self.assertEqual(summary["schema"], RP.SCHEMA)
         self.assertEqual(summary["image_count"], 2)
         self.assertEqual(summary["images"][0]["name"], "p1.png")

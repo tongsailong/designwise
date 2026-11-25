@@ -68,11 +68,22 @@ class CheckDeliverablesTest(unittest.TestCase):
         (self.task / "concept-index.json").write_text(
             json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
-    def write_direction(self, status="实施基线", exit_line="采用", extra="", tags=("A", "B", "C")):
+    def write_direction(self, status="实施基线", exit_line="采用", extra="", tags=("A", "B", "C"),
+                        decorate=False, default_answer=None):
+        def cell(value):
+            return f"`{value}`" if decorate else value
         rows = "\n".join(
-            f"| {tag} | design-demos/t1/concepts/{tag}.png | {self.sha(tag)} | 方向{tag} | 结构 |"
+            f"| {tag} | {cell('design-demos/t1/concepts/' + tag + '.png')} | {cell(self.sha(tag))} | 方向{tag} | 结构 |"
             for tag in tags
         )
+        if default_answer is None:
+            default_answer = (
+                "## 默认答案测试\n"
+                "| # | 决定 | 换到同类产品是否仍成立 | 能否被截图检验 | 去掉是否变差 | 是否只是更贵的默认值 |\n"
+                "|---|---|---|---|---|---|\n"
+                "| 1 | 视觉论点 | 否，纸堆层数只在囤积型产品成立 | 能，层数可数 | 会 | 否 |\n"
+                "| 2 | 色彩关系 | 是 | 能，面积比可测 | 会 | 是，已补产品理由 |\n"
+            )
         body = (
             "# 方向确认 · t1\n\n## 状态\n"
             f"- 状态：{status}\n"
@@ -82,6 +93,7 @@ class CheckDeliverablesTest(unittest.TestCase):
             f"{rows}\n\n## 决策记录\n"
             f"- 决策出口：{exit_line}\n- 采用方向：A\n"
             + extra
+            + default_answer
         )
         (self.task / "direction-approved.md").write_text(body, encoding="utf-8")
 
@@ -300,12 +312,36 @@ class CheckDeliverablesTest(unittest.TestCase):
         self.assertNotIn("missing-artifact", self.codes(data))
 
     # --- 自适应方向数（V3：1..N 个，按实质分歧决定） ---
+    def test_candidate_table_tolerates_inline_code_markers(self):
+        """表格里用 `path` 包起来是自然写法，不能因此判成"没有候选图"。"""
+        self.write_concept_index()
+        self.write_direction(decorate=True)
+        proc, data = self.run_check()
+        self.assertEqual(proc.returncode, 0, data)
+        self.assertNotIn("direction-candidates-missing", self.codes(data))
+
     def test_single_direction_is_accepted(self):
         self.write_concept_index(tags=("A",))
         self.write_direction(tags=("A",))
         proc, data = self.run_check()
         self.assertEqual(proc.returncode, 0, data)
         self.assertNotIn("concept-count", self.codes(data))
+
+    def test_default_answer_test_is_required(self):
+        """默认答案测试只写在方法文件里不会被执行，必须落进决策记录。"""
+        self.write_concept_index()
+        self.write_direction(default_answer="")
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("direction-default-answer-missing", self.codes(data))
+
+    def test_default_answer_heading_alone_is_not_enough(self):
+        """只留标题、不逐条回答，等于没做。"""
+        self.write_concept_index()
+        self.write_direction(default_answer="## 默认答案测试\n- 已按 art-direction.md 执行\n")
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("direction-default-answer-incomplete", self.codes(data))
 
     # --- coverage.json（SKILL.md §6.3 / references/state-map.md §7） ---
     def test_valid_coverage_passes(self):
