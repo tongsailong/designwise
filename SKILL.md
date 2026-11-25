@@ -23,6 +23,8 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 | 图片生成、处理、素材复用与清单 | 生产级 Web App、后端系统、SEO 站 |
 | 真机视觉与交互验收 | 纯代码重构、图层级可编辑 PPTX |
 
+**唯一相邻载体：App UI 衍生素材（商店/分发渠道的截图与宣传图）。** 它算在范围内，理由只有一条：画面主体是**真实 App 界面**，不是纯平面设计——这正是它与上表「信息图 / 海报 / 封面」的分界，界线在内容来源，不在画布形状。这类素材**不走 0–6 全流程**（不做状态地图、不做原生交接），但必须满足三条：① 读产品视觉身份档案（`references/visual-identity.md`），没有就先建最小一份；② 换名、母题、构图、视觉语言、参考污染与产品内一致性六项检查在**适用时**执行（触发条件见 `references/cross-product-differentiation.md`，不是所有素材任务的固定税）；③ 画面里的界面只能是真机可复现的状态，不得合成、补字或展示未上线功能。
+
 **HTML 是原型，不是产品**：HTML 用来判断视觉与交互，最终实现必须是原生 App；不得把原型 HTML 塞进 App。
 
 **HTML 是设计目标，不是配色参考**：原生落地按设计意图实现，允许重构页面结构、组件层级、信息架构与交互方式；「最小改动」「旧代码可复用」不是设计理由。设计一致性指核心信息层级、布局、视觉语言与交互意图正确实现，不是像素相同。
@@ -100,7 +102,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 4. **产品三问与信息优先级**：谁在用、此刻要完成什么、系统替他承担了哪部分复杂性；范围内**每个页面写一行信息优先级**：第一眼看什么 / 什么在下一层 / 什么不进首屏，并写一句系统替用户承担了什么。这一行在生图前写进 `design-brief.md`，是方向提示词与原则转译的稳定输入；没有它，方向只能靠感觉。
 5. **原生可行性前置检查**（不得推迟到阶段 4）：平台与最低版本、字体缩放上限、系统栏与安全区、键盘、dp/sp、触控、导航惯例、权限、深色模式、性能、动效与触感、减少动态、素材格式。**做不到的设计不要画进方向。**
 6. **目标映射与范围冻结**：每个目标回指已识别的问题（`P*`/`S*`/`X*`）或有依据的保留项，成功标准可判定；记录本次不做什么。整机/多页面任务初始化 `coverage.json`（见 §6.3）。
-7. **视觉定位与资产计划**：先按 `references/art-direction.md` §2–§3 写**论证链**：产品事实 → 情绪目标 → 视觉论点 → 母题与形式 → 具体决定；八个决定（论点/母题/色彩关系/字体声音/构图/材质光/图形语言/节奏签名）各写一句可检查的话。**「高级、简约、现代、科技感」不算艺术指导**；换到同类产品仍成立的答案要重写。再写清气质、色彩、材质、光影、字体、图形与动效人格（方法见 `references/visual-depth.md`），并按 `references/image-assets.md` §1.5 列出范围内每个图像槽位（位置/角色/内容职责/来源/尺寸/变体/消费者）。**计划里没有的图不临时加**；GPT 生成是正式候选，不是用户点名才考虑。论证链自身仍由 ZCode 判断；仅在影响面大、且自评仍有实质不确定时，按 `references/design-review-handoff.md` 发起**无图认知咨询**（SOL 未看画面，不得评价视觉实现）。
+7. **视觉定位与资产计划**：先按 `references/art-direction.md` §2–§3 写**论证链**：产品事实 → 情绪目标 → 视觉论点 → 母题与形式 → 具体决定；八个决定（论点/母题/色彩关系/字体声音/构图/材质光/图形语言/节奏签名）各写一句可检查的话。**「高级、简约、现代、科技感」不算艺术指导**；换到同类产品仍成立的答案要重写。再写清气质、色彩、材质、光影、字体、图形与动效人格（方法见 `references/visual-depth.md`），并按 `references/image-assets.md` §1.5 列出范围内每个图像槽位（位置/角色/内容职责/来源/尺寸/变体/消费者）。**计划里没有的图不临时加**；GPT 生成是正式候选，不是用户点名才考虑。论证链自身仍由 ZCode 判断；仅在影响面大、且自评仍有实质不确定时，按 `references/design-review-handoff.md` 发起**无图认知咨询**（SOL 未看画面，不得评价视觉实现）。**产品视觉身份**：项目已有身份档案（`references/visual-identity.md`）时按它写定位与不变量；没有时，若本次涉及对外素材、与同开发者其他产品存在混淆风险、或需要跨端一致，先建**最小**身份档案（母题+不变量+反模式三栏即可，不填满全部维度）；否则沿用现有设计系统，不强制建档。
 8. **体验基调与核心任务状态闭环**：写出核心流程的进入—行动—等待—结果—收束，以及本次必须出现的状态与转场（方法见 `references/experience-states.md`）。**核心任务必须写状态闭环**：目标 → 关键决策点 → 加载/空/错/权限/成功 → 失败后的恢复路径与下一步；阶段 2 逐项可演，`coverage.json` 与交接沿用同一批状态。只设计正常态或只写成功路径的方案在阶段 2 会被覆盖矩阵挡下。
 
 **阶段 1 · 概念方向**
@@ -237,6 +239,14 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 
 **原则必须转译成本页可检查的要求**（见阶段 1 第 4 条）。项目规则定义产品原则时**项目优先**；`references/product-value.md` 只在项目未定义时作为默认方法。
 
+### 3.1 统一质量，不统一风格
+
+本 skill 约束的是**专业质量**——产品理解、层级、可读性、原创性、可验证性、可落地性；它**不约束**某一套审美。因此下列东西**不得作为通用默认值下发**：色彩体系、字体组合、背景材质、插画风格、构图方式、卡片体系、光影与装饰元素。`references/design-styles.md` 是**菜单不是默认**；`references/art-direction.md` 的论证链是**方法不是风格**；参考过的项目只贡献「拆出来的规则」，不贡献「它的样子」。
+
+判据是同一句：**换到另一个产品仍然成立的视觉决定，不是这个产品的设计，是本 skill 的会话级默认。** 这类决定要么按阶段 1 的默认答案测试重写，要么明确降级为「可替换的外观默认值」并在交付里标注。项目已有品牌资产与设计系统时以项目为准，本 skill 只抬高质量下限，不覆盖项目的审美选择。
+
+产物层面有三层，职责不混：**通用设计质量**（本节与 §4/§5，对所有项目一致）→ **产品视觉身份**（`references/visual-identity.md`，住在产品项目里，一产品一份）→ **Campaign 视觉方向**（同一产品的某次传播主题，必须能追溯回身份不变量，且不得固化为永久模板）。
+
 ## 4. 专业设计判据
 
 完整判据、0–10 档描述、检查清单、输出模板见 `references/critique-guide.md`。本节只定口径。
@@ -361,6 +371,18 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 - 授权边界按全局 `~/.zcode/AGENTS.md` 与使用方项目规则执行，本 skill 不另立一套；真实生图、真机安装验收等动作在既有授权内进行，超出范围先取得授权。
 - 真实设备不足或工具链不可用 → 如实标 `PARTIAL` / `BLOCKED`，不编造真机证据。
 
+### 6.5 跨产品差异化（按需，不是固定税）
+
+**何时触发**（满足任一即查，其余不查）：本次素材/界面与同开发者或同品类另一产品**存在实际混淆风险**；用户或评审报告了「看起来像同一个产品」；同一轮里同时为一个以上产品做设计；产品自有语言与另一个产品**已经重叠**（同材质家族、同底色温度、同构图语汇）。
+
+**查什么**（六项，细则见 `references/cross-product-differentiation.md`）：换名测试、母题测试、构图测试、视觉语言测试、参考污染测试、产品内一致性测试。**差异化不能破坏单产品内部统一**，两条同时成立才算通过。
+
+**判定归属**：相似落在**结构层**（骨架、第一视觉对象、构图比例、母题、图像策略）→ 是缺陷，改结构，不改色相；相似只落在**规范层或合理共性**（画布尺寸、真实截图、一图一卖点、缩略图可读、平台惯例）→ 不是缺陷，不要改。**换色、换字体、加装饰不算差异化**，也不是差异化失败后的补救方向。
+
+**工具只给事实**：`scripts/check-visual-identity.py` 输出 frame 层描述性事实与逐维度对比，**不输出通过/不通过**；不得设置未经真实样本校准的相似度阈值，不得用图片相似度、颜色比例或模型评分**裁决**设计质量。**既有 `scripts/direction_divergence.py` 的骨架相关性只用于同产品内多方向比较**；实测它对跨产品成品会给出假阴性（内容差异淹没版式同构），不得当作跨产品差异成立的证据。
+
+**隔离**：当前项目的身份、品牌资产与历史设计优先；跨项目参考仅在用户明确要求或有专业价值时使用，且必须写明借用了哪个维度；不得把参考项目的完整视觉体系迁到当前项目，不得因为某个项目曾经成功就默认复制它。**不建中央风格注册表**——身份档案住在产品项目里，本 skill 只定义格式与方法。
+
 ## 7. 项目规则优先
 
 > 本节是执行口径，优先于本 skill 的流程默认值；**不放宽**授权与隐私/合规边界、真实视觉证据、不伪造结论三条底线。
@@ -386,7 +408,8 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 | `direction-approved.md` | **ZCode 设计决策记录**：合格性、采用/融合/拒绝、理由、风险、用户否决原话、可选复核意见；**状态字段（实施基线 / 实验推荐）——唯一实施基线** | 阶段 1 后、原型前 |
 | `prototype/` + `prototype-notes.md` | HTML 原型、覆盖矩阵、动效矩阵、概念偏差修正、评审与打磨记录、已知限制 | 阶段 2–3 |
 | `review-packet.md` | **可选**评审交接包：真实截图与 sha256、页面/状态/设备、改动说明、九个审美问题、SOL 意见与采纳结论 | 需外部审美咨询时 |
-| `asset-manifest.json` / `generation-log.md` | 素材唯一事实源与生成记录；`art-direction.md`（任务素材目录）记录艺术方向 | 有素材就必需 |
+| `asset-manifest.json` / `generation-log.md` | 素材唯一事实源与生成记录；`art-direction.md`（任务素材目录）记录艺术方向；对外素材另记**身份版本**与所用不变量 | 有素材就必需 |
+| `visual-identity.md`（产品仓库内） | 产品视觉身份档案：母题、不变量、可变项、反模式、适用范围与失效条件 | 对外素材/跨端一致/存在混淆风险时；由使用方项目持有 |
 | `handoff/` | App 原生交付包（规格 + 四类等价契约 + 动效/转场 + baselines） | 阶段 4 前 |
 | `verification-report.md` | 落地对照表、三方对照、四态矩阵、工程与设计双验收 | 阶段 5 起；阶段 6 必需 |
 | `design-state.md` | 跨回合/跨会话交接卡（≤30 行，只引用证据） | 仅长任务或交接时 |
@@ -422,6 +445,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 - 流程细则/模板/证据格式/验收矩阵 → `references/app-visual-workflow.md`；入口与成熟度 → `references/routing-table.md`；开工顺序与提问 → `references/workflow.md`
 - 页面-状态地图、出处与覆盖 → `references/state-map.md`；方向策略、方向卡、差异实测 → `references/direction-strategy.md`
 - 判据与 0–10 档 → `references/critique-guide.md`（含「构成与视觉关系判据」）；艺术指导与视觉论证 → `references/art-direction.md`；打磨环 → `references/polish-loop.md`；验证口径与四态矩阵 → `references/verification.md`
+- 产品视觉身份（母题/不变量/反模式/失效条件）与 Campaign 层 → `references/visual-identity.md`；跨产品差异化六项检查与触发条件 → `references/cross-product-differentiation.md`
 - 对外审美咨询的交接包与采纳追踪 → `references/design-review-handoff.md`
 - 原生交接包与等价契约 → `references/design-handoff.md`；HTML 原型守则 → `references/app-prototype.md`；HTML 技术红线 → `references/react-setup.md`
 - 原生平台语法、密度与反网页套路 → `references/native-platform.md`；动效体系、token 与验证 → `references/motion-design.md`
@@ -430,7 +454,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 - App 风格库 → `references/design-styles.md`；产品价值判断 → `references/product-value.md`；文案/反 slop/对比度 → `references/content-guidelines.md`；字体 → `references/typography.md`
 - 组件与交付物 → `references/components-and-output.md`；品牌资产 → `references/brand-asset-protocol.md`；参考板 → `references/design-research.md`；设计上下文 → `references/design-context.md`
 - Tweaks（可选） → `references/tweaks-system.md`；设计哲学 → `references/design-philosophy.md`；宿主映射 → `references/runtime-adapters.md` / `references/zcode-host.md`
-- 机械校验脚本 → `scripts/check-ui.mjs` / `scripts/check-contrast.py` / `scripts/check-motion.py` / `scripts/check-deliverables.py` / `scripts/direction_divergence.py` / `scripts/asset_manifest.py`
+- 机械校验脚本 → `scripts/check-ui.mjs` / `scripts/check-contrast.py` / `scripts/check-motion.py` / `scripts/check-deliverables.py` / `scripts/direction_divergence.py` / `scripts/check-visual-identity.py` / `scripts/asset_manifest.py`
 
 ## 11. 宿主环境适配（ZCode）
 

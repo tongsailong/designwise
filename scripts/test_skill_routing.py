@@ -1114,5 +1114,129 @@ class AestheticContractTests(unittest.TestCase):
             self.assertNotIn("不得调用 `CONSULT`", text, "%s 把咨询一并禁掉" % rel)
 
 
+class VisualIdentityContractTests(unittest.TestCase):
+    """产品视觉身份层与跨产品差异化：三层职责不混、按需检查、工具不裁决。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skill = read("SKILL.md")
+        cls.scope = cls.skill[cls.skill.index("## 0. 定位与边界"):cls.skill.index("## 1. ")]
+        cls.section65 = cls.skill[cls.skill.index("### 6.5 "):]
+        cls.identity = read("references/visual-identity.md")
+        cls.diff = read("references/cross-product-differentiation.md")
+        cls.image_gen = read("references/image-generation.md")
+        cls.image_assets = read("references/image-assets.md")
+        cls.routing = read("references/routing-table.md")
+
+    def test_01_general_quality_is_not_product_style(self):
+        # 统一的是质量，不是风格：通用层不得下发调色板/字体/构图。
+        self.assertIn("DesignWise 统一**设计质量**，不统一**设计风格**", self.identity)
+        self.assertIn("通用层不能下发调色板、字体、材质、插画风格、构图或卡片体系",
+                      self.identity)
+        self.assertIn("身份层不能被别的产品继承", self.identity)
+
+    def test_02_three_layers_are_named_in_skill(self):
+        self.assertIn("产物层面有三层，职责不混", self.skill)
+        for layer in ("通用设计质量", "产品视觉身份", "Campaign 视觉方向"):
+            self.assertIn(layer, self.skill)
+
+    def test_03_identity_dimensions_are_analysis_not_questionnaire(self):
+        self.assertIn("分析维度，不是问卷", self.identity)
+        self.assertIn("不要求每个产品填满", self.identity)
+        self.assertIn("最小档（三栏）", self.identity)
+        for col in ("Core Motif", "Visual Invariants", "Anti-patterns"):
+            self.assertIn(col, self.identity)
+        # 14 个维度都在，防止被悄悄删成少数几项。
+        for dim in ("Product Essence", "Composition Grammar", "Color Logic",
+                    "Typography", "Material Language", "Flexible Elements"):
+            self.assertIn(dim, self.identity)
+
+    def test_04_identity_is_derived_from_product_evidence(self):
+        self.assertIn("证据来自真实产品", self.identity)
+        self.assertIn("不得**用行业", self.identity)
+        self.assertIn("独立推导，不得先定共同风格再切分", self.identity)
+        self.assertIn("不得只靠色相区分", self.identity)
+        # 身份住在使用方项目，不在本 skill。
+        self.assertIn("一份产品一份", self.identity)
+        self.assertIn("身份档案放在 skill 里", self.identity)
+
+    def test_05_identity_does_not_overwrite_brand_sources(self):
+        self.assertIn("不覆盖权威品牌资料", self.identity)
+        self.assertIn("冲突时保留原件", self.identity)
+        self.assertIn("不得**直接变成该产品后续所有素材的固定版式", self.identity)
+
+    def test_06_campaign_cannot_become_a_template(self):
+        self.assertIn("成功不等于模板", self.identity)
+        self.assertIn("停止设计", self.identity)
+        self.assertIn("新批次只换文案和截图", self.identity)
+        self.assertIn("系列一致 ≠ 每一张同构", self.identity)
+
+    def test_07_promo_carrier_in_scope_without_full_flow(self):
+        # 相邻载体在范围内，但不走 0–6：不做状态地图、不做原生交接。
+        self.assertIn("唯一相邻载体：App UI 衍生素材", self.scope)
+        self.assertIn("不走 0–6 全流程", self.scope)
+        self.assertIn("读产品视觉身份档案", self.scope)
+        self.assertIn("不是所有素材任务的固定税", self.scope)
+        # 四条非目标原样保留，不得为了纳入新载体而删。
+        for phrase in ("幻灯片 / PPT / deck", "视频 / 动画成片 / 宣传片",
+                       "信息图 / 海报 / 封面等静态平面载体", "生产级 Web App"):
+            self.assertIn(phrase, self.scope)
+
+    def test_08_differentiation_is_on_demand(self):
+        self.assertIn("### 6.5 跨产品差异化（按需，不是固定税）", self.skill)
+        self.assertIn("## 0. 何时查（不查也是正常结果）", self.diff)
+        self.assertIn("其余任务不查", self.diff)
+        self.assertIn("不为流程完整强行对比", self.diff)
+
+    def test_09_six_checks_are_named_and_consistent(self):
+        for name in ("换名测试", "母题测试", "构图测试", "视觉语言测试",
+                     "参考污染测试", "产品内一致性测试"):
+            self.assertIn(name, self.diff)
+        self.assertIn("换名、母题、构图、视觉语言、参考污染与产品内一致性", self.skill)
+        # 差异化不得破坏产品内统一。
+        self.assertIn("差异化不能破坏单产品内部统一", self.skill)
+
+    def test_10_tool_gives_facts_not_verdicts(self):
+        self.assertIn("## 8. 工具：只给事实，不裁决", self.diff)
+        self.assertIn("不给 verdict、不改退出码", self.diff)
+        self.assertIn("不得**用图片相似度、颜色比例或模型评分**裁决**设计质量", self.diff)
+        self.assertIn("检查的目的是**解释相似落在哪个维度**，不是给一个相似度分数", self.diff)
+        # 骨架相关性只用于产品内多方向比较，跨产品是假阴性。
+        self.assertIn("只用于同产品内多方向比较", self.diff)
+        self.assertIn("假阴性", self.diff)
+        self.assertIn("skeleton_correlation", self.diff)
+
+    def test_11_no_uncalibrated_threshold(self):
+        self.assertIn("任何阈值都必须在具体产品的真实样本上重新校准", self.diff)
+        # 第二个标定点：标量无法区分新旧，必须如实记下。
+        self.assertIn("第二个标定点", self.diff)
+        self.assertIn("旧值落在新值区间内", self.diff)
+
+    def test_12_model_self_review_is_not_user_testing(self):
+        self.assertIn("不得用模型自评代替", self.diff)
+        self.assertIn("不把某次模型评分当作用户辨识度实验", self.diff)
+
+    def test_13_reference_isolation_rules_exist(self):
+        # prompt 方向卡：来自本产品身份 + 本次 Campaign，不跨项目复用。
+        self.assertIn("方向卡从哪来（硬规则）", self.image_gen)
+        self.assertIn("身份依据", self.image_gen)
+        self.assertIn("不得只改色相", self.image_gen)
+        # 清单：对外素材必须记身份版本与用了哪几条不变量。
+        self.assertIn("invariants_used", self.image_assets)
+        self.assertIn("跨项目来源（易漏）", self.image_assets)
+        self.assertIn("borrowed_from / borrowed_dimension", self.image_assets)
+        # 路由：商店图/宣传图先读身份。
+        self.assertIn("先读产品视觉身份", self.routing)
+
+    def test_14_no_retired_layering_is_revived(self):
+        # 不得以"跨产品差异化"为由恢复 L1/L2/L3 任务分层或 G4。
+        for rel in ("references/visual-identity.md",
+                    "references/cross-product-differentiation.md"):
+            text = read(rel)
+            for bad in ("L1 ", "L2 ", "L3 ", "G4"):
+                self.assertNotIn(bad, text, "%s 引入了已退役的 %s" % (rel, bad))
+        self.assertNotIn("G4", self.section65)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

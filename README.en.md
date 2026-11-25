@@ -112,10 +112,13 @@ Image generation is built in and depends on no other skill: `scripts/zcode_image
 | Aesthetic review & consultation | Ten composition relations (weight, first read, gaze path, type rhythm, colour relations, material, cross-screen), objective facts from `design_measure.py`, and an optional review packet for SOL consultation (`review_packet.py`; advisory, never an approval gate) |
 | Complete experience states | Data/interaction/transition state design, loading/empty/error/offline/permission/locked/complete, rollback and cross-screen narrative |
 | Asset system | `assets/`, asset plan, art direction, `asset-manifest.json`, generation and reuse log |
+| Product visual identity & cross-product differentiation | A visual identity file inside the product repo (motif / invariants / anti-patterns, `visual-identity.md`), campaign direction with template-drift guards, six checks when confusion risk is real (rename / motif / composition / visual language / reference contamination / in-product consistency), and `check-visual-identity.py` frame-level fact comparison (facts only, never a verdict) |
 | Native handoff | `handoff/` seven-piece package + baselines (structure / tokens / states / assets / adaptation / accessibility / four contracts) |
 | Native implementation & acceptance | Build and install logs, on-device screenshots/recordings, landing map, `verification-report.md` (four-state matrix + separate engineering/design verdicts) |
 
 **In scope**: iOS / Android mobile app interface and interaction design, and carrying it through to a native app.
+
+**One adjacent carrier**: App UI derived assets (store / distribution screenshots and promo images) — the subject is the *real app interface*, so the boundary is content provenance, not canvas shape. These assets skip the full 0–6 flow but must read the product's visual identity file first.
 
 **Out of scope**: slides / decks, video / motion pieces / promo films, voice-over / audio / music / SFX, infographics / posters / covers and other static print-like media, production web apps and backend systems, pure code refactors, layer-editable PPTX.
 
@@ -215,6 +218,8 @@ designwise/
 │   ├── design-review-handoff.md # review packet, nine questions, SOL consultation boundaries
 │   ├── design-styles.md         # native-HTML style library
 │   ├── design-research.md       # reference board, six-row extraction and appearance ledger
+│   ├── visual-identity.md       # product visual identity: three layers, dimensions, derivation, campaign drift guards
+│   ├── cross-product-differentiation.md  # six cross-product checks, triggers and attribution table
 │   ├── brand-asset-protocol.md  # five-step brand asset protocol
 │   ├── routing-table.md · workflow.md   # flow quick reference and expansion
 │   └── runtime-adapters.md · zcode-host.md  # host capability mapping

@@ -52,6 +52,9 @@ REQUIRED_FILES = [
     "references/motion-design.md",
     "references/visual-depth.md",
     "references/experience-states.md",
+    # 产品视觉身份与跨产品差异化（多产品场景 / 对外素材）
+    "references/visual-identity.md",
+    "references/cross-product-differentiation.md",
 ]
 
 REQUIRED_DIRS = ["references", "assets", "scripts", "demos"]
@@ -78,6 +81,7 @@ REQUIRED_SCRIPTS = [
     "scripts/contact_sheet.py",
     "scripts/chroma_key.py",
     "scripts/asset_manifest.py",
+    "scripts/check-visual-identity.py",
     "scripts/check-skill.py",
     "scripts/sync_runtime.py",
 ]

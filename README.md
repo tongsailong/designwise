@@ -112,10 +112,13 @@ npx skills add tongsailong/designwise
 | 审美评审与咨询 | 构成十条关系（重心/第一眼/视线路径/字体节奏/色彩关系/材质/跨页）、`design_measure.py` 客观事实、可选评审交接包与 SOL 咨询（`review_packet.py`，咨询不审批） |
 | 完整体验状态 | 数据/交互/转场状态设计、加载/空/错误/离线/权限/锁定/完成、失败回滚与跨页叙事 |
 | 素材体系 | `assets/`、资产计划、art-direction、`asset-manifest.json`、生成与复用记录 |
+| 产品视觉身份与跨产品差异化 | 产品项目内的视觉身份档案（母题 / 不变量 / 反模式，`visual-identity.md`）、Campaign 方向与防固化、存在混淆风险时的六项检查（换名 / 母题 / 构图 / 视觉语言 / 参考污染 / 产品内一致性）、`check-visual-identity.py` 帧层事实对比（只给事实，不裁决） |
 | 原生交接 | `handoff/` 七件套 + baselines（结构 / tokens / 状态 / 素材 / 适配 / 无障碍 / 四类等价契约） |
 | 原生实现与验收 | 构建与安装日志、真机截图/录屏、落地对照表、`verification-report.md`（四态矩阵 + 工程/设计双结论） |
 
 **唯一范围**：iOS / Android 移动应用的界面与交互设计，以及把它落地成原生 App。
+
+**唯一相邻载体**：App UI 衍生素材（商店 / 分发渠道的截图与宣传图）——画面主体是**真实 App 界面**，界线在内容来源而不是画布形状。这类素材**不走 0–6 全流程**，但必须先读产品视觉身份档案。
 
 **不在范围内**：幻灯片 / PPT / deck、视频 / 动画成片 / 宣传片、配音 / 音频 / 音乐 / SFX、信息图 / 海报 / 封面等静态平面载体、生产级 Web App 与后端系统、纯代码重构、图层级可编辑 PPTX。
 
@@ -217,6 +220,8 @@ designwise/
 │   ├── design-review-handoff.md # 评审交接包、九个问题与 SOL 咨询采纳边界
 │   ├── design-styles.md         # HTML 原生风格库
 │   ├── design-research.md       # 参考板、六行拆解与外观账本
+│   ├── visual-identity.md       # 产品视觉身份：三层职责、分析维度、推导、Campaign 防固化
+│   ├── cross-product-differentiation.md  # 跨产品六项检查、触发条件与归因表
 │   ├── brand-asset-protocol.md  # 品牌资产 5 步
 │   ├── routing-table.md · workflow.md   # 流程速查与展开
 │   └── runtime-adapters.md · zcode-host.md  # 宿主能力映射

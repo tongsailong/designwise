@@ -100,6 +100,12 @@
   "version": 1,
   "task": "<项目>-<功能>",
   "updated_at": "2026-11-09T00:00:00+08:00",
+  "visual_identity": {
+    "file": "docs/design/visual-identity.md",
+    "version": "<derived_at>",
+    "campaign": "<本批次名，可空>",
+    "invariants_used": ["I1", "I3"]
+  },
   "assets": [
     {
       "id": "bg-home-hero",
@@ -158,6 +164,8 @@
 | `crop` | 焦点与安全区；CSS `cover` 与原生 `CENTER_CROP` 的差异在此说明 |
 | `license` | real-license / generated-for-project / brand-asset / unknown |
 | `status` | temp / final；**temp 不得进交付包** |
+| `visual_identity` | 本批素材依据的产品身份档案：路径、版本（`derived_at`）、本次 Campaign 名、实现了哪几条不变量。**对外素材（商店图/宣传图）必填**；纯内部装饰图可省，省了要在交付说明里写一句理由 |
+| `visual_identity.invariants_used` | 写编号或短名，能与身份档案逐条对上；对不上说明卡是事后补的，要回头改卡 |
 
 ### 5.3 一致性校验
 
@@ -230,6 +238,12 @@ python3 scripts/asset_manifest.py verify --manifest asset-manifest.json --strict
 
 **MIT 边界**：本仓库保留的 MIT 代码与版权声明必须保留；**生成素材不自动继承 MIT**，其许可按项目与生成服务条款记录。不要把「仓库是 MIT」误写成「所有生成素材都是 MIT」。
 
+**跨项目来源（易漏）**：另一个产品的成品、中间产物、参考图、prompt 块都算**他人任务材料**，
+不得直接进本项目的素材目录或 manifest。确实要借某一维时，在 `provenance` 里写明
+「borrowed_from / borrowed_dimension」，并在交付说明里重复一句；只借尺度、不借版式。
+判定与处置见 `cross-product-differentiation.md` §5、§7。**查不到不等于没有**——按本次任务
+真实留下的材料逐项核对，零命中也要写「零命中」。
+
 **秘密**：prompt 日志、manifest、证据包不得包含 API key、Cookie、内部链接、真实用户隐私数据。
 
 ---
@@ -245,6 +259,7 @@ python3 scripts/asset_manifest.py verify --manifest asset-manifest.json --strict
 | 挪目录就裂图 | 相对路径 | 单文件改 base64 内嵌 |
 | 同一素材多个孤儿副本 | 复制后改一版不登记 | 变体登记 + 消费者 |
 | 删除素材后界面裂图 | 没查消费者 | 删除前 `asset_manifest.py verify` |
+| 两个产品的素材像同一家的 | 没读身份档案，方向卡跨项目复用 | 回 `visual-identity.md` 各推一份；结构层至少两项不同，不靠换色 |
 | 原生裁切丢主体 | 只按 CSS cover 居中 | 记录焦点/安全区，逐端核对 |
 | 暗色模式素材发灰 | 简单反相 | 单独生成/调色并复验 |
 | 交付包混入 temp 图 | 没跑清单校验 | `status=temp` 阻断交付 |
