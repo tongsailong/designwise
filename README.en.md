@@ -216,6 +216,7 @@ designwise/
 │   ├── art-direction.md         # art direction: a visual argument derived from content
 │   ├── critique-guide.md        # six dimensions + ten composition relations + App/native checks
 │   ├── design-review-handoff.md # review packet, nine questions, cognition-consult sampling boundaries
+│   ├── copilot-integration.md   # collaboration contract: admission questions, contract/evidence link, SG↔A/B/C/E, failure triage
 │   ├── design-styles.md         # native-HTML style library
 │   ├── design-research.md       # reference board, six-row extraction and appearance ledger
 │   ├── visual-identity.md       # product visual identity: three layers, dimensions, derivation, campaign drift guards

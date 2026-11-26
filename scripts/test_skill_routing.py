@@ -1248,5 +1248,123 @@ class VisualIdentityContractTests(unittest.TestCase):
         self.assertNotIn("G4", self.section65)
 
 
+class CopilotIntegrationContractTests(unittest.TestCase):
+    """协作契约：准入是可判定的两问，治理与认知是独立判断，SG 映射不是流程转移。
+
+    守的是 2026-11-26 建立的唯一协作契约（`references/copilot-integration.md`）不被写回成
+    "一律进 Copilot + 一律调 Astra"的口号，也不长出第二套状态机、证据库或 CLI 手册。
+    断言读决策表的**结果列**，不匹配整句，避免合法改写把测试打挂。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = read("references/copilot-integration.md")
+        cls.skill = read("SKILL.md")
+        cls.routing = read("references/routing-table.md")
+        cls.table = cls.admission_rows()
+        cls.triage = cls.triage_rows()
+
+    @classmethod
+    def _rows(cls, start_marker):
+        body = cls.text[cls.text.index(start_marker):]
+        rows = []
+        for line in body.splitlines():
+            if not line.startswith("|"):
+                if rows:
+                    break
+                continue
+            cells = [c.strip().strip("*").strip() for c in line.strip().strip("|").split("|")]
+            if not cells or set("".join(cells)) <= set("-: "):
+                continue
+            if cells[0] in ("有可指名的跟踪对象", "现象", "SG"):
+                continue
+            rows.append(cells)
+        return rows
+
+    @classmethod
+    def admission_rows(cls):
+        return cls._rows("### 1.2 准入")
+
+    @classmethod
+    def triage_rows(cls):
+        return cls._rows("## 5. 失败分流")
+
+    def test_01_single_contract_is_reachable_from_both_entries(self):
+        self.assertIn("唯一说明", self.text)
+        for rel, body in (("SKILL.md", self.skill),
+                          ("references/routing-table.md", self.routing)):
+            self.assertIn("copilot-integration.md", body, "%s 未指向唯一契约" % rel)
+
+    def test_02_admission_is_two_questions_with_a_decision_table(self):
+        self.assertIn("哪一项", self.text)
+        self.assertIn("为什么本次就地设计验收闭合不了它", self.text)
+        results = [row[-1] for row in self.table]
+        self.assertGreaterEqual(len(results), 4, "准入决策表少了行")
+        self.assertEqual(sum("不建合同" in r for r in results), 2, results)
+        self.assertEqual(sum("进入 Copilot" in r for r in results), 2, results)
+
+    def test_03_examples_are_calibration_not_a_whitelist(self):
+        self.assertIn("示例只用于校准，不构成白名单", self.text)
+        for bad in ("改动文件多或少", "任务名称叫", "想让外部模型批准设计"):
+            self.assertIn(bad, self.text)
+
+    def test_04_governance_cognition_and_acceptance_are_independent(self):
+        self.assertIn("三个判断互相独立", self.text)
+        self.assertIn("进入治理本身不触发认知", self.skill)
+        self.assertIn("采纳不是设计验收", self.text)
+
+    def test_05_sg_mapping_is_not_a_mechanical_transition(self):
+        for i in range(7):
+            self.assertTrue(any(row[0].startswith("%d " % i) for row in self.table + self.sg_rows()),
+                            "SG%d 缺行" % i)
+        self.assertIn("不是阶段转移规则", self.text)
+        self.assertIn("不一一对应", self.text)
+
+    def sg_rows(self):
+        return self._rows("## 3. SG0–SG6")
+
+    def test_06_no_second_state_machine_evidence_store_or_cli_manual(self):
+        self.assertIn("不建第二套任务状态", self.text)
+        self.assertIn("不建 DesignWise 自己的证据库", self.text)
+        self.assertIn("不向 Copilot `state.json` 假设自定义字段", self.text)
+        self.assertIn("以 Copilot **当前版本**为准", self.text)
+
+    def test_07_evidence_is_referenced_not_copied(self):
+        self.assertIn("先登记后引用", self.text)
+        self.assertIn("不复制", self.text)
+        self.assertIn("sha256", self.text)
+        self.assertIn("一条条件不靠两份材料", self.text)
+
+    def test_08_failure_triage_names_owner_and_keeps_partial_open(self):
+        owners = " ".join(row[1] for row in self.triage)
+        for owner in ("DesignWise", "ZCode", "Copilot"):
+            self.assertIn(owner, owners, "失败分流缺责任方 %s" % owner)
+        self.assertIn("PARTIAL 不是终点", self.text)
+        self.assertIn("两类缺口分开记", self.text)
+
+    def test_09_contract_stays_a_contract(self):
+        size = len(self.text.encode("utf-8"))
+        self.assertLess(size, 20000, "契约文件已膨胀成手册（%d 字节）" % size)
+        for cli_only in ("--criteria-file", "--test-policy", "--task-kind"):
+            self.assertNotIn(cli_only, self.text, "契约里出现了 CLI 手册内容 %s" % cli_only)
+
+    def test_10_copilot_still_does_not_decide_design(self):
+        self.assertIn("不做设计裁决", self.text)
+        self.assertIn("认知结论不是设计批准", self.text)
+
+    def test_11_the_four_collaboration_cases_are_decidable(self):
+        # B 简单任务：局部调色 → 就地，不入管。
+        self.assertIn("一只按钮按既定规范调色、验收标准不变 → 就地做，不入管", self.text)
+        # A/治理：同一改动改变验收标准 → 入管，方案明确则不调 Astra。
+        self.assertIn("需要协调复验 → 入管；方案明确则**不调 Astra**", self.text)
+        # C 方向被验证否定：SG1 行的治理语境是 C，不是自动重开流程。
+        sg1 = [row for row in self.sg_rows() if row[0].startswith("1 ")][0]
+        self.assertIn("C", sg1[2])
+        # D 工程实现偏离：责任列同时写明 ZCode 修复与 DesignWise 复验。
+        deviated = [row for row in self.triage if row[0].startswith("原生实现偏离")][0]
+        self.assertIn("ZCode", deviated[1])
+        self.assertIn("DesignWise", deviated[1])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

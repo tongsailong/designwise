@@ -218,6 +218,7 @@ designwise/
 │   ├── art-direction.md         # 艺术指导：从产品内容推出视觉论证
 │   ├── critique-guide.md        # 六维评审 + 构成十条关系 + App 三项 + 原生质感与动效
 │   ├── design-review-handoff.md # 评审交接包、九个问题与 Copilot 认知咨询采纳边界
+│   ├── copilot-integration.md   # 协作契约：准入两问、合同与证据关联、SG↔A/B/C/E、失败分流
 │   ├── design-styles.md         # HTML 原生风格库
 │   ├── design-research.md       # 参考板、六行拆解与外观账本
 │   ├── visual-identity.md       # 产品视觉身份：三层职责、分析维度、推导、Campaign 防固化

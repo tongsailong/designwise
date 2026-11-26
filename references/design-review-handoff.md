@@ -100,7 +100,7 @@ python3 scripts/review_packet.py --spec review-packet.json \
 
 ## 4. 提交给 Copilot 认知通道
 
-Copilot 当前入口是 `cognition-consult`（零工具、单轮、advisory）；命令与参数以 Copilot 自身文档为准（`~/.zcode/skills/copilot/`）。**正式 REVIEW（`cognition-review`）只在用户明确要求时使用**；日常审美咨询用 consult 即可，不要为一次咨询建审批流程。
+Copilot 当前入口是 `cognition-consult`（零工具、单轮、advisory）；命令与参数以 Copilot 自身文档为准（`~/.zcode/skills/copilot/`）。**什么时候该问、什么时候连治理都不需要，见 `copilot-integration.md`；本文只讲怎么提交一次已经决定要问的咨询。** **正式 REVIEW（`cognition-review`）只在用户明确要求时使用**；日常审美咨询用 consult 即可，不要为一次咨询建审批流程。
 
 **无图认知咨询**（阶段 0/1，只讨论论证链与母题）：
 

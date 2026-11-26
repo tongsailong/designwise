@@ -16,6 +16,9 @@
 `design-brief.md` → `coverage.json` → `direction-approved.md` → `prototype-notes.md` → `handoff/` → `verification-report.md`
 之间互相引用。**不另建追溯报告，不重新编号。**
 
+**治理接口不在本表**：SG 只是设计工作的事实状态。需要跨交接跟踪验收承诺时，按
+`references/copilot-integration.md` 建立 Copilot 合同与证据关联；阶段、门与产物不因治理状态改变，也不新增阶段。
+
 | 阶段 | 最小产物 | Gate 一句话 |
 |---|---|---|
 | 0 | `design-brief.md` + `coverage.json`(初版) | 理解有出处、范围已闭合、目标可判定 |

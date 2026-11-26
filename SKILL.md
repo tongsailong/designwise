@@ -46,6 +46,8 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 
 **设计判断不外置**：方向选哪个、原型哪里不行、交接是否等价，由 ZCode 依据真实像素、真实渲染与 §4 判据决定。**可选**派 ZCode 内置子 Agent 做独立复核（多页面重设计、高风险原生改动、或用户要求第二意见时，只查不改）；复核是补充证据，不是审批节点。**可选**请 Copilot 的认知通道做审美咨询（见阶段 0/1/3/5 与 `references/design-review-handoff.md`）：何时发起由 ZCode 按上述三条件自行判断，用户不需要额外点名；有画面判断时必须给真实像素，阶段 0/1 的论证链咨询可无图但不得评价画面。它提供"可能被忽略的视觉问题"、改法建议与创造性选项，主 Agent 核实后决定，采纳与否都不影响阶段推进。
 
+**治理接口按需，不默认**：可**就地完成并按既定标准验收**的设计由本 skill 直接做——**不建 Copilot 合同、不调 Astra**。只有当**某项验收承诺、跨方依赖或未闭合缺口需要跨交接持续跟踪，而本次就地设计验收闭合不了**时，才按 `references/copilot-integration.md` 进入 Copilot 建合同并关联证据；**进入治理本身不触发认知**，设计方法与专业验收仍由本 skill 独占。
+
 **禁止**：用 `call_gpt.py` / 远程 `CONSULT` / 已退役的 `sol-*` 通道或任何远程大模型充当设计批准者；等待外部模型给"下一步"；把 Copilot 状态流转当设计门。**允许**的是把真实截图作为证据提交、获取咨询性意见——两者区别在于谁做决定：意见可被拒绝，阶段不因意见暂停，PASS 只能由真实产物与 §4 判据支撑。
 
 ## 2. 唯一标准流程
@@ -448,6 +450,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 - 判据与 0–10 档 → `references/critique-guide.md`（含「构成与视觉关系判据」）；艺术指导与视觉论证 → `references/art-direction.md`；打磨环 → `references/polish-loop.md`；验证口径与四态矩阵 → `references/verification.md`
 - 产品视觉身份（母题/不变量/反模式/失效条件）与 Campaign 层 → `references/visual-identity.md`；跨产品差异化六项检查与触发条件 → `references/cross-product-differentiation.md`
 - 对外审美咨询的交接包与采纳追踪 → `references/design-review-handoff.md`
+- 与 Copilot 的职责边界、任务准入（两问判据）、合同字段与证据关联、SG0–SG6 与 A/B/C/E 协同、失败分流 → `references/copilot-integration.md`
 - 原生交接包与等价契约 → `references/design-handoff.md`；HTML 原型守则 → `references/app-prototype.md`；HTML 技术红线 → `references/react-setup.md`
 - 原生平台语法、密度与反网页套路 → `references/native-platform.md`；动效体系、token 与验证 → `references/motion-design.md`
 - 视觉深度、材质光影与跨页视觉语言 → `references/visual-depth.md`；完整状态、转场与叙事 → `references/experience-states.md`
@@ -463,7 +466,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 - **设计判断**：ZCode 主 Agent；复杂/高风险可派 ZCode 内置子 Agent 做只读复核。不调用远程模型做设计裁决。
 - **子代理**：ZCode `Agent`；主 Agent 负责实施与验证，子代理只做可拆分并行工作或独立只读复核。
 - **生图**：`scripts/zcode_image.py`；凭据取宿主 Provider 配置，不把密钥写入命令行或文档。
-- **Copilot**：需要可追踪治理时用 `~/.zcode/skills/copilot/scripts/` 的治理命令（合同/状态/证据/收口）；它只做治理，可经其认知通道（`cognition-consult` / `cognition-review`，可带真实截图）提供建议，但不做设计判断，认知结论也不是设计批准；DesignWise 不调度、不等待，命令与参数以 Copilot 当前版本为准。**`call_gpt.py` / `bridge_evidence.py --image` 的设计裁决用途与已退役的 `sol-*` 命令已不得使用。**
+- **Copilot**：需要可追踪治理时用 `~/.zcode/skills/copilot/scripts/` 的治理命令（合同/状态/证据/收口）；它只做治理，可经其认知通道（`cognition-consult` / `cognition-review`，可带真实截图）提供建议，但不做设计判断，认知结论也不是设计批准；DesignWise 不调度、不等待，命令与参数以 Copilot 当前版本为准。**何时入管、合同放什么、证据怎么关联见 `references/copilot-integration.md`。** **`call_gpt.py` / `bridge_evidence.py --image` 的设计裁决用途与已退役的 `sol-*` 命令已不得使用。**
 - **真机装包**：只使用宿主授权入口 `~/.zcode/skills/app-testing/runtime/mi6-verify/adb-auto-install.sh`，**禁止裸 `adb install`**；多台设备在线即停止；入口不可用报告，不自行替换。
 - **同步**：源码仓库是唯一真源；运行时副本只由 `scripts/sync_runtime.py --to <skill 目录> --check|--apply` 单向下发，不手改副本、不做双向合并。
 - **完整映射、凭据边界与降级** → `references/zcode-host.md`。
