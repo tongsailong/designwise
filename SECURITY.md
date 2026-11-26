@@ -94,7 +94,7 @@ The single exception is the explicit maintenance flag `python3 scripts/sync_runt
 
 ## 8. Dependencies
 
-The runtime has **no npm dependencies**: `scripts/check-ui.mjs` uses Node.js built-ins (≥22) plus a locally installed Chrome/Chromium over CDP, and `package.json` declares an empty dependency set. Python code uses the standard library plus `Pillow` (via pip/uv) for image I/O. No binary downloads from arbitrary URLs and no post-install scripts that fetch code at runtime. If a local checkout installs anything, `node_modules/` stays gitignored and excluded from runtime sync.
+The runtime has **no npm dependencies**: `scripts/check-ui.mjs` uses Node.js built-ins (≥22) plus a locally installed Chrome/Chromium over CDP, and `package.json` declares an empty dependency set. Python code uses the standard library plus `Pillow` (via pip/uv) for image I/O; `extract_grid.py` and `design_measure.py` additionally import `numpy` and fail closed with an install hint when it is missing. No binary downloads from arbitrary URLs and no post-install scripts that fetch code at runtime. If a local checkout installs anything, `node_modules/` stays gitignored and excluded from runtime sync.
 
 ---
 

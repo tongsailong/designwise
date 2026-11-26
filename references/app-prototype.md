@@ -130,7 +130,7 @@ node scripts/check-ui.mjs --url "file://$PWD/prototype/index.html" \
 
 - 每个 `P*` 至少有：默认态；存在数据时加空/加载/错误（可放在同一屏的审阅路由里）。
 - 每个 `S*` 能开能关，关闭路径（按钮/返回/下滑）至少一种在最大字号下可达。
-- 每个 `X*` 要么有真实呈现，要么 `deferred-native` + 理由 + `native_verify: true`。
+- 每个 `X*` 要么有真实呈现，要么 `deferred-native` + 理由 + `native_verify: true`，要么 `not-applicable` + 理由。
 - 状态切换只改**数据与状态**，不改布局骨架——否则评审时无法判断"这是状态设计还是另一版设计"。
 - 状态命名和 `state-map.md` 的枚举一致，不临时造同义词。
 

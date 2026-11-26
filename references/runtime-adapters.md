@@ -12,7 +12,7 @@
 | **文件读写** | brief、方向记录、原型、交付包、清单 | Read / Write / Edit / Bash | 无文件系统的环境把内容贴进回复并说明保存路径 |
 | **本地命令执行** | `scripts/*.py`、构建、渲染、清单校验 | Bash | 不能跑就交付源文件 + 命令说明，**不声称已执行** |
 | **真实生图** | 阶段 1 概念方向、阶段 3 正式素材 | `python3 scripts/zcode_image.py` | 其他 runtime 用自身图像生成；都没有 → **报告并暂停生图环节**（可交付完整 prompt 让用户外部出图后交回真实文件），**不得用 SVG/色块/程序绘图冒充概念图** |
-| **图片处理** | 尺寸/裁切/格式/抠图/预览 | Pillow（`zcode_image.py` 内建 `--fit`；`extract_grid.py` / `contact_sheet.py` / `chroma_key.py`） | 缺 Pillow → 报告；不用「大概能跑」的替代冒充已处理 |
+| **图片处理** | 尺寸/裁切/格式/抠图/预览 | Pillow（`zcode_image.py` 内建 `--fit`；`extract_grid.py` / `contact_sheet.py` / `chroma_key.py`；`extract_grid.py` 另需 numpy） | 缺 Pillow → 报告；不用「大概能跑」的替代冒充已处理 |
 | **素材清单校验** | 阶段 3 起、交付前 | `python3 scripts/asset_manifest.py register\|verify\|list` | 无法运行 → 手工核对 id/文件/sha256/消费者并在交付说明标注「未跑清单校验」 |
 | **浏览器渲染与截图** | 阶段 2 原型验证、基准图 | `node scripts/check-ui.mjs`（本机 Chrome/Chromium + Node ≥22；`--shot`/`--click`/`--record`） | 无浏览器 → 交付 HTML 并说明「未经自动验证」；**不得把未渲染说成已验证** |
 | **设计判断** | 阶段 1 方向决策、阶段 3 评审 | ZCode 主 Agent 读真实图片/截图/运行结果，按 `SKILL.md` §4 判据判断 | 无视觉输入 → 报告缺证，**不得用文字描述冒充视觉结论**；复杂/高风险可派 ZCode 内置子 Agent 做只读复核 |

@@ -358,8 +358,8 @@ class DecisionOwnershipContractTests(unittest.TestCase):
 
     def test_03_remote_channel_is_retired(self):
         self.assertIn("**设计判断不外置**", self.skill)
-        self.assertIn("**禁止**：用 `call_gpt.py` / 远程 `CONSULT` / SOL", self.skill)
-        self.assertIn("**`call_gpt.py` / `bridge_evidence.py --image` 的设计裁决用途已退役，不得使用。**",
+        self.assertIn("**禁止**：用 `call_gpt.py` / 远程 `CONSULT` / 已退役的 `sol-*` 通道", self.skill)
+        self.assertIn("**`call_gpt.py` / `bridge_evidence.py --image` 的设计裁决用途与已退役的 `sol-*` 命令已不得使用。**",
                       self.skill)
 
     def test_04_independent_review_is_read_only(self):
@@ -371,6 +371,16 @@ class DecisionOwnershipContractTests(unittest.TestCase):
             text = read(rel)
             self.assertNotIn("等待 SOL", text, "%s 仍把决策交给远程模型" % rel)
             self.assertNotIn("SOL 批准", text, "%s 仍要求远程批准" % rel)
+
+    def test_06_retired_sol_commands_are_not_documented(self):
+        # Copilot v9.10 起 sol-* 已退役；文档若还教用户敲这些命令，复制即失败。
+        for rel in doc_paths():
+            text = read(rel)
+            for cmd in ("sol-consult", "sol-review", "sol-accept"):
+                self.assertNotIn(cmd, text, "%s 仍记录已退役命令 %s" % (rel, cmd))
+        # 现行通道必须写清楚，否则读者只知道旧命令退役、不知道替代是什么。
+        self.assertIn("cognition-consult", self.skill)
+        self.assertIn("cognition-consult", read("references/design-review-handoff.md"))
 
 
 class StateMapContractTests(unittest.TestCase):
@@ -1025,7 +1035,7 @@ class AestheticContractTests(unittest.TestCase):
         self.assertIn("不恢复旧链路", self.handoff)
         self.assertIn("sha256", self.handoff)
         self.assertIn("同一批像素 + 同一问题只问一次", self.handoff)
-        self.assertIn("可选审美咨询（Copilot/SOL）", self.stage3)
+        self.assertIn("可选审美咨询（Copilot 认知通道）", self.stage3)
         self.assertIn("不是审批节点", self.stage3)
         self.assertIn("设计判断不外置", self.skill)
 
@@ -1050,11 +1060,11 @@ class AestheticContractTests(unittest.TestCase):
     def test_10_consult_trigger_is_autonomous_and_value_based(self):
         # 用户只提设计需求；是否发起由 ZCode 按价值判断，不要求点名 SOL。
         self.assertIn("自主判断", self.stage3)
-        self.assertIn("用户不需要额外点名 SOL", self.stage3)
+        self.assertIn("用户不需要额外点名", self.stage3)
         for phrase in ("影响面大", "真实产物", "实质不确定", "三者同时成立"):
             self.assertIn(phrase, self.handoff)
         self.assertIn("跳过是正常结果", self.handoff)
-        self.assertIn("不需要额外指定 SOL", self.handoff)
+        self.assertIn("不需要额外指定咨询通道", self.handoff)
         self.assertIn("局部细节", self.handoff)
         # 咨询只复用已有生命周期，不新增调度状态机或审批门。
         self.assertIn("DesignWise 不调度也不等待", self.skill)

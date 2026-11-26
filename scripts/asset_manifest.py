@@ -144,6 +144,19 @@ def load_generation_meta(path: str, file_str: str, file_path: Path) -> tuple[dic
     return meta, match, ""
 
 
+def parse_json_arg(raw: str, flag: str) -> dict:
+    """解析 JSON 对象参数；形状错误按用法错误返回空 dict（由调用方判定）。"""
+    if raw is None:
+        return {}
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{flag} is not valid JSON: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"{flag} must be a JSON object")
+    return value
+
+
 def cmd_register(args: argparse.Namespace) -> int:
     manifest_path = Path(args.manifest)
     base = manifest_path.parent
@@ -152,6 +165,18 @@ def cmd_register(args: argparse.Namespace) -> int:
     if not file_path.is_file():
         print(f"ERROR: file not found: {file_path}", file=sys.stderr)
         return 1
+    try:
+        crop = parse_json_arg(args.crop, "--crop")
+        visual_identity = parse_json_arg(args.visual_identity, "--visual-identity")
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    # 重新登记同一 id 时，没有显式传参的字段沿用旧值：
+    # 否则 crop / 变体主题 / prompt_file 等文档要求字段会被静默清空。
+    existing = next((a for a in data["assets"] if a.get("id") == args.id), {})
+    old_prov = existing.get("provenance") or {}
+    old_variants = {v.get("file"): v for v in existing.get("variants") or []
+                    if isinstance(v, dict)}
     variants = []
     for v in args.variant or []:
         vp = resolve(v, base)
@@ -159,6 +184,10 @@ def cmd_register(args: argparse.Namespace) -> int:
             print(f"ERROR: variant not found: {vp}", file=sys.stderr)
             return 1
         entry = {"file": v, "sha256": sha256_file(vp)}
+        old = old_variants.get(v) or {}
+        for key, value in old.items():
+            if key not in ("file", "sha256", "size", "format"):
+                entry[key] = value
         vm = image_meta(vp)
         entry.update({k: val for k, val in vm.items() if k in ("size", "format")})
         variants.append(entry)
@@ -191,10 +220,16 @@ def cmd_register(args: argparse.Namespace) -> int:
         "ref": args.ref,
         "refs": req.get("refs") or [],
         "created_at": (args.generated_at or meta.get("generated_at")
+                       or old_prov.get("created_at")
                        or datetime.now().astimezone().isoformat(timespec="seconds")),
         "usage": resp.get("usage"),
         "purpose": args.purpose or req.get("profile_purpose"),
     }
+    for key, value in provenance.items():
+        if value in (None, [], {}):
+            previous = old_prov.get(key)
+            if previous not in (None, [], {}):
+                provenance[key] = previous
     if args.source == "generated" and not provenance["model"]:
         print("WARNING: generated asset has no model provenance "
               "(use --model or --meta)", file=sys.stderr)
@@ -207,7 +242,7 @@ def cmd_register(args: argparse.Namespace) -> int:
         "provenance": provenance,
         "variants": variants,
         "consumers": args.consumer or [],
-        "crop": None,
+        "crop": crop or existing.get("crop"),
         "license": args.license,
         "attribution": args.attribution,
         "status": args.status,
@@ -216,6 +251,8 @@ def cmd_register(args: argparse.Namespace) -> int:
     replaced = len(assets) != len(data["assets"])
     assets.append(entry)
     data["assets"] = assets
+    if visual_identity:
+        data["visual_identity"] = visual_identity
     if args.task:
         data["task"] = args.task
     save(manifest_path, data)
@@ -275,6 +312,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
                 prov_issue(f"{label}: generated asset has no provenance.model")
             if not prov.get("created_at"):
                 prov_issue(f"{label}: generated asset has no provenance.created_at")
+            if not prov.get("prompt_file"):
+                prov_issue(f"{label}: generated asset has no provenance.prompt_file")
             if prov.get("prompt_file") and not resolve(prov["prompt_file"], base).is_file():
                 prov_issue(f"{label}: prompt_file not found: {prov['prompt_file']}")
         if prov.get("output_format") and actual_meta.get("format") \
@@ -362,6 +401,11 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--ref", default=None)
     r.add_argument("--attribution", default=None)
     r.add_argument("--task", default=None)
+    r.add_argument("--crop", default=None,
+                   help='crop/focus JSON object, e.g. \'{"focus": [0.5, 0.35]}\'')
+    r.add_argument("--visual-identity", default=None,
+                   help="manifest-level visual identity JSON object "
+                        "(file / version / campaign / invariants_used)")
     r.set_defaults(func=cmd_register)
 
     v = sub.add_parser("verify", help="verify manifest integrity")

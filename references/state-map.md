@@ -184,6 +184,7 @@
 - `not-tested` / `fail` 必须有 `notes` 说明缺什么条件或怎么修。
 - `scales_rendered` 是实际渲染过的档位，不是打算渲染的档位；`rendered` 项至少记录一档，高风险结构必须包含最大档。
 - **地图与 coverage 的 id 集合必须一致**；不得新增未登记的 id，也不得让已登记 id 消失。
+- **阶段 6 自洽**：`native` 不得仍为 `todo`；`native: done` 必须有非空 `device`；`device` 全为 `not-tested` 只能支撑 `PARTIAL`（口径见 `SKILL.md` §6.3）。
 - 文件由 `scripts/check-deliverables.py` 校验结构、枚举与 id 集合；**结构合法不等于覆盖合理**，语义仍由设计判断。
 
 ---

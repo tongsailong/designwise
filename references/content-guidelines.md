@@ -181,7 +181,7 @@ HTML 原型可以用现代 CSS（`text-wrap`、container queries、`color-mix`�
 
 ## 附录：反AI slop速查（补充项）
 
-> 2026-10-27 从 SKILL.md 移入，内容逐字保留；入口见 `SKILL.md` §4 设计质量红线。
+> 2026-10-27 从 SKILL.md 移入，内容逐字保留；入口见 `SKILL.md` §5 设计质量红线。
 
 完整的反 slop 规则在本文件「AI Slop 完整黑名单」（视觉 / 字体 / 色彩），字体配对逻辑见 `references/typography.md`。以下只列黑名单没覆盖的补充项：
 

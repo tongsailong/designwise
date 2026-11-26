@@ -49,7 +49,7 @@ npx skills add tongsailong/designwise
 1. **整机重设计先建页面-状态地图，不能只数页面、收截图。** 每页/每个弹层/全局状态用稳定 id 写清用户目标、入口出口、主要功能、关键信息与数据/规则出处、状态集合、平台约束、当前问题、值得保留的成熟体验与依据、要重构的部分。每个展示值与规则必须有真实出处（`file:line`），文档与 UI 路径冲突列为待决，不静默选一个。
 2. **方向数量按场景决定，不按惯例。** 新产品概念 → 默认三个独立结构假设（增减要写依据）；已有产品且结构无分歧 → 1 个最优；存在真实结构分歧 → 2–3 个；互补 → 先出候选再融合；全部违反硬约束 → 全部拒绝并重做。**不为展示选项制造 A/B/C。** 每个方向先写方向卡（七栏，含核心交互），必须有独立结构假设，差异落在布局骨架 / 信息组织 / 视觉母题等结构层；只换配色、圆角、间距不算方向。方向卡还要写出**艺术指导论证**（产品事实 → 情绪目标 → 视觉论点 → 母题与形式），母题必须来自产品内容；「高级、简约、现代、科技感」不算方向理由。
 3. **多方向时共享任务块与原则转译块。** 所有 prompt 逐字共用**任务块**（产品/用户/本页问题/业务规则与数据口径/硬约束/禁止项）与**原则转译块**（把「有用 → 好懂 → 舒服 → 有意义」转成本页可检查的要求）；差异只落在方向块。每个方向一个 prompt、一次真实生图，App 默认竖版 `1024x1536`，同比例同尺寸同模型，并用 `scripts/direction_divergence.py` 实测色板距离与骨架相关性——**不得用「看起来不一样」替代实测**。
-4. **方向由 ZCode 基于真实像素决策，不外包给远程模型。** 先逐方向判合格性，再给**采用 / 融合为统一方案 / 全部拒绝**之一：融合要说明取用、舍弃与统一层级交互逻辑，结构性融合须补真实整合图；全部拒绝时给出可执行修正，只重出受影响方向。复杂或高风险任务可派 **ZCode 内置子 Agent 做只读复核**，复核是补充证据，不是审批节点。`call_gpt.py` / 远程 `CONSULT` / 把 SOL 当设计批准者的旧链路已退役。当前 Copilot 可依其自身生命周期调用 SOL 做认知建议，但 SOL 不是设计批准者；DesignWise 不调度也不等待它。**可选**提交真实截图与评审交接包，请 Copilot/SOL 给基于像素的咨询意见：意见可核实后采纳、修改或拒绝，不改变决策主体与阶段推进。
+4. **方向由 ZCode 基于真实像素决策，不外包给远程模型。** 先逐方向判合格性，再给**采用 / 融合为统一方案 / 全部拒绝**之一：融合要说明取用、舍弃与统一层级交互逻辑，结构性融合须补真实整合图；全部拒绝时给出可执行修正，只重出受影响方向。复杂或高风险任务可派 **ZCode 内置子 Agent 做只读复核**，复核是补充证据，不是审批节点。`call_gpt.py` / 远程 `CONSULT` / 把远程模型当设计批准者的旧链路与 `sol-*` 命令已退役（Copilot 现行入口是 `cognition-consult`）。Copilot 的认知建议不是设计批准；DesignWise 不调度也不等待它。**可选**提交真实截图与评审交接包，请 Copilot 的认知通道给基于像素的咨询意见：意见可核实后采纳、修改或拒绝，不改变决策主体与阶段推进。
 5. **HTML 原型必须表达真实状态与交互。** tab 可切、按钮/弹层可开可关、返回可达；每个页面/弹层/全局状态要么可到达，要么在覆盖矩阵写 `deferred-native` + 理由 + 原生验证义务。`coverage.json` 与页面地图的 id 集合必须一致；`1.0/1.3/1.6/2.0` 缩放矩阵中，多列/同行 label+value/固定高度结构必须在最大档渲染。
 6. **机械校验通过不等于设计完成。** 阶段 3 用当前版本真实截图（含弹层与空/错/大字体）按**六维 + App 三项附加检查**（状态完整性 / 交互真实性 / 原生可实现性）+ **原生质感与动效附加检查**（平台语法 / 视觉深度 / 动效目的与降级 / 体验转场）评审，视觉层级与细节执行要落到**构成十条关系**（视觉重心 / 第一眼对象 / 视线路径 / 版式比例 / 字体节奏 / 色彩关系 / 形状线条 / 材质与光 / 图形语言 / 密度与跨页），并分开写客观缺陷与主观偏好；按致命/重要/打磨分级，构图妨碍理解按重要处理；致命项清零，一轮只改最伤的三处，打磨顺序为构图 → 层级 → 关系 → 工艺，认真看完找不出值得改的三处才停。
 7. **交接是规格，不是截图。** 四类等价契约缺一不得进入实现：组件等价 + 禁用替代（含动效与触感等价）、绘制层级与命中优先级、滚动与可达、业务规则出处。**HTML 是设计目标，不是配色参考**：原生允许重构页面结构、组件层级、IA 与交互，**最小改动不是设计理由**；但设计意图、层级、状态与业务数据错误属缺陷，平台差异属允许偏差，两者分开判定。
@@ -109,7 +109,7 @@ npx skills add tongsailong/designwise
 | 原生质感与动效 | 平台语法/密度/触控反馈/表面层级规范、motion token、基础与高级动效清单、减少动态降级、`check-motion.py` 静态校验 |
 | 视觉深度 | 色彩/材质/光影/空间层级、图形与插画体系、跨页视觉 DNA（Style Bible）、反网页套路清单 |
 | 艺术指导 | 产品内容 → 视觉论点的论证链、母题来源、八个可检查决定、默认答案测试（不是风格形容词） |
-| 审美评审与咨询 | 构成十条关系（重心/第一眼/视线路径/字体节奏/色彩关系/材质/跨页）、`design_measure.py` 客观事实、可选评审交接包与 SOL 咨询（`review_packet.py`，咨询不审批） |
+| 审美评审与咨询 | 构成十条关系（重心/第一眼/视线路径/字体节奏/色彩关系/材质/跨页）、`design_measure.py` 客观事实、可选评审交接包与 Copilot 认知咨询（`review_packet.py` + `cognition-consult --image`，咨询不审批） |
 | 完整体验状态 | 数据/交互/转场状态设计、加载/空/错误/离线/权限/锁定/完成、失败回滚与跨页叙事 |
 | 素材体系 | `assets/`、资产计划、art-direction、`asset-manifest.json`、生成与复用记录 |
 | 产品视觉身份与跨产品差异化 | 产品项目内的视觉身份档案（母题 / 不变量 / 反模式，`visual-identity.md`）、Campaign 方向与防固化、存在混淆风险时的六项检查（换名 / 母题 / 构图 / 视觉语言 / 参考污染 / 产品内一致性）、`check-visual-identity.py` 帧层事实对比（只给事实，不裁决） |
@@ -172,7 +172,7 @@ git clone https://github.com/tongsailong/designwise.git ~/.claude/skills/designw
 | 依赖 | 用途 |
 |---|---|
 | Node.js ≥22 + Chrome/Chromium | `scripts/check-ui.mjs`（结构/溢出/图片/对比度/触控/字号采集，`--shot` 截图、`--click/--expect` 交互断言（要求可观察状态变化）、`--record` 连续帧，`--ledger-*` 外观账本；无 npm 依赖） |
-| Python 3 | `scripts/zcode_image.py`（真实生图）、`scripts/check-contrast.py`、`scripts/asset_manifest.py`、`scripts/check-deliverables.py`（产物与 `coverage.json` 一致性只读自检）、`scripts/direction_divergence.py`（方向差异实测）、`scripts/ref_board.py`（参考板，需 Chrome）、`scripts/extract_grid.py` / `contact_sheet.py` / `chroma_key.py`（图片处理）、`scripts/check-skill.py`；Pillow（图片读写，可选但推荐） |
+| Python 3 | `scripts/zcode_image.py`（真实生图）、`scripts/check-contrast.py`、`scripts/asset_manifest.py`、`scripts/check-deliverables.py`（产物与 `coverage.json` 一致性只读自检）、`scripts/direction_divergence.py`（方向差异实测）、`scripts/ref_board.py`（参考板，需 Chrome）、`scripts/extract_grid.py` / `contact_sheet.py` / `chroma_key.py`（图片处理）、`scripts/check-skill.py`；Pillow（图片读写，可选但推荐；`extract_grid.py` / `design_measure.py` 另需 numpy） |
 | Android SDK / Xcode | 原生构建；真机装包只走宿主授权的安装入口（见 [SECURITY.md](SECURITY.md)） |
 
 **生图凭据**：`ZCODE_CPA_BASE_URL` / `ZCODE_CPA_API_KEY`，或本机 `~/.zcode/v2/provider_config.json`。不随仓库分发，不写入产物。
@@ -217,7 +217,7 @@ designwise/
 │   ├── product-value.md         # 产品原则
 │   ├── art-direction.md         # 艺术指导：从产品内容推出视觉论证
 │   ├── critique-guide.md        # 六维评审 + 构成十条关系 + App 三项 + 原生质感与动效
-│   ├── design-review-handoff.md # 评审交接包、九个问题与 SOL 咨询采纳边界
+│   ├── design-review-handoff.md # 评审交接包、九个问题与 Copilot 认知咨询采纳边界
 │   ├── design-styles.md         # HTML 原生风格库
 │   ├── design-research.md       # 参考板、六行拆解与外观账本
 │   ├── visual-identity.md       # 产品视觉身份：三层职责、分析维度、推导、Campaign 防固化

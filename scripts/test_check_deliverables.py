@@ -419,6 +419,40 @@ class CheckDeliverablesTest(unittest.TestCase):
         self.assertIn("coverage-defer-reason-missing", codes)
         self.assertIn("coverage-defer-verify-missing", codes)
 
+    def test_not_applicable_requires_reason(self):
+        # N/A 不是跳过必需状态的通道：必须写清该状态为何在这个产品里不存在。
+        self.write_brief(("P1", "X6"))
+        self.write_concept_index()
+        self.write_direction()
+
+        def mutate(data):
+            item = data["items"][1]
+            item["prototype"] = "not-applicable"
+            item.pop("defer_reason", None)
+            item.pop("native_verify", None)
+
+        self.write_coverage(mutate=mutate)
+        proc, data = self.run_check()
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("coverage-na-notes-missing", self.codes(data))
+
+    def test_not_applicable_with_reason_passes(self):
+        self.write_brief(("P1", "X6"))
+        self.write_concept_index()
+        self.write_direction()
+
+        def mutate(data):
+            item = data["items"][1]
+            item["prototype"] = "not-applicable"
+            item.pop("defer_reason", None)
+            item.pop("native_verify", None)
+            item["notes"] = "本产品无广告位，激励视频状态不存在"
+
+        self.write_coverage(mutate=mutate)
+        proc, data = self.run_check()
+        self.assertEqual(proc.returncode, 0, data)
+        self.assertNotIn("coverage-na-notes-missing", self.codes(data))
+
     def test_coverage_id_set_must_match_map(self):
         self.write_brief(("P1", "P2"))
         self.write_concept_index()

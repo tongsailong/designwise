@@ -1,7 +1,7 @@
 # 评审交接包 · 把真实视觉材料交给独立审美咨询
 
 > **读这份文档的时机**：阶段 0/1/3/5 出现高价值视觉判断、且 ZCode 自评仍有实质不确定时；
-> 或要向 Copilot 的 SOL 通道提交一次审美咨询。
+> 或要向 Copilot 的认知通道（`cognition-consult`）提交一次审美咨询。
 > **一句话立场**：涉及画面判断时，咨询的价值来自**真实像素 + 明确的改动上下文 + 可判定的问题**；
 > 论证层咨询可以无图，但不得冒充看过画面。**它是补充证据，不是审批节点。**
 
@@ -16,7 +16,7 @@
 3. **自评把握**：按 `critique-guide.md` 与 `polish-loop.md` 过一遍后，是否还剩实质不确定？
 
 **影响面大 × 有真实产物 × 自评仍有实质不确定**，三者同时成立才发起。用户提出正常设计需求即可，
-不需要额外指定 SOL；ZCode 在流程里自行判断，并在 `prototype-notes.md` / `design-brief.md` 写一句
+不需要额外指定咨询通道；ZCode 在流程里自行判断，并在 `prototype-notes.md` / `design-brief.md` 写一句
 "发起/跳过及理由"。**跳过是正常结果，不是失职。**
 
 | 阶段 | 高价值认知机会 | 材料 | 不发起 |
@@ -28,7 +28,7 @@
 
 **两种模式不能混**：
 
-- **认知咨询（可无图）**：阶段 0/1 讨论产品事实到艺术指导的论证、母题与取舍；SOL 没看到画面，
+- **认知咨询（可无图）**：阶段 0/1 讨论产品事实到艺术指导的论证、母题与取舍；Copilot 没看到画面，
   输出必须声明"未看画面"，**不得评价像素、构图实现或视觉完成度**。
 - **视觉咨询（必须有图）**：阶段 1/3/5 的画面判断；没有真实像素就不发起视觉结论，
   不用 OCR、文字描述或源码分析冒充截图。
@@ -55,7 +55,7 @@ python3 scripts/review_packet.py --spec review-packet.json \
 | `dna` | 建议 | 视觉 DNA（`visual-depth.md` §6 的压缩版） |
 | `device` | 是 | 设备、分辨率、设计基准（dp/pt） |
 | `version` | 建议 | 原型或构建版本标识 |
-| `changes_since_last` | 是 | 相比上次评审改了什么；首次写"首次评审" |
+| `changes_since_last` | 否 | 相比上次评审改了什么；首次评审可省（脚本按"首次评审"输出，不阻断） |
 | `images[]` | 是 | `path` / `screen`（`P*`/`S*`） / `state` / `scale` / `note` |
 | `questions` | 否 | 覆盖默认九问中的部分；不写则用全部九问 |
 
@@ -87,7 +87,7 @@ python3 scripts/review_packet.py --spec review-packet.json \
 
 ### 3.1 创造性问题（前置/方向阶段可选，最多 2–3 个）
 
-找缺陷之外，也可以让 SOL 提构想与取舍。只在真正需要新选项时问：
+找缺陷之外，也可以让 Copilot 的认知通道提构想与取舍。只在真正需要新选项时问：
 
 1. 在不改产品事实与约束的前提下，有没有第二个更贴合内容的视觉母题？它来自哪个产品事实或行为？
 2. 现有哪个细节值得放大成签名，而不是继续加装饰？
@@ -98,36 +98,35 @@ python3 scripts/review_packet.py --spec review-packet.json \
 
 ---
 
-## 4. 提交给 Copilot / SOL
+## 4. 提交给 Copilot 认知通道
+
+Copilot 当前入口是 `cognition-consult`（零工具、单轮、advisory）；命令与参数以 Copilot 自身文档为准（`~/.zcode/skills/copilot/`）。**正式 REVIEW（`cognition-review`）只在用户明确要求时使用**；日常审美咨询用 consult 即可，不要为一次咨询建审批流程。
 
 **无图认知咨询**（阶段 0/1，只讨论论证链与母题）：
 
 ```bash
-python3 -B copilot_dispatch.py sol-consult --state <state> \
+python3 -B ~/.zcode/skills/copilot/scripts/copilot_dispatch.py cognition-consult \
+  --state <state> --stage stage \
   --materials <task>/design-brief.md \
   --question "这套艺术指导的论证链哪一步最弱？有没有更贴合产品事实的母题？"
 ```
 
-材料里必须写明这是无图咨询；SOL 输出若评价画面，按无效意见处理。
+材料里必须写明这是无图咨询；输出若评价画面，按无效意见处理。
 
-**有图视觉咨询**：Copilot 侧已支持真实图片输入（`--image` / `--image-note`），材料与图片顺序一一对应：
-
-在 Copilot 的 skill 目录下执行（脚本名 `copilot_dispatch.py`，位于其 `scripts` 目录；参数以 Copilot 当前版本为准）：
+**有图视觉咨询**：把 `review-packet.md` 作为材料，图片用 `--image` 逐张提交（单次最多 6 张、单张 ≤8 MB，PNG/JPEG/WebP），`--image-note` 与图片顺序一一对应：
 
 ```bash
-python3 -B copilot_dispatch.py sol-consult --state <state> \
+python3 -B ~/.zcode/skills/copilot/scripts/copilot_dispatch.py cognition-consult \
+  --state <state> --stage stage \
   --materials <task>/prototype/review-packet.md \
   --question "这一版的第一眼落点与跨页一致性是否成立" \
   --image <task>/prototype/screenshots/r2-p1.png --image-note "P1 默认 1.0" \
   --image <task>/prototype/screenshots/r2-p3.png --image-note "P3 阅读 1.0"
 ```
 
-- 交接包里的图号顺序必须与 `--image` 顺序一致；`--image-note` 带上屏幕/状态/缩放。
-- 需要正式 REVIEW 时才用 `sol-review`（有 Finding 台账与复验流程）；日常审美咨询用
-  `sol-consult` 即可，**不要为一次咨询建审批流程**。
-- Copilot 侧的九问是通用兜底；**本文件的问题与交接包 `questions` 优先**，不要求两边逐字一致。
-- 若宿主不具备 Copilot/SOL，或模型不支持图片：**如实记录"未做外部审美咨询"**，
-  继续用本地评审与打磨，不得用文字描述代替像素，也不得伪造外部 PASS。
+- 交接包里的图号顺序必须与 `--image` 顺序一致；超过 6 张时挑代表性屏幕，其余留在交接包里。
+- Copilot 侧的通用问题清单是兜底；**本文件的问题与交接包 `questions` 优先**，不要求两边逐字一致。
+- 若宿主不具备 Copilot 或通道不可用：**如实记录"未做外部审美咨询"**，继续用本地评审与打磨，不得用文字描述代替像素，也不得伪造外部 PASS。
 
 ---
 
@@ -140,10 +139,10 @@ python3 -B copilot_dispatch.py sol-consult --state <state> \
 | 落盘 | 写入 `prototype-notes.md`：轮次、图号、问题、严重度、决定、改动前后图 |
 | 优先级 | 与本地评审合并排序：致命 → 重要 → 打磨；**外部意见不自动升级严重度** |
 | 复验 | 采纳项改完重渲染受影响屏；用新截图对照，不以"已按建议修改"作为证据 |
-| 登记 | Copilot 侧用 `sol-accept` 登记采纳结论；两侧记录指向同一批图与 sha256 |
+| 登记 | Copilot 侧用 `cognition-accept --call-id <call_id> --status accepted\|modified\|rejected` 登记采纳结论；两侧记录指向同一批图与 sha256 |
 
 **不采纳不是对抗**：外部意见可能与产品规则、平台约束或用户已确认方向冲突；写清理由即可。
-**采纳也不等于设计完成**：仍须自己按判据复验，不把"SOL 说好"当 PASS。
+**采纳也不等于设计完成**：仍须自己按判据复验，不把"外部意见说好"当 PASS。
 
 ---
 

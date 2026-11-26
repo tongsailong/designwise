@@ -123,7 +123,7 @@
 
 ## 8. 原型与覆盖
 
-- 每个状态要么可到达（真实路径/查询参数），要么 `deferred-native` + 理由 + `native_verify: true`（`state-map.md` §6）。
+- 每个状态要么可到达（真实路径/查询参数），要么 `deferred-native` + 理由 + `native_verify: true`，要么 `not-applicable` + 理由（`state-map.md` §6）。
 - 状态切换只改数据与状态，不改布局骨架；否则评审无法判断是状态还是另一版设计。
 - 评审用状态切换器时必须标注“非产品 UI”，不进 baselines，不替代真实路径。
 - `coverage.json` 继续使用 `kind=page|overlay|state`；转场与交互动效不新增 id，写入 `prototype-notes.md` 的动效矩阵与 `handoff/states-interactions.md`。

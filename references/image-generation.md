@@ -239,10 +239,10 @@ Prompt 的有效信息 ≠ 字数。决定质量的是**单字承载的设计决
 
 ```bash
 # 网格切分：bbox 按内容定位（推荐）/ density 按密度扫描
-python3 scripts/extract_grid.py grid.png --out out/ --mode bbox
+python3 scripts/extract_grid.py grid.png --grid 4 4 --out out/ --mode bbox
 
 # 拼预览图检查质量
-python3 scripts/contact_sheet.py --input out/ --out preview.png --grid 4x4
+python3 scripts/contact_sheet.py --input out/ --out preview.png --grid 4 4
 
 # 单图纯色幕布抠透明（无 API 透明背景时的方案）
 python3 scripts/chroma_key.py in.png out.png [tol_low=62] [tol_high=110] [erode=2]

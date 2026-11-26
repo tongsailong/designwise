@@ -35,7 +35,18 @@ def key(inp, outp, tol_low=62, tol_high=110, erode=2):
 
 if __name__=="__main__":
     a=sys.argv
-    key(a[1],a[2],
-        int(a[3]) if len(a)>3 else 62,
-        int(a[4]) if len(a)>4 else 110,
-        float(a[5]) if len(a)>5 else 2)
+    if len(a)>1 and a[1] in ("-h","--help"):
+        print(__doc__.strip())
+        sys.exit(0)
+    if len(a)<3:
+        print("用法: python chroma_key.py in.png out.png [tol_low=62] [tol_high=110] [erode=2]",
+              file=sys.stderr)
+        sys.exit(2)
+    try:
+        key(a[1],a[2],
+            int(a[3]) if len(a)>3 else 62,
+            int(a[4]) if len(a)>4 else 110,
+            float(a[5]) if len(a)>5 else 2)
+    except (ValueError, OSError) as exc:
+        print(f"错误: {exc}", file=sys.stderr)
+        sys.exit(2)

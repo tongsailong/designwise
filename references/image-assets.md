@@ -176,6 +176,8 @@ python3 scripts/asset_manifest.py register --manifest asset-manifest.json \
   --source generated --license generated-for-project --status final \
   --meta assets/images/<asset-id>.meta.json \
   --prompt-file assets/prompts/<asset-id>.md \
+  --crop '{"focus": [0.5, 0.35], "safe_area": "center 60%"}' \
+  --visual-identity '{"file": "docs/design/visual-identity.md", "version": "<derived_at>", "campaign": "<本批次>", "invariants_used": ["I1"]}' \
   --consumer prototype/index.html
 
 # 校验清单：文件存在、sha256 匹配、消费者存在、无 temp 残留、格式一致、无凭据字段
@@ -183,6 +185,8 @@ python3 scripts/asset_manifest.py verify --manifest asset-manifest.json
 # 严格模式：生成物缺 model/created_at/prompt_file 也视为错误
 python3 scripts/asset_manifest.py verify --manifest asset-manifest.json --strict-provenance
 ```
+
+重新登记同一 `id` 时，未显式传参的 `crop`、`visual_identity`、变体 `theme`/`crop`、`prompt_file` 沿用旧值（不会被静默清空）；要清除必须显式给出空值/改写清单。
 
 `sha256` 只证明「文件没变」，**不证明许可正确、视觉正确或裁切正确**；这三件事分别记录。生成物缺 `provenance.model`/`created_at` 默认告警，`--strict-provenance` 下阻断；`output_format` 与实际文件格式不一致、manifest 中出现 `api_key`/`token`/`password` 等字段直接阻断。
 

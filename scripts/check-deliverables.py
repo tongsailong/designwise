@@ -460,6 +460,13 @@ def check_coverage(root: Path, task: Path, rep: Report, stage: int) -> None:
                     rep.error("coverage-review-notes-missing", str(coverage_path),
                               f"{cid} 的 review=not-reviewed，但没有 notes 说明还差哪一屏/哪一档")
 
+        if proto == "not-applicable":
+            notes = item.get("notes")
+            if not isinstance(notes, str) or not notes.strip():
+                rep.error("coverage-na-notes-missing", str(coverage_path),
+                          f"{cid} 标为 not-applicable，但没有 notes 说明为什么该状态"
+                          "在这个产品里不存在（N/A 不是跳过必需状态的通道）")
+
         if proto == "deferred-native":
             reason = item.get("defer_reason")
             if not isinstance(reason, str) or not reason.strip():

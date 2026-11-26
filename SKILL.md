@@ -40,13 +40,13 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 | **用户 / ChatGPT 侧** | 业务目标、优先级、重大取舍、最终产品与设计验收 | — |
 | **ZCode 原生 Agent** | 设计实施与设计决策：调查、方向、原型、评审、交接、实现、测试、持续修复 | 不代替用户做业务取舍；不擅自扩范围 |
 | **可选独立复核（设计）** | 复杂或高风险设计由主 Agent 按需派 ZCode 内置子 Agent，按 §4 判据查真实产物，给缺陷与结论 | 只读、不改文件、不发布；不替代主 Agent 决策；不是门禁 |
-| **可选审美咨询（Copilot / SOL）** | 主 Agent 按「影响面大 × 有真实产物 × 自评仍有实质不确定」自行判断，提交真实截图 + 交接包（或阶段 0/1 的无图论证材料），让 Copilot 按其自身生命周期调用 SOL 给审美/认知意见；意见由主 Agent 核实后采用/修改/拒绝 | 只读材料、只给建议；**不做设计裁决、不打分定级、不是审批节点**；无图咨询不得评价像素；DesignWise 不调度也不等待，缺它照常自评 |
-| **Copilot** | 任务合同、完成条件、状态、证据登记、审计、PARTIAL 推进、风险收口；可应要求在方向评审中提供咨询意见 | 只做治理；可能按其自身生命周期调用 SOL 做认知建议，但**不做设计裁决**、不是普通开发前置门；DesignWise 不调度也不等待 |
+| **可选审美咨询（Copilot 认知通道）** | 主 Agent 按「影响面大 × 有真实产物 × 自评仍有实质不确定」自行判断，提交真实截图 + 交接包（或阶段 0/1 的无图论证材料），让 Copilot 按其自身生命周期经 `cognition-consult` 给出意见；意见由主 Agent 核实后采用/修改/拒绝 | 只读材料、只给建议；**不做设计裁决、不打分定级、不是审批节点**；无图咨询不得评价像素；DesignWise 不调度也不等待，缺它照常自评 |
+| **Copilot** | 任务合同、完成条件、状态、证据登记、审计、PARTIAL 推进、风险收口；可应要求在方向评审中提供咨询意见 | 只做治理；可经其认知通道（`cognition-consult`）给建议，但**不做设计裁决**、不是普通开发前置门；DesignWise 不调度也不等待 |
 | **DesignWise** | 方法、判据、产物契约、质量红线 | 不实施、不替用户决策 |
 
-**设计判断不外置**：方向选哪个、原型哪里不行、交接是否等价，由 ZCode 依据真实像素、真实渲染与 §4 判据决定。**可选**派 ZCode 内置子 Agent 做独立复核（多页面重设计、高风险原生改动、或用户要求第二意见时，只查不改）；复核是补充证据，不是审批节点。**可选**请 Copilot/SOL 做审美咨询（见阶段 0/1/3/5 与 `references/design-review-handoff.md`）：何时发起由 ZCode 按上述三条件自行判断，用户不需要额外点名；有画面判断时必须给真实像素，阶段 0/1 的论证链咨询可无图但不得评价画面。它提供"可能被忽略的视觉问题"、改法建议与创造性选项，主 Agent 核实后决定，采纳与否都不影响阶段推进。
+**设计判断不外置**：方向选哪个、原型哪里不行、交接是否等价，由 ZCode 依据真实像素、真实渲染与 §4 判据决定。**可选**派 ZCode 内置子 Agent 做独立复核（多页面重设计、高风险原生改动、或用户要求第二意见时，只查不改）；复核是补充证据，不是审批节点。**可选**请 Copilot 的认知通道做审美咨询（见阶段 0/1/3/5 与 `references/design-review-handoff.md`）：何时发起由 ZCode 按上述三条件自行判断，用户不需要额外点名；有画面判断时必须给真实像素，阶段 0/1 的论证链咨询可无图但不得评价画面。它提供"可能被忽略的视觉问题"、改法建议与创造性选项，主 Agent 核实后决定，采纳与否都不影响阶段推进。
 
-**禁止**：用 `call_gpt.py` / 远程 `CONSULT` / SOL 或任何远程大模型充当设计批准者；等待外部模型给"下一步"；把 Copilot 状态流转当设计门。**允许**的是把真实截图作为证据提交、获取咨询性意见——两者区别在于谁做决定：意见可被拒绝，阶段不因意见暂停，PASS 只能由真实产物与 §4 判据支撑。
+**禁止**：用 `call_gpt.py` / 远程 `CONSULT` / 已退役的 `sol-*` 通道或任何远程大模型充当设计批准者；等待外部模型给"下一步"；把 Copilot 状态流转当设计门。**允许**的是把真实截图作为证据提交、获取咨询性意见——两者区别在于谁做决定：意见可被拒绝，阶段不因意见暂停，PASS 只能由真实产物与 §4 判据支撑。
 
 ## 2. 唯一标准流程
 
@@ -67,7 +67,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 | **1 概念方向** | 用真实像素探索并决定设计方向（含材质、光影、图形与动效人格） | `concept-prompts.md`、`concepts/`、`concept-index.json`、`direction-approved.md`、`direction-divergence.json` | **SG1** 方向数符合场景规则且有依据；共用任务块与原则转译块逐字一致，原则转译 4–6 条可检查；图为真实文件、同比例、硬约束不破；差异有实测；决策写明保留/舍弃/理由与体验基调；全部拒绝有下一步。**只看图好看不算通过** |
 | **2 HTML 原型与覆盖** | 把选定方向变成可交互真实视觉（含动效、反馈与完整状态） | `prototype/index.html`、`prototype/screenshots/`、`prototype-notes.md`、`coverage.json` 更新 | **SG2** 真实渲染、控制台 0 error、对比度/触控/字号达标；覆盖矩阵每项有去向；动效与转场可演且尊重减少动态；需渲染的已在最大缩放档渲染。**渲染成功不算通过** |
 | **3 设计评审与完善** | 用判据找真缺陷并改到收敛，含原生质感与动效 | `prototype-notes.md`（评审与打磨记录）、`assets/`、`asset-manifest.json`、`generation-log.md` | **SG3** 评审基于当前版本真实截图与动效证据；致命项清零；重要项已改或写明依据；复验覆盖受影响项；素材每张有来源/指纹/消费者。**打分不能替代缺陷清单** |
-| **4 原生交接** | 把设计意图（含动效/触感/状态转场）变成实现端不需要猜的规格 | `handoff/`（7 件套 + baselines + motion） | **SG4** 七件套齐；每个自绘/自定义组件有等价实现与禁用替代；层级/滚动/缩放/出处四类契约齐全（动效/触感并入组件等价）；实现端不需要看图猜结构 |
+| **4 原生交接** | 把设计意图（含动效/触感/状态转场）变成实现端不需要猜的规格 | `handoff/`（7 件套 + baselines + motion） | **SG4** 七件套齐；组件等价+禁用替代 / 绘制层级与命中 / 滚动与可达 / 业务规则出处四类契约齐全（动效/触感并入组件等价）；缩放与高风险结构已给替代形态；实现端不需要看图猜结构 |
 | **5 原生实现** | 按交接落地结构、视觉、动效与触感，不是换皮 | 原生工程、构建/安装日志、`verification-report.md`（落地对照表开始） | **SG5** 构建/安装/可启动/关键流程；逐项说明结构·层级·交互·动效如何落地或有依据保留；**组件替换与自绘层级已核对**；三方对照已开始 |
 | **6 真机验收与收口** | 真实设备上做工程与设计双验收（含质感、动效、体验） | `verification-report.md`、`coverage.json` 终版 | **SG6** 每项有本轮真实证据且状态只能是 PASS/FAIL/NOT TESTED/N/A；工程与设计分别达标才 PASS；未测已标注 |
 
@@ -102,7 +102,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 4. **产品三问与信息优先级**：谁在用、此刻要完成什么、系统替他承担了哪部分复杂性；范围内**每个页面写一行信息优先级**：第一眼看什么 / 什么在下一层 / 什么不进首屏，并写一句系统替用户承担了什么。这一行在生图前写进 `design-brief.md`，是方向提示词与原则转译的稳定输入；没有它，方向只能靠感觉。
 5. **原生可行性前置检查**（不得推迟到阶段 4）：平台与最低版本、字体缩放上限、系统栏与安全区、键盘、dp/sp、触控、导航惯例、权限、深色模式、性能、动效与触感、减少动态、素材格式。**做不到的设计不要画进方向。**
 6. **目标映射与范围冻结**：每个目标回指已识别的问题（`P*`/`S*`/`X*`）或有依据的保留项，成功标准可判定；记录本次不做什么。整机/多页面任务初始化 `coverage.json`（见 §6.3）。
-7. **视觉定位与资产计划**：先按 `references/art-direction.md` §2–§3 写**论证链**：产品事实 → 情绪目标 → 视觉论点 → 母题与形式 → 具体决定；八个决定（论点/母题/色彩关系/字体声音/构图/材质光/图形语言/节奏签名）各写一句可检查的话。**「高级、简约、现代、科技感」不算艺术指导**；换到同类产品仍成立的答案要重写。再写清气质、色彩、材质、光影、字体、图形与动效人格（方法见 `references/visual-depth.md`），并按 `references/image-assets.md` §1.5 列出范围内每个图像槽位（位置/角色/内容职责/来源/尺寸/变体/消费者）。**计划里没有的图不临时加**；GPT 生成是正式候选，不是用户点名才考虑。论证链自身仍由 ZCode 判断；仅在影响面大、且自评仍有实质不确定时，按 `references/design-review-handoff.md` 发起**无图认知咨询**（SOL 未看画面，不得评价视觉实现）。**产品视觉身份**：项目已有身份档案（`references/visual-identity.md`）时按它写定位与不变量；没有时，若本次涉及对外素材、与同开发者其他产品存在混淆风险、或需要跨端一致，先建**最小**身份档案（母题+不变量+反模式三栏即可，不填满全部维度）；否则沿用现有设计系统，不强制建档。
+7. **视觉定位与资产计划**：先按 `references/art-direction.md` §2–§3 写**论证链**：产品事实 → 情绪目标 → 视觉论点 → 母题与形式 → 具体决定；八个决定（论点/母题/色彩关系/字体声音/构图/材质光/图形语言/节奏签名）各写一句可检查的话。**「高级、简约、现代、科技感」不算艺术指导**；换到同类产品仍成立的答案要重写。再写清气质、色彩、材质、光影、字体、图形与动效人格（方法见 `references/visual-depth.md`），并按 `references/image-assets.md` §1.5 列出范围内每个图像槽位（位置/角色/内容职责/来源/尺寸/变体/消费者）。**计划里没有的图不临时加**；GPT 生成是正式候选，不是用户点名才考虑。论证链自身仍由 ZCode 判断；仅在影响面大、且自评仍有实质不确定时，按 `references/design-review-handoff.md` 发起**无图认知咨询**（Copilot 未看画面，不得评价视觉实现）。**产品视觉身份**：项目已有身份档案（`references/visual-identity.md`）时按它写定位与不变量；没有时，若本次涉及对外素材、与同开发者其他产品存在混淆风险、或需要跨端一致，先建**最小**身份档案（母题+不变量+反模式三栏即可，不填满全部维度）；否则沿用现有设计系统，不强制建档。
 8. **体验基调与核心任务状态闭环**：写出核心流程的进入—行动—等待—结果—收束，以及本次必须出现的状态与转场（方法见 `references/experience-states.md`）。**核心任务必须写状态闭环**：目标 → 关键决策点 → 加载/空/错/权限/成功 → 失败后的恢复路径与下一步；阶段 2 逐项可演，`coverage.json` 与交接沿用同一批状态。只设计正常态或只写成功路径的方案在阶段 2 会被覆盖矩阵挡下。
 
 **阶段 1 · 概念方向**
@@ -119,7 +119,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 3. **提示词**（方法见 `references/image-generation.md`）：结合真实产品资料，不只写风格。必须包含产品定位、用户场景、页面任务、真实业务规则与数据口径、信息层级与优先级、视觉方向、**艺术指导的可视化决定**（母题来源、色彩关系与面积比、字体声音、构图与第一眼对象、材质与光源方向、图形语言）、**材质/光影/图形语言与动效人格（静态图只表达气质）**、组件与布局约束、设备适配约束、**不可迁移声明**（图内文字为示意，不作文案与精确规格依据）。只写「高级感/现代感」而写不出这些关系时，先回 `references/art-direction.md` §3 补齐，不要用形容词堆提示词。
    - 多方向时：**任务块**与**原则转译块**逐字相同，只在**方向块**不同；共用块锁定目标、必要功能、关键信息优先级、数据口径与硬约束，**不锁定布局骨架与视觉母题**。
 4. **原则转译**：把「有用 → 好懂 → 舒服 → 有意义」转成 4–6 条本页可检查的要求（第一眼看什么、信息与操作顺序、状态与反馈、密度/留白/触控、本次不做的机制）。不写原则名称或口号。
-5. **真实生成**：先 `python3 scripts/zcode_image.py --health` 零成本核验，再逐张串行生成；同比例、同尺寸、同模型、同质量档。App 默认竖版 `1024x1536`。**不得用 HTML/CSS/SVG/占位图或文字描述冒充概念图。**
+5. **真实生成**：先 `python3 scripts/zcode_image.py --health` 零成本核验，再逐张串行生成并逐张核验；同比例、同尺寸、同模型、同质量档。App 默认竖版 `1024x1536`。**不得用 HTML/CSS/SVG/占位图或文字描述冒充概念图。**
 6. **逐张自检**：可解码、尺寸/比例符合、结构差异可辨、共用块逐字一致、中文示意文字不当文案、硬约束未破、无 AI slop 与编造数据。
 7. **差异实测**：多方向时按 `references/direction-strategy.md` §5 运行 `python3 scripts/direction_divergence.py`（`--strict`）。输出色板距离与版式骨架相关性；脚本只给事实，最终判断由 ZCode 结合方向卡给出；**不得用"看起来不一样"替代实测**。
 8. **设计决策**（写入 `direction-approved.md`）：逐方向合格性（核心需求、信息与操作清晰度、严重可用性/可读性问题、是否违反产品规则、是否编造数据或诱导、原生可实现性）→ 三出口之一：
@@ -136,7 +136,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 1. **只做已选定的方向**；不为未采用方向做 HTML 或资源。**原型只为本次新增/修改的屏服务；未改动且不受全局 token/视觉语言变化影响的屏复用现有渲染与截图，不重建。全局 token / 字体 / 圆角 / 视觉语言变化时，所有消费这些 token 的屏都算受影响屏，必须按影响面重渲染并重审，不能以「未改页面」为由复用旧评审。**
 2. 默认**单页 inline React**（屏、样式、图片同页，`file://` 双击可开，本地图 base64 内嵌）；第三方库可用本地 `vendor/`。>1000 行难维护或多 agent 并行才按屏拆，拆了必须附启动命令。
 3. iOS 用 `assets/ios_frame.jsx`，Android 用 `assets/android_frame.jsx`。**禁止手写 Dynamic Island、状态栏、Home Indicator 或设备外框。**
-4. **交互与状态必须真实**（守则见 `references/app-prototype.md`）：tab 可切、按钮/卡片/开关可点、弹层可开可关、返回可达；关键流程要能走通；每个 `S*`/`X*` 要么可到达，要么在覆盖矩阵写 `deferred-native` + 理由 + 原生验证义务。**假控件、只展示静态画面、点不动的按钮都不合格。**
+4. **交互与状态必须真实**（守则见 `references/app-prototype.md`）：tab 可切、按钮/卡片/开关可点、弹层可开可关、返回可达；关键流程要能走通；每个 `S*`/`X*` 要么可到达，要么在覆盖矩阵写 `deferred-native` + 理由 + 原生验证义务，或标 `not-applicable` + 理由。**假控件、只展示静态画面、点不动的按钮都不合格。**
 5. **覆盖矩阵闭合**（写入 `prototype-notes.md`，并同步 `coverage.json`）：`P*`/`S*`/`X*` 逐项标 `rendered`（附屏名）/ `deferred-native`（附理由）/ `not-applicable`。**页面地图有而原型没有的项不得静默消失。**
 6. **缩放矩阵**：默认 `1.0 / 1.3 / 1.6 / 2.0`（项目有规定按项目，更严取更严）。**多列布局、label+value 同行、固定高度弹层/卡片必须在最大档渲染**；渲染方式（`?fs=` 参数或 CSS 变量）写进原型说明。
 7. **忠实还原视觉**：视觉价值依赖图片时必须用真实素材或阶段 3 生成；不得用灰块/色块/手画 SVG 顶替。
@@ -158,7 +158,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 7. **素材三态**：参考图（输入）/ 概念图（只用于方向比较）/ 正式素材（可进产品）。概念图不得当正式素材。
 8. 每张正式素材登记：id、路径、sha256、类型、来源、provenance（模型/prompt/参考图）、变体、消费者、许可、状态。**清单是唯一事实源。**
 9. **可选独立复核**：多页面重设计或高风险改动时，派 ZCode 内置子 Agent 按 §4 判据复核真实截图与记录；结论写入 `prototype-notes.md`，注明复核方、范围、findings。复核不替代主 Agent 判断，也不构成用户验收。
-   - **可选审美咨询（Copilot/SOL）**：ZCode 按 `references/design-review-handoff.md` §1 **自主判断**是否值得发起——影响面大 × 有当前真实产物 × 自评仍有实质不确定，三者同时成立才问；用户不需要额外点名 SOL。发起时生成**评审交接包**（真实截图 + sha256 + 页面/状态/设备/改动说明 + 本次问题），交给 Copilot 的 SOL 通道做基于像素的咨询；可把缺陷、值得保留与创造性选项合并到同一次调用。**只在出现新的实质产物时重问**（新版截图/新状态/改版后重渲），不复用同一批图反复付费；跳过时在 `prototype-notes.md` 写一句理由。SOL 意见写入 `prototype-notes.md`，逐条标 `accepted|modified|rejected` 与理由；**它是补充证据，不是审批节点**，阶段不因等待或否决而暂停，PASS 仍由真实产物与 §4 判据支撑。
+   - **可选审美咨询（Copilot 认知通道）**：ZCode 按 `references/design-review-handoff.md` §1 **自主判断**是否发起（三条件见 §1：影响面大 × 有当前真实产物 × 自评仍有实质不确定），用户不需要额外点名；材料用 `review_packet.py` 生成**评审交接包**（真实截图 + sha256 + 页面/状态/设备/改动说明），交 Copilot 经 `cognition-consult --image` 做基于像素的咨询，缺陷、值得保留与创造性选项合并到同一次调用；**只在出现新的实质产物时重问**，跳过时在 `prototype-notes.md` 写一句理由。意见逐条标 `accepted|modified|rejected` 与理由（采纳登记 `cognition-accept`）；**它是补充证据，不是审批节点**，阶段不因等待或否决而暂停，PASS 仍由真实产物与 §4 判据支撑。
 10. **动效与质感证据**：动效评审看录屏/连续帧，不靠静态图；检查方向性、时长、缓动、中断、重复触发与减少动态；检查材质/光影/表面层级是否在跨页间一致。**跨页一致性是必查项**：同一组件形态、导航模型、语义 token、状态语言与内容密度在 `P*` 之间必须能看出是同一个 App；逐页好看但拼不成一个系统按重要缺陷处理。**动画锁输入、假进度、无减少动态降级属重要缺陷；用动效掩盖加载失败属致命缺陷。**
 
 **阶段 4 · 原生交接**
@@ -306,8 +306,8 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 
 ### 6.1 GPT 生图
 
-- **入口**：`scripts/zcode_image.py`（CPA OpenAI 兼容；默认 `--profile final` = `gpt-image-2.6-sunburst` / complexity `high` / quality `high`；`--health` 零成本，默认 2.6 模型缺失时失败关闭；`--size` + `--fit cover|contain|stretch`；`--n` 默认 1）。
-- **模型路由**（`--profile`，按任务选，不一律用同一档）：
+- **入口**：`scripts/zcode_image.py`（CPA OpenAI 兼容；默认 `--profile final` = Sunburst / complexity `high` / quality `high`，具体模型绑定见下表；`--health` 零成本，默认档位模型缺失时失败关闭；`--size` + `--fit cover|contain|stretch`；`--n` 默认 1）。
+- **模型路由**（`--profile`，按任务选，不一律用同一档）。下表是**当前环境绑定快照**，以 `scripts/zcode_image.py` 的 `PROFILES` 与配置为准：模型升级只改脚本与配置，不改本流程规则，也不因此改写证据要求。
   | profile | 模型 | complexity | quality | 适用 |
   |---|---|---|---|---|
   | `final`（默认） | `gpt-image-2.6-sunburst` | high | high | 正式素材、常规插画、场景背景 |
@@ -315,9 +315,9 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
   | `max` | `gpt-image-2.6-sunburst` | high | max | 少量最高优先级精品资产 |
   | `explore` | `gpt-image-2.6-flare` | medium | medium | 快速探索、多方案初稿 |
   | `draft` | `gpt-image-2.6-flare` | low | low | 低成本构图验证 |
-  `--model` / `--complexity` / `--quality` 可逐项覆盖。**默认不降级旧模型，失败不静默回退**；显式使用非 2.6 模型会打印警告，仅供迁移对比。
+  `--model` / `--complexity` / `--quality` 可逐项覆盖。**默认不降级旧模型，失败不静默回退**；显式使用非默认档位模型会打印警告，仅供迁移对比。
 - **参数语义**：`complexity` 控制渲染前的场景规划算力（官方省略时默认 high），`quality` 控制渲染细节（`low/medium/high/xhigh/max/auto`）；两者独立，不能把 complexity 当画质、也不能把所有图一律 max。正式素材默认 high/high，精品才升 xhigh/max。
-- **接口与本地规范化**：生成走 `/images/generations`，`--ref` 走 `/images/edits`（参考图编辑优先 Sunburst）。请求携带 model/quality/complexity/size/background/output_format 与 JPEG/WebP 的 output_compression；当前 CPA 网关可能改写画布尺寸、把 output_format 归为 PNG、不回显 complexity，脚本用 Pillow 严格适配到 `--size`/`--output-format` 并回读校验。网关响应 `quality` 与请求不一致时打印警告并写入 `--meta-out`，**响应字段不能当作生效质量证据**。
+- **接口与本地规范化**：生成走 `/images/generations`，`--ref` 走 `/images/edits`（模型仍由 `--profile` 决定，不单独绑某个模型）。请求携带 model/quality/complexity/size/background/output_format 与 JPEG/WebP 的 output_compression；当前 CPA 网关可能改写画布尺寸、把 output_format 归为 PNG、不回显 complexity，脚本用 Pillow 严格适配到 `--size`/`--output-format` 并回读校验。网关响应 `quality` 与请求不一致时打印警告并写入 `--meta-out`，**响应字段不能当作生效质量证据**。
 - **WebP 与透明**：普通素材优先 WebP（`--output-format webp --compression 80-85`）；透明用 `--background transparent --output-format png|webp`，脚本回读 alpha，没有 alpha 就失败关闭，改用纯色幕布 + `chroma_key.py`。
 - **元数据**：`--meta-out <json>` 记录请求（模型/profile/complexity/quality/size/format/compression/background/prompt 指纹/参考图摘要）、响应 usage 与产物 sha256/尺寸/格式；用 `asset_manifest.py register --meta` 写入 manifest，**不得写入 API Key/Token**。
 - **先规划再生成**：阶段 0 先写视觉资产计划（位置/角色/内容职责/来源/尺寸/变体/消费者，见 `references/image-assets.md` §1.5）。GPT 生图是正式设计能力，不是用户点名才考虑；但也不为使用图片而使用图片。计划里没有的图不临时加。
@@ -327,7 +327,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 - **先探测再生成**：`--health` 只证明接口可用，**真实出图成功才算通过**；探测失败报告限制，不静默换链路。
 - **提示词默认中文**，图内描述性文字默认中文；用真实参考名替代形容词；不写 `Subject:/Style:/Constraints:` 伪结构；长度看信息密度。
 - **方向图必须给结构骨架 + 不可迁移声明**；氛围图可以只给气质，方向图不行。
-- **串行生成**，一次一张；失败先读错误再决定，不原样重发碰运气。
+- **串行生成**，一次一张（`--n` 仅为同一 prompt 的少量变体，≤4；方向图与关键素材仍逐张生成、逐张核验）；失败先读错误再决定，不原样重发碰运气。
 - **失败归因四类**（`references/image-generation.md`）：模型没执行结构指令 / 共用块自相矛盾 / 要求本身不可视化 / 参考不足。每类对应不同改法；反复失败改结构表达或设计假设，不只强化同一句话。
 - 额度与授权按全局规则；任务内正常调用属任务成本，**不新增 Provider、不购买服务/额度**。
 
@@ -361,6 +361,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 - `rendered` 项从阶段 3 起必须有 `review`；阶段 6 只能是 `reviewed`，否则整体不能 PASS。`not-reviewed` 必须有 `notes` 说明还差哪一屏/哪一档的评审。
 - `rendered` 项必须有非空 `scales_rendered`（**实际渲染过的档位**，不是计划档位；至少一档，高风险结构须含最大档）。
 - `deferred-native` 必须有 `defer_reason` 且 `native_verify: true`。
+- `not-applicable` 必须有 `notes` 说明为什么该页面/状态在这个产品里不存在；它是「本来就没有」，不是跳过必需状态的通道。
 - **阶段 6 状态自洽**：任何项 `native` 不得仍是 `todo`（未实现就标 `not-applicable`，或整体如实 `PARTIAL`）；`native: done` 必须有非空 `device`；`device` 全为 `not-tested` 只能支撑 `PARTIAL`，不得写成 PASS。
 - `not-tested` / `fail` 必须有 `notes`。
 - **不得出现地图里没有的 id，也不得让地图里的 id 消失**；`scripts/check-deliverables.py` 会校验。
@@ -407,7 +408,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 | `direction-divergence.json` | 方向差异实测（色板距离/骨架相关性） | 多方向时 |
 | `direction-approved.md` | **ZCode 设计决策记录**：合格性、采用/融合/拒绝、理由、风险、用户否决原话、可选复核意见；**状态字段（实施基线 / 实验推荐）——唯一实施基线** | 阶段 1 后、原型前 |
 | `prototype/` + `prototype-notes.md` | HTML 原型、覆盖矩阵、动效矩阵、概念偏差修正、评审与打磨记录、已知限制 | 阶段 2–3 |
-| `review-packet.md` | **可选**评审交接包：真实截图与 sha256、页面/状态/设备、改动说明、九个审美问题、SOL 意见与采纳结论 | 需外部审美咨询时 |
+| `review-packet.md` | **可选**评审交接包：真实截图与 sha256、页面/状态/设备、改动说明、九个审美问题、Copilot 认知意见与采纳结论 | 需外部审美咨询时 |
 | `asset-manifest.json` / `generation-log.md` | 素材唯一事实源与生成记录；`art-direction.md`（任务素材目录）记录艺术方向；对外素材另记**身份版本**与所用不变量 | 有素材就必需 |
 | `visual-identity.md`（产品仓库内） | 产品视觉身份档案：母题、不变量、可变项、反模式、适用范围与失效条件 | 对外素材/跨端一致/存在混淆风险时；由使用方项目持有 |
 | `handoff/` | App 原生交付包（规格 + 四类等价契约 + 动效/转场 + baselines） | 阶段 4 前 |
@@ -420,7 +421,7 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 
 | 情况 | 处理 |
 |---|---|
-| 生图接口不可用 / 默认 2.6 模型缺失 | 报告限制并暂停生图，**不静默降级旧模型**；可交付完整 prompt 让用户在外部真实出图后交回真实文件；**不得用 HTML/SVG/占位图冒充概念图** |
+| 生图接口不可用 / 默认档位模型缺失 | 报告限制并暂停生图，**不静默降级旧模型**；可交付完整 prompt 让用户在外部真实出图后交回真实文件；**不得用 HTML/SVG/占位图冒充概念图** |
 | 多方向差异实测判为换皮/同骨架 | 不进入原型；换骨架或换来源重出受影响方向，**不是换颜色** |
 | 全部方向不合格 | 按修正项改 prompt，只重出受影响方向；原因指向需求本身时与用户确认设计目标，不自行降低产品原则 |
 | 融合后是拼图式堆叠 | 视为方向未定；回到方向记录写清保留/舍弃与统一层级，或改为直接采用一个方向 |
@@ -455,13 +456,14 @@ when_to_use: 用户要做 App / 移动应用的界面设计、改版、多页面
 - 组件与交付物 → `references/components-and-output.md`；品牌资产 → `references/brand-asset-protocol.md`；参考板 → `references/design-research.md`；设计上下文 → `references/design-context.md`
 - Tweaks（可选） → `references/tweaks-system.md`；设计哲学 → `references/design-philosophy.md`；宿主映射 → `references/runtime-adapters.md` / `references/zcode-host.md`
 - 机械校验脚本 → `scripts/check-ui.mjs` / `scripts/check-contrast.py` / `scripts/check-motion.py` / `scripts/check-deliverables.py` / `scripts/direction_divergence.py` / `scripts/check-visual-identity.py` / `scripts/asset_manifest.py`
+- 测量、评审包与素材工具 → `scripts/design_measure.py` / `scripts/review_packet.py` / `scripts/ref_board.py` / `scripts/extract_grid.py` / `scripts/contact_sheet.py` / `scripts/chroma_key.py`（后三者需 Pillow，网格工具另需 numpy）
 
 ## 11. 宿主环境适配（ZCode）
 
 - **设计判断**：ZCode 主 Agent；复杂/高风险可派 ZCode 内置子 Agent 做只读复核。不调用远程模型做设计裁决。
 - **子代理**：ZCode `Agent`；主 Agent 负责实施与验证，子代理只做可拆分并行工作或独立只读复核。
 - **生图**：`scripts/zcode_image.py`；凭据取宿主 Provider 配置，不把密钥写入命令行或文档。
-- **Copilot**：需要可追踪治理时用 `~/.zcode/skills/copilot/scripts/` 的治理命令（合同/状态/证据/收口）；它只做治理，可能按其自身生命周期调用 SOL 做认知建议，但不做设计判断，SOL 结论也不是设计批准；DesignWise 不调度、不等待。**`call_gpt.py` / `bridge_evidence.py --image` 的设计裁决用途已退役，不得使用。**
+- **Copilot**：需要可追踪治理时用 `~/.zcode/skills/copilot/scripts/` 的治理命令（合同/状态/证据/收口）；它只做治理，可经其认知通道（`cognition-consult` / `cognition-review`，可带真实截图）提供建议，但不做设计判断，认知结论也不是设计批准；DesignWise 不调度、不等待，命令与参数以 Copilot 当前版本为准。**`call_gpt.py` / `bridge_evidence.py --image` 的设计裁决用途与已退役的 `sol-*` 命令已不得使用。**
 - **真机装包**：只使用宿主授权入口 `~/.zcode/skills/app-testing/runtime/mi6-verify/adb-auto-install.sh`，**禁止裸 `adb install`**；多台设备在线即停止；入口不可用报告，不自行替换。
-- **同步**：源码仓库是唯一真源；运行时副本只由 `scripts/sync_runtime.py --check|--apply` 单向下发，不手改副本、不做双向合并。
+- **同步**：源码仓库是唯一真源；运行时副本只由 `scripts/sync_runtime.py --to <skill 目录> --check|--apply` 单向下发，不手改副本、不做双向合并。
 - **完整映射、凭据边界与降级** → `references/zcode-host.md`。

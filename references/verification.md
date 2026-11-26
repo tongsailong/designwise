@@ -217,6 +217,7 @@ node scripts/check-ui.mjs --url "file://$PWD/prototype/index.html" --shot protot
 - `device.<scale>` 的取值与本轮矩阵逐项对应；`fail` 与 `not-tested` 必须有说明。
 - `deferred-native` 的项在交接里有 `native_verify` 义务，并在真机阶段被验证。
 - **报告里的页数、截图数、测试数，必须能数出来**（红线条 12）。
+- **阶段 6 状态自洽**（以 `SKILL.md` §6.3 为准，`check-deliverables.py` 会报错）：`native` 不得仍为 `todo`；`native: done` 必须有非空 `device`；`device` 全为 `not-tested` 只能支撑 `PARTIAL`。
 
 ### 5.4 动效与体验真机验证
 

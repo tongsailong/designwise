@@ -19,7 +19,7 @@
       "name": "主文字 ink/bg",      # 可读描述（必填）
       "fg": "#111418",             # 前景，HEX（必填）
       "bg": "#F4F5F3",             # 背景，HEX（必填）
-      "tier": "text",              # text | graphic | decorative（必填）
+      "tier": "text",              # text | graphic | decorative（缺省按最严的 text）
       "size": 16,                  # 可选：字号 px；text 档用于判「大字」（>=24，或 >=18.66 且 bold）
       "bold": false                # 可选，默认 false
     }

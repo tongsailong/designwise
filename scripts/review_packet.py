@@ -2,7 +2,7 @@
 """review_packet.py — 生成对外审美咨询的评审交接包
 
 把「产品/方向/本轮改动 + 真实截图（sha256/尺寸/屏幕/状态/缩放）」整理成一份 Markdown，
-供 Copilot 的 SOL 通道按 `--materials` + `--image` 消费；本脚本只做材料装配与事实校验，
+供 Copilot 的认知通道（`cognition-consult`）按 `--materials` + `--image` 消费；本脚本只做材料装配与事实校验，
 不判断设计好坏，也不调用任何模型。
 
 用法：

@@ -225,6 +225,42 @@ class RegisterTests(ManifestTestBase):
         self.assertEqual(prov["quality"], "max")
         self.assertEqual(prov["purpose"], "hero")
 
+    def test_10_re_register_preserves_documented_metadata(self):
+        # crop / visual_identity / 变体主题 / prompt_file 在重登记时不得被静默清空。
+        self.write("assets/images/hero.png")
+        self.write("assets/images/hero-dark.webp")
+        crop = '{"focus": [0.5, 0.35], "safe_area": "center 60%"}'
+        vi = '{"file": "docs/design/visual-identity.md", "version": "v1",'
+        vi += ' "campaign": "launch", "invariants_used": ["I1"]}'
+        code, _, err = self.register(
+            crop=crop, visual_identity=vi,
+            variant=["assets/images/hero-dark.webp"],
+            prompt_file="assets/prompts/hero.md")
+        self.assertEqual(code, 0, err)
+        entry = self.load()["assets"][0]
+        self.assertEqual(entry["crop"]["focus"], [0.5, 0.35])
+        self.assertEqual(entry["provenance"]["prompt_file"], "assets/prompts/hero.md")
+        self.assertEqual(self.load()["visual_identity"]["campaign"], "launch")
+        # 转换出的暗色变体由人手写主题；重登记不带这些参数时仍应保留。
+        data = self.load()
+        data["assets"][0]["variants"][0]["theme"] = "dark"
+        with open(self.manifest, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+        code, _, err = self.register(variant=["assets/images/hero-dark.webp"])
+        self.assertEqual(code, 0, err)
+        entry = self.load()["assets"][0]
+        self.assertEqual(entry["crop"]["focus"], [0.5, 0.35], "crop 被重登记清空")
+        self.assertEqual(entry["variants"][0]["theme"], "dark", "变体主题被清空")
+        self.assertEqual(entry["provenance"]["prompt_file"], "assets/prompts/hero.md")
+        self.assertEqual(self.load()["visual_identity"]["campaign"], "launch")
+
+    def test_11_invalid_crop_json_is_usage_error(self):
+        self.write("assets/images/hero.png")
+        code, _, err = self.register(crop="not-json")
+        self.assertEqual(code, 1)
+        self.assertIn("--crop is not valid JSON", err)
+        self.assertFalse(os.path.exists(self.manifest))
+
 
 class VerifyTests(ManifestTestBase):
     def test_01_clean_manifest_passes(self):
@@ -357,6 +393,17 @@ class VerifyTests(ManifestTestBase):
         code, out, _ = self.run_cli("verify", "--manifest", self.manifest)
         self.assertEqual(code, 1)
         self.assertIn("does not match actual png", out)
+
+    def test_17_strict_provenance_requires_prompt_file(self):
+        self.write("assets/images/hero.png")
+        self.register(model="gpt-image-2.5")
+        code, out, _ = self.run_cli("verify", "--manifest", self.manifest)
+        self.assertEqual(code, 0, out)
+        self.assertIn("no provenance.prompt_file", out)
+        code, out, _ = self.run_cli("verify", "--manifest", self.manifest,
+                                    "--strict-provenance")
+        self.assertEqual(code, 1, out)
+        self.assertIn("no provenance.prompt_file", out)
 
     def test_16_manifest_with_credential_field_fails(self):
         self.write("assets/images/hero.png")
