@@ -83,6 +83,8 @@ class CheckDeliverablesTest(unittest.TestCase):
                 "|---|---|---|---|---|---|\n"
                 "| 1 | 视觉论点 | 否，纸堆层数只在囤积型产品成立 | 能，层数可数 | 会 | 否 |\n"
                 "| 2 | 色彩关系 | 是 | 能，面积比可测 | 会 | 是，已补产品理由 |\n"
+                "| 3 | 字体声音 | 是 | 能，字号可测 | 会 | 是，已降级为可替换默认 |\n"
+                "| 4 | 构图与主角 | 否，比例由产品结构决定 | 能，占比可测 | 会 | 否 |\n"
             )
         body = (
             "# 方向确认 · t1\n\n## 状态\n"
@@ -343,6 +345,139 @@ class CheckDeliverablesTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("direction-default-answer-incomplete", self.codes(data))
 
+    def test_default_answer_synonyms_count_as_one_question(self):
+        """同一问题的两种写法只算一类：只答「换到同类/换产品名」不得通过。"""
+        self.write_concept_index()
+        self.write_direction(default_answer=(
+            "## 默认答案测试\n"
+            "换到同类产品是否仍成立？成立。换产品名是否仍成立？成立。\n"))
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("direction-default-answer-incomplete", self.codes(data))
+
+    def test_default_answer_only_counts_within_section(self):
+        """正文别处的「去掉 / 截图检验」不能当作默认答案的回答。"""
+        self.write_concept_index()
+        self.write_direction(
+            extra="- 设计备注：去掉首字下沉，截图检验留待原生\n",
+            default_answer="## 默认答案测试\n换到同类产品是否仍成立？否。\n")
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("direction-default-answer-incomplete", self.codes(data))
+
+    def test_default_answer_header_only_table_is_not_coverage(self):
+        """只抄四问表头、不填结论行，等于没做——表头不能给自己作证。"""
+        self.write_concept_index()
+        self.write_direction(default_answer=(
+            "## 默认答案测试\n"
+            "| # | 决定 | 换到同类产品是否仍成立 | 能否被截图检验 | 去掉是否变差 | 是否只是更贵的默认值 |\n"
+            "|---|---|---|---|---|---|\n"))
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("direction-default-answer-incomplete", self.codes(data))
+
+    def test_default_answer_placeholder_cell_is_not_coverage(self):
+        """某一问整列用「-」占位，说明这一问没答。"""
+        self.write_concept_index()
+        self.write_direction(default_answer=(
+            "## 默认答案测试\n"
+            "| # | 决定 | 换到同类产品是否仍成立 | 能否被截图检验 | 去掉是否变差 | 是否只是更贵的默认值 |\n"
+            "|---|---|---|---|---|---|\n"
+            "| 1 | 论点 | 是 | - | 会 | 否 |\n"
+            "| 2 | 色彩 | 否 | - | 会 | 是 |\n"
+            "| 3 | 字体 | 否 | - | 会 | 是 |\n"
+            "| 4 | 构图 | 是 | - | 会 | 否 |\n"))
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("direction-default-answer-incomplete", self.codes(data))
+
+    def test_default_answer_full_prose_passes(self):
+        """四问都用正文答齐是合法形式；只答一部分会被拦。"""
+        self.write_concept_index()
+        self.write_direction(default_answer=(
+            "## 默认答案测试\n"
+            "- 换到同类产品仍成立：是（任何阅读器都能这么说）→ 重写\n"
+            "- 能否被截图检验：能（重心可测）\n"
+            "- 去掉是否变差：会\n"
+            "- 只是更贵的默认值：是 → 降级\n"))
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 0, data)
+
+    def test_default_answer_partial_prose_is_rejected(self):
+        self.write_concept_index()
+        self.write_direction(default_answer=(
+            "## 默认答案测试\n"
+            "- 换到同类产品仍成立：是 → 重写\n"
+            "- 去掉是否变差：会\n"))
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("direction-default-answer-incomplete", self.codes(data))
+
+    def test_default_answer_too_few_rows_is_rejected(self):
+        """表格只填一两行说明八个决定没逐条答。"""
+        self.write_concept_index()
+        self.write_direction(default_answer=(
+            "## 默认答案测试\n"
+            "| # | 决定 | 换到同类产品是否仍成立 | 能否被截图检验 | 去掉是否变差 | 是否只是更贵的默认值 |\n"
+            "|---|---|---|---|---|---|\n"
+            "| 1 | 论点 | 是 | 能 | 会 | 否 |\n"
+            "| 2 | 色彩 | 否 | 能 | 会 | 是 |\n"))
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("direction-default-answer-too-few-rows", self.codes(data))
+
+    def test_default_answer_repeated_decision_rows_are_not_coverage(self):
+        """四行都写同一个决定，是凑行数不是逐条作答。"""
+        self.write_concept_index()
+        self.write_direction(default_answer=(
+            "## 默认答案测试\n"
+            "| # | 决定 | 换到同类产品是否仍成立 | 能否被截图检验 | 去掉是否变差 | 是否只是更贵的默认值 |\n"
+            "|---|---|---|---|---|---|\n"
+            "| 1 | 视觉论点 | 是 | 能 | 会 | 否 |\n"
+            "| 2 | 视觉论点 | 是 | 能 | 会 | 否 |\n"
+            "| 3 | 视觉论点 | 是 | 能 | 会 | 否 |\n"
+            "| 4 | 视觉论点 | 是 | 能 | 会 | 否 |\n"))
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("direction-default-answer-duplicate-decisions", self.codes(data))
+
+    def test_default_answer_table_pending_cell_is_not_coverage(self):
+        """表格填「稍后补充」是承诺不是结论，不能算答过。"""
+        self.write_concept_index()
+        self.write_direction(default_answer=(
+            "## 默认答案测试\n"
+            "| # | 决定 | 换到同类产品是否仍成立 | 能否被截图检验 | 去掉是否变差 | 是否只是更贵的默认值 |\n"
+            "|---|---|---|---|---|---|\n"
+            "| 1 | 论点 | 稍后补充 | 稍后补充 | 稍后补充 | 稍后补充 |\n"
+            "| 2 | 色彩 | 稍后补充 | 稍后补充 | 稍后补充 | 稍后补充 |\n"
+            "| 3 | 字体 | 稍后补充 | 稍后补充 | 稍后补充 | 稍后补充 |\n"
+            "| 4 | 构图 | 稍后补充 | 稍后补充 | 稍后补充 | 稍后补充 |\n"))
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("direction-default-answer-incomplete", self.codes(data))
+
+    def test_default_answer_pending_prose_is_not_coverage(self):
+        """「稍后补充」是承诺补答，不是答过；「会」不能当中途的单字用。"""
+        self.write_concept_index()
+        self.write_direction(default_answer=(
+            "## 默认答案测试\n"
+            "- 换到同类产品是否仍成立：稍后会补充\n"
+            "- 能否被截图检验：稍后会补充\n"
+            "- 去掉是否变差：稍后会补充\n"
+            "- 只是更贵的默认值：稍后会补充\n"))
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("direction-default-answer-incomplete", self.codes(data))
+
+    def test_default_answer_two_questions_per_line_is_allowed(self):
+        """一行用「；」分列两条结论是合法写法，不该被当成罗列问题整行丢弃。"""
+        self.write_concept_index()
+        self.write_direction(default_answer=(
+            "## 默认答案测试\n"
+            "- 换到同类产品成立；能否被截图检验：能；去掉会变差；只是更贵的默认值：否\n"))
+        proc, data = self.run_check("--skip-artifacts", stage="2")
+        self.assertEqual(proc.returncode, 0, data)
+
     # --- coverage.json（SKILL.md §6.3 / references/state-map.md §7） ---
     def test_valid_coverage_passes(self):
         self.write_brief(("P1", "X6"))
@@ -465,7 +600,7 @@ class CheckDeliverablesTest(unittest.TestCase):
         self.assertIn("coverage-id-unmapped", codes)  # X6 不在 map 里
 
     def test_stage6_rejects_unfinished_native_item(self):
-        """阶段 6 不得留下 native=todo：没做就标 not-applicable 或如实 PARTIAL。"""
+        """阶段 6 不得留下 native=todo：没实现就如实 PARTIAL，不得改标 not-applicable 凑齐。"""
         self.write_brief(("P1", "X6"))
         self.write_concept_index()
         self.write_direction()

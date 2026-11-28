@@ -129,6 +129,7 @@ node scripts/check-ui.mjs --url "file://$PWD/prototype/index.html" \
 - `--click` 用真实指针事件（CDP `Input.dispatchMouseEvent`）点元素中心；`--expect` 紧跟其后，断言**点击造成了可观察状态变化**：目标由不可见变可见，或文本 / aria 与 `data-*` 状态 / URL 发生变化。目标点击前已可见且状态未变即判失败（那只能证明元素在）；确需只断言存在时显式加 `--allow-static-expect`，JSON 里记 `change: "static"`。任一失败、或点击期间出现新异常/控制台 error，退出码为 1。
 - `--record <dir>` 用 CDP screencast 落连续 JPEG 帧，取首/中/末帧作动效证据；不依赖 Playwright。**没有断言的录制不能作为「交互正常」的证明。**
 - 录屏只作动态证据；功能结论仍以断言为准。
+- `--reach <选择器>` 断言关键控件**滚动后真的够得着**：滚到视口中心后必须完整入视口，且中心点经 `elementFromPoint` 命中的是控件本身或其子节点（被固定底栏/悬浮按钮/弹层接走指针，或控件 `pointer-events:none` 由父节点接走，都算未命中）。用于长表单底部的提交按钮、最大缩放档（`?fs=2.0`）下的主操作、固定栏上方的控件。**元素在 DOM 里、截图里有，不等于用户点得到**；失败进阻塞项（`reach`），`error` 写明「未完整入视口 / 被遮挡（covering）」。默认不启用，按页面结构显式调用。
 
 ### 2.4 状态覆盖
 
@@ -217,7 +218,7 @@ node scripts/check-ui.mjs --url "file://$PWD/prototype/index.html" --shot protot
 - `device.<scale>` 的取值与本轮矩阵逐项对应；`fail` 与 `not-tested` 必须有说明。
 - `deferred-native` 的项在交接里有 `native_verify` 义务，并在真机阶段被验证。
 - **报告里的页数、截图数、测试数，必须能数出来**（红线条 12）。
-- **阶段 6 状态自洽**（以 `SKILL.md` §6.3 为准，`check-deliverables.py` 会报错）：`native` 不得仍为 `todo`；`native: done` 必须有非空 `device`；`device` 全为 `not-tested` 只能支撑 `PARTIAL`。
+- **阶段 6 状态自洽**（以 `SKILL.md` §6.3 为准，`check-deliverables.py` 会报错）：`native` 仍为 `todo` 时阶段 6 不通过（如实保持 `todo` + 整体 `PARTIAL`，不得改标 `not-applicable`）；`native: done` 必须有非空 `device`；`device` 全为 `not-tested` 只能支撑 `PARTIAL`。
 
 ### 5.4 动效与体验真机验证
 

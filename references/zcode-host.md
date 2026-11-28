@@ -13,7 +13,7 @@
 | 真实生图 | `python3 scripts/zcode_image.py` | 本 skill 自带适配器，不依赖其他 skill |
 | **设计判断（阶段 1/3）** | ZCode 主 Agent 读真实图片、渲染截图与运行结果，按 `SKILL.md` §4 判据决策 | 不外包给远程模型；可选派 ZCode 内置子 Agent 做只读复核 |
 | 任务治理（可选） | `~/.zcode/skills/copilot/scripts/`（合同/状态/证据/收口） | 只做治理；可经其认知通道（`cognition-consult`）给建议，但**不做设计裁决**、不是普通开发前置门；DesignWise 不调度也不等待其结论 |
-| 浏览器渲染与截图 | `node scripts/check-ui.mjs --url file:///path/index.html`（本机 Chrome/Chromium + Node ≥22；`--shot` 截图、`--click/--expect` 交互断言、`--record` 连续帧） | 无浏览器 → 报告渲染缺口，**不得声称已验证** |
+| 浏览器渲染与截图 | `node scripts/check-ui.mjs --url file:///path/index.html`（本机 Chrome/Chromium + Node ≥22；`--shot` 截图、`--click/--expect` 交互断言、`--reach` 滚动可达与遮挡、`--record` 连续帧） | 无浏览器 → 报告渲染缺口，**不得声称已验证** |
 | 真机安装与运行 | **只用** `~/.zcode/skills/app-testing/runtime/mi6-verify/adb-auto-install.sh` | **禁止裸 `adb install`**；多台设备在线即停 |
 | 全局规则 | `~/.zcode/AGENTS.md` | 安全、授权、Git、委派、记忆、联网纪律以它为准 |
 

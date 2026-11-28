@@ -472,6 +472,80 @@ class CheckUiTest(unittest.TestCase):
         self.assertEqual(bad.returncode, 2, bad.stderr)
         self.assertIn("--expect 必须紧跟", bad.stderr)
 
+    def test_reach_passes_when_control_scrolls_into_clear_view(self):
+        """--reach：长页里的控件滚动后完整入视口且无遮挡 → 通过，并留下实测记录。"""
+        url = self.clean_page(
+            "reachable.html",
+            "<div style='height:1200px'>上半页</div><button id='cta'>保存</button>"
+            "<div style='height:1200px'>下半页</div>",
+            "#cta{height:48px;width:200px}",
+        )
+        proc, data = self.run_check(url, extra=["--reach", "#cta"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        report = data["reports"][0]
+        self.assertTrue(report["pass"])
+        self.assertEqual(report["reach"],
+                         [{"selector": "#cta", "exists": True, "ok": True,
+                           "change": "reachable"}])
+
+    def test_reach_blocks_control_covered_by_fixed_bottom_bar(self):
+        """--reach：固定底栏盖住控件中心 → 阻塞（元素在页面里 ≠ 用户点得到）。"""
+        url = self.clean_page(
+            "covered.html",
+            "<div style='height:1800px'>列表</div><button id='cta'>提交</button>"
+            "<div id='bar' style='position:fixed;left:0;right:0;bottom:0;height:120px'>"
+            "固定底栏</div>",
+            "#cta{height:48px;width:200px}",
+        )
+        proc, data = self.run_check(url, extra=["--reach", "#cta"])
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        report = data["reports"][0]
+        self.assertFalse(report["pass"])
+        step = report["reach"][0]
+        self.assertFalse(step["ok"])
+        self.assertIn("遮挡", step["error"])
+        self.assertEqual(step["covering"], "#bar")
+        self.assertIn("不可达", proc.stderr)
+        self.assertIn("reach", data["checks"]["blocker"])
+
+    def test_reach_blocks_target_that_does_not_take_pointer(self):
+        """--reach：控件 pointer-events:none，中心命中的是父容器 → 点不到，算遮挡。"""
+        url = self.clean_page(
+            "no-pointer.html",
+            "<div style='height:1000px'>上半页</div>"
+            "<div id='wrap'><button id='cta'>保存</button></div>"
+            "<div style='height:1000px'>下半页</div>",
+            "#cta{height:48px;width:200px;pointer-events:none}",
+        )
+        proc, data = self.run_check(url, extra=["--reach", "#cta"])
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        step = data["reports"][0]["reach"][0]
+        self.assertFalse(step["ok"])
+        self.assertIn("遮挡", step["error"])
+        self.assertEqual(step["covering"], "#wrap")
+
+    def test_reach_is_not_confused_by_page_smooth_scrolling(self):
+        """--reach：页面开了 scroll-behavior:smooth 也要先滚到位再判，不能读滚动中途的矩形。"""
+        url = self.clean_page(
+            "smooth.html",
+            "<div style='height:1600px'>上半页</div><button id='cta'>保存</button>"
+            "<div style='height:1600px'>下半页</div>",
+            "#cta{height:48px;width:200px} html{scroll-behavior:smooth}",
+        )
+        proc, data = self.run_check(url, extra=["--reach", "#cta"])
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(data["reports"][0]["reach"][0]["change"], "reachable")
+
+    def test_reach_reports_missing_selector_as_blocking(self):
+        """--reach：选择器不存在不得静默跳过，必须进阻塞项。"""
+        url = self.clean_page("noreach.html", "<p>正文</p>")
+        proc, data = self.run_check(url, extra=["--reach", "#missing"])
+        self.assertEqual(proc.returncode, 1, proc.stderr)
+        step = data["reports"][0]["reach"][0]
+        self.assertFalse(step["exists"])
+        self.assertFalse(step["ok"])
+        self.assertIn("找不到", step["error"])
+
     def test_record_writes_frames_and_requires_single_url(self):
         url = self.clean_page(
             "motion.html",

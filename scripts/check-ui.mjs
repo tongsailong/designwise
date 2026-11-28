@@ -13,6 +13,7 @@
  *   node scripts/check-ui.mjs --url file:///path/index.html --shot /tmp/ref.png [--full]
  *   node scripts/check-ui.mjs --url file:///path/index.html \
  *     --click "#tab-profile" --expect "#profile-panel" --click "#tab-home" --expect "#home-panel"
+ *   node scripts/check-ui.mjs --url "file:///...?fs=13" --reach "#primary-cta"  # 滚动可达 + 无遮挡
  *   node scripts/check-ui.mjs --url file:///path/index.html --record /tmp/frames
  *   node scripts/check-ui.mjs --url file:///path/index.html --ledger-add 项目名 [--ledger-check 10]
  *   node scripts/check-ui.mjs --ledger 20            # 只查账本，不做页面检查
@@ -21,10 +22,13 @@
  * 目标由不可见变可见，或文本 / aria 与 data-* 状态 / URL 发生变化；点击前后状态一致即失败
  * （目标本来就可见且什么都没变，只能证明"元素在"，不能证明"点击生效"）。确需只断言存在时显式加
  * `--allow-static-expect`，该选择会写进 JSON。未捕获异常与控制台 error 照常计入红灯。
+ * `--reach` 对指定控件做可达性断言：滚动到 center 后必须完整进入视口，且中心点没被固定栏/弹层遮挡
+ * （elementFromPoint 命中自身或子节点）。用于固定底栏遮住操作、最大字号下主操作落在首屏之外这类
+ * 横向溢出查不到的缺陷；按目标选择器显式启用，不默认对所有元素跑去重。
  * `--record` 用 CDP screencast 落连续帧（jpg），供动效首/中/末帧评审；不依赖 Playwright。
  *
  * 红灯（进 pass / 退出码 1，客观事实）：触控/字号/溢出/控制台错误/图片加载失败/正文对比度不足/
- * 交互断言失败。黄灯（只提示，不改退出码）：相对路径引图、对比度无法自动判定（渐变或图片背景）、
+ * 交互断言失败/可达性失败。黄灯（只提示，不改退出码）：相对路径引图、对比度无法自动判定（渐变或图片背景）、
  * 外观与历史交付同族、连续帧为空。账本只记录本机设计产物指纹，不是记忆系统；写不进去只报黄灯。
  *
  * 退出码：0 全部通过；1 有阻塞项；2 环境/用法错误（含 --shot 截图失败）。
@@ -53,6 +57,7 @@ let shotPath = '';
 let fullPage = false;
 let recordDir = '';
 const interactions = [];
+const reachSelectors = [];
 let allowStaticExpect = false;
 let ledgerAdd = '';
 let ledgerQuery = false;
@@ -83,6 +88,7 @@ for (let i = 0; i < args.length; i += 1) {
     if (!last || last.expect !== null) fail('--expect 必须紧跟一个 --click（先点击，再断言结果可见）');
     last.expect = next();
   } else if (a === '--allow-static-expect') allowStaticExpect = true;
+  else if (a === '--reach') reachSelectors.push(next());
   else if (a === '--record') recordDir = path.resolve(next());
   else if (a === '--ledger-add') ledgerAdd = next();
   else if (a === '--ledger') {
@@ -114,7 +120,7 @@ function usage(code) {
     'Usage: node scripts/check-ui.mjs --url <url> [--url <url>...] [--tap 48] [--tap-width 48] '
     + '[--font-min 14] [--font-ignore <selector>]... [--width 460] [--height 960] '
     + '[--settle 300] [--chrome <path>]\n'
-    + '       [--shot <png> [--full]] [--click <selector> [--expect <selector>]]... [--record <dir>]\n'
+    + '       [--shot <png> [--full]] [--click <selector> [--expect <selector>]]... [--reach <selector>]... [--record <dir>]\n'
     + '       [--allow-static-expect]（--expect 默认要求可观察状态变化）\n'
     + '       [--ledger-add <项目名>] [--ledger-check [N]] [--ledger [N]]\n',
   );
@@ -170,7 +176,7 @@ async function evalValue(cdp, expression) {
 const clickExpression = (selector) => `(() => {
   const el = document.querySelector(${JSON.stringify(selector)});
   if (!el) return { ok: false, error: '找不到点击目标' };
-  el.scrollIntoView({ block: 'center', inline: 'center' });
+  el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
   const cs = getComputedStyle(el);
   const r = el.getBoundingClientRect();
   if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0
@@ -194,6 +200,36 @@ const probeExpression = (selector) => `(() => {
     .concat(['propValue=' + (typeof el.value === 'string' ? el.value : '')]).join('|');
   const text = String(el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 500);
   return { exists: true, visible, text, state, url: location.href };
+})()`;
+
+// --reach：滚动到目标后，目标必须完整进入视口、且中心点没有被固定栏/弹层等遮挡。
+// 用于固定底栏遮住操作、最大字号下关键控件落在首屏之外这类 check-ui 原先查不到的缺陷。
+const reachExpression = (selector) => `(() => {
+  const el = document.querySelector(${JSON.stringify(selector)});
+  if (!el) return { exists: false, ok: false, error: '找不到可达性目标' };
+  el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+  const r = el.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const inViewport = r.width > 0 && r.height > 0
+    && r.left >= -1 && r.top >= -1 && r.right <= vw + 1 && r.bottom <= vh + 1;
+  if (!inViewport) {
+    return { exists: true, ok: false, error: '滚动后目标仍未完整进入视口',
+             rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom } };
+  }
+  const cs = getComputedStyle(el);
+  if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) {
+    return { exists: true, ok: false, error: '目标不可见' };
+  }
+  const x = r.left + r.width / 2, y = r.top + r.height / 2;
+  const hit = document.elementFromPoint(x, y);
+  // 只接受「命中自己或自己的子节点」：命中祖先说明这一层根本没接到指针（如 pointer-events: none），
+  // 用户点不到；命中旁支说明被遮挡。
+  const covered = !(hit && (hit === el || el.contains(hit)));
+  if (covered) {
+    const name = hit ? (hit.id ? '#' + hit.id : (hit.className || hit.tagName)) : null;
+    return { exists: true, ok: false, error: '目标中心被其他元素遮挡', covering: name };
+  }
+  return { exists: true, ok: true, change: 'reachable' };
 })()`;
 
 async function httpJson(port, pathname, method = 'GET') {
@@ -793,6 +829,23 @@ async function checkUrl(chrome, url) {
       }
     }
 
+    // ---- 可达性断言：滚动到目标后必须完整入视口且未被遮挡（--reach，默认不启用）----
+    let reachReport = null;
+    if (reachSelectors.length) {
+      reachReport = [];
+      for (const sel of reachSelectors) {
+        let rec;
+        try {
+          const r = await evalValue(cdp, reachExpression(sel));
+          rec = { selector: sel, ...(r || { ok: false, error: '求值失败' }) };
+        } catch (err) {
+          rec = { selector: sel, exists: false, ok: false,
+                  error: String(err && err.message ? err.message : err) };
+        }
+        reachReport.push(rec);
+      }
+    }
+
     if (record) {
       await sleep(300);
       await cdp.send('Page.stopScreencast').catch(() => {});
@@ -848,7 +901,8 @@ async function checkUrl(chrome, url) {
       && !overflowFail && !consoleErrors.length && !exceptions.length
       && !loadError && !loadTimedOut
       && !brokenImages.length && !contrastFailures.length
-      && (!interactionReport || interactionReport.every((s) => s.ok));
+      && (!interactionReport || interactionReport.every((s) => s.ok))
+      && (!reachReport || reachReport.every((s) => s.ok));
 
     return {
       url,
@@ -881,6 +935,7 @@ async function checkUrl(chrome, url) {
         ? { dir: record.dir, count: record.count, samples: record.samples, capped: record.capped, error: record.error }
         : null,
       interactions: interactionReport,
+      reach: reachReport,
       overflow: { ...data.overflow, fail: overflowFail },
       consoleErrors,
       exceptions,
@@ -1036,7 +1091,7 @@ const payload = {
   fontMin,
   viewport: `${width}x${height}`,
   checks: {
-    blocker: ['tap', 'font', 'overflow', 'consoleErrors', 'exceptions', 'images.broken', 'contrast.failures', 'interactions'],
+    blocker: ['tap', 'font', 'overflow', 'consoleErrors', 'exceptions', 'images.broken', 'contrast.failures', 'interactions', 'reach'],
     warning: ['images.anyRelativeRef', 'contrast.unknown', 'warnings'],
     note: '红灯阻断交付；绿灯/黄灯不改变退出码。对比度只算纯色背景，渐变/图片背景记 unknown 交人工。',
   },
@@ -1073,6 +1128,12 @@ for (const r of reports) {
     const failed = r.interactions.filter((s) => !s.ok);
     for (const step of failed.slice(0, 3)) {
       blockers.push(`${r.url}：点击 ${step.click} 失败${step.error ? `（${step.error}）` : ''}`);
+    }
+  }
+  if (r.reach) {
+    const failed = r.reach.filter((s) => !s.ok);
+    for (const step of failed.slice(0, 3)) {
+      blockers.push(`${r.url}：${step.selector} 不可达${step.error ? `（${step.error}）` : ''}`);
     }
   }
 }

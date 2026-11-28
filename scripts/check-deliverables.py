@@ -54,10 +54,29 @@ MAP_ID_RE = re.compile(r"(?<![A-Za-z0-9])([PSX]\d{1,3})(?![0-9])")
 EXIT_CHOICES = ("采用", "融合", "全部拒绝")
 STATUS_CHOICES = ("实施基线", "实验推荐")
 SHA_RE = re.compile(r"\b[0-9a-f]{64}\b")
-# 默认答案测试的四个问题各有自己的关键词；只核「写了这一节且覆盖到问题」，
-# 不判断答案是否成立（语义判断留给评审）。
+# 默认答案测试的四个问题各算一类；同义表达归到同一类，避免把同一个问题的两种写法
+# 计成"覆盖了两类"。只核这一节是否逐类回答，不判断答案是否成立（语义判断留给评审）。
 DEFAULT_ANSWER_HEADING = "默认答案"
-DEFAULT_ANSWER_SIGNALS = ("换到同类", "换产品名", "截图检验", "去掉", "更贵的默认值")
+DEFAULT_ANSWER_CATEGORIES = {
+    "换到同类产品是否仍成立": ("换到同类", "换产品名", "同类产品", "同类另一个产品"),
+    "能否被截图检验": ("截图检验", "能否被截图", "能被截图", "截图可", "可截图"),
+    "去掉是否变差": ("去掉", "删掉", "移除"),
+    "是否只是更贵的默认值": ("更贵的默认值", "更贵", "默认值"),
+}
+# 结论词只认「回答」，不认问题：结论词要落在结论位置（整段就是结论词、句子以它收尾、
+# 或它在冒号/分隔之后打头），所以「稍后会补充」这类承诺补答不会被「会」误判成已作答。
+DEFAULT_ANSWER_VERDICTS = (
+    "不会成立", "不适用", "不成立", "不通用", "不接近",
+    "是", "否", "会", "能", "部分", "成立", "通用", "特定", "接近",
+    "不会", "不是", "不能",
+)
+# 结论词前后的分隔符：结论词后面只允许接这些，接别的字说明它只是句子里的一个字。
+DEFAULT_ANSWER_BOUNDARY = " \t，。；、：（）()【】[]-—–|/→"
+DEFAULT_ANSWER_PLACEHOLDERS = {"", "-", "—", "–", "/", "?", "？", "待定", "tbd", "n/a", "todo", "…"}
+# 承诺补答不是结论：表格单元格或正文段里出现这些词，按未作答处理（「已补理由」这类不算）。
+DEFAULT_ANSWER_PENDING = ("稍后", "待补", "待定", "尚未", "未答", "待完成", "补充说明", "待核")
+# 方法约定八个决定逐条作答；只填一两行说明没做完，但行数不是质量判断（语义留给评审）。
+MIN_DEFAULT_ANSWER_ROWS = 4
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
@@ -214,6 +233,122 @@ def _field(text: str, name: str) -> str | None:
     return m.group(1).strip() if m else None
 
 
+def _section_around(text: str, heading: str) -> str:
+    """取包含 `heading` 的那一节（到下一个 1–2 级标题为止）。
+
+    默认答案的四个问题可能散落在正文别处（如「去掉首字下沉」里的「去掉」），
+    只在本节内计数才不会把无关文字当成回答。
+    """
+    lines = text.splitlines()
+    start = None
+    for i, line in enumerate(lines):
+        if heading in line:
+            start = i
+            break
+    if start is None:
+        return ""
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        if re.match(r"^#{1,2}\s", lines[j]):
+            end = j
+            break
+    return "\n".join(lines[start:end])
+
+
+def _clean_cell(value: str) -> str:
+    return value.strip().strip("*`_ ").strip()
+
+
+def _is_pending(value: str) -> bool:
+    """「稍后补充 / 待定 / 尚未确定」是承诺补答，不是结论。"""
+    return any(cue in value for cue in DEFAULT_ANSWER_PENDING)
+
+
+def _has_verdict(fragment: str) -> bool:
+    """判断一小段文字是否给出了结论，而不是只提到问题或承诺稍后补答。"""
+    text = fragment.strip(DEFAULT_ANSWER_BOUNDARY)
+    if not text:
+        return False
+    for token in DEFAULT_ANSWER_VERDICTS:
+        if text == token or text.endswith(token):
+            return True
+        if text.startswith(token) and text[len(token)] in DEFAULT_ANSWER_BOUNDARY:
+            return True
+    return False
+
+
+def _default_answer_coverage(section: str) -> tuple[set[str], int, int]:
+    """返回（真正答过的问题类别, 表格数据行数, 表格「决定」列的不同决定数）。
+
+    只认「答过」不认「提过」：表格里四个问题在表头、结论在数据行单元格；正文里问题词
+    所在段必须同时给出结论。只留表头、把四个问题罗列成一段、用「-」占位、或写「稍后
+    补充」都不算覆盖。决定数用来挡「同一决定重复四行」凑够行数的写法。
+    """
+    rows = _table_rows(section)
+    header_at = None
+    col: dict[str, int] = {}
+    decision_col = None
+    for i, cells in enumerate(rows):
+        hits: dict[str, int] = {}
+        for ci, cell in enumerate(cells):
+            for name, syns in DEFAULT_ANSWER_CATEGORIES.items():
+                if name not in hits and any(s in cell for s in syns):
+                    hits[name] = ci
+        if len(hits) >= 2:
+            header_at, col = i, hits
+            decision_col = next((ci for ci, cell in enumerate(cells) if "决定" in cell), None)
+            break
+    answered: set[str] = set()
+    data_rows = 0
+    decisions = 0
+    if header_at is not None:
+        data = rows[header_at + 1:]
+        data_rows = len(data)
+        # 逐条回答 = 每一行决定对四问都有结论；任何一行留空/占位，该列就不算答过
+        if data:
+            for name, ci in col.items():
+                if all(ci < len(cells) and _clean_cell(cells[ci])
+                       and _clean_cell(cells[ci]).lower() not in DEFAULT_ANSWER_PLACEHOLDERS
+                       and not _is_pending(cells[ci])
+                       for cells in data):
+                    answered.add(name)
+        if decision_col is not None:
+            labels = {
+                _clean_cell(cells[decision_col]) for cells in data
+                if decision_col < len(cells)
+                and _clean_cell(cells[decision_col]).lower() not in DEFAULT_ANSWER_PLACEHOLDERS
+            }
+            decisions = len(labels)
+    # 表格只答了部分问题时，其余问题仍可写在正文里
+    # 正文形式只在四问都答齐时才算：零散的「换到同类…成立吗」句子常是判据复述，
+    # 无法与回答区分，只认完整作答的正文，避免一句话混过整节。
+    prose: set[str] = set()
+    for line in section.splitlines():
+        if DEFAULT_ANSWER_HEADING in line:
+            continue
+        # 「；/|/。」分开的多条结论各自判断；同一段里出现两个问题名是在罗列问题，不是回答
+        for segment in re.split(r"[；;|。]", line):
+            cats_in_segment = [n for n, syns in DEFAULT_ANSWER_CATEGORIES.items()
+                               if any(s in segment for s in syns)]
+            if len(cats_in_segment) != 1 or _is_pending(segment):
+                continue
+            rest = segment
+            for syns in DEFAULT_ANSWER_CATEGORIES.values():
+                for syn in syns:
+                    rest = rest.replace(syn, " ")
+            # 「是否 / 仍成立 / 变差 / 只是」属于问题本身，不是回答；去掉后仍要能在结论位置
+            # 找到结论词，只复述问题或写「稍后补充」都不算答过
+            for question_word in ("是否", "能否", "仍成立", "变差", "只是", "吗", "？", "?"):
+                rest = rest.replace(question_word, " ")
+            if _has_verdict(rest) or any(
+                    _has_verdict(clause)
+                    for clause in re.split(r"[：:，,（）()【】\[\]]", rest)):
+                prose.update(cats_in_segment)
+    if len(prose) == len(DEFAULT_ANSWER_CATEGORIES):
+        answered |= prose
+    return answered, data_rows, decisions
+
+
 def _decision_exit(text: str) -> str | None:
     """显式「决策出口」字段优先；旧模板用「## 采用 / ## 融合 / ## 拒绝」分节表达同一结论。"""
     line = _field(text, "决策出口")
@@ -300,16 +435,30 @@ def check_direction(root: Path, task: Path, rep: Report, stage: int = 6) -> None
     # 默认答案测试是 art-direction.md §3 的必过项。只写在方法文件里不会被执行——
     # 真实的跳过就是把结论写进决策记录的这一步，所以这里要求记录里有这一节。
     if stage >= 2:
-        hits = [s for s in DEFAULT_ANSWER_SIGNALS if s in text]
         if DEFAULT_ANSWER_HEADING not in text:
             rep.error("direction-default-answer-missing", str(path),
                       "缺少「默认答案测试」结论：八个决定要逐条回答"
                       "「换到同类产品是否仍成立 / 能否被截图检验 / 去掉是否变差 / "
                       "是否只是更贵的默认值」，写进 direction-approved.md 再重跑")
-        elif len(hits) < 2:
-            rep.error("direction-default-answer-incomplete", str(path),
-                      "「默认答案测试」只覆盖了 %d 类问题（需 ≥2：换到同类/换产品名、截图检验、"
-                      "去掉是否变差、是否只是更贵的默认值）；逐条写结论，不要只留标题" % len(hits))
+        else:
+            section = _section_around(text, DEFAULT_ANSWER_HEADING)
+            covered, rows, decisions = _default_answer_coverage(section)
+            if len(covered) < len(DEFAULT_ANSWER_CATEGORIES):
+                missing = [n for n in DEFAULT_ANSWER_CATEGORIES if n not in covered]
+                rep.error("direction-default-answer-incomplete", str(path),
+                          "「默认答案测试」只答了 %d/%d 类问题（缺：%s）；"
+                          "同义写法只算一类，每类都要有结论，不要只留表头、把问题罗列成一行、"
+                          "用占位符凑数或写「稍后补充」"
+                          % (len(covered), len(DEFAULT_ANSWER_CATEGORIES),
+                             "、".join(missing)))
+            elif rows and rows < MIN_DEFAULT_ANSWER_ROWS:
+                rep.error("direction-default-answer-too-few-rows", str(path),
+                          "「默认答案测试」表格只有 %d 行结论；八个决定要逐条作答，"
+                          "只填一两行说明没做完" % rows)
+            elif decisions and decisions < MIN_DEFAULT_ANSWER_ROWS:
+                rep.error("direction-default-answer-duplicate-decisions", str(path),
+                          "「默认答案测试」表格「决定」列只有 %d 个不同决定；"
+                          "八个决定要逐条作答，同一决定重复几行不算逐条" % decisions)
 
 
 def check_baselines(task: Path, rep: Report) -> None:
@@ -519,8 +668,9 @@ def check_coverage(root: Path, task: Path, rep: Report, stage: int) -> None:
         if stage >= 6:
             if native == "todo":
                 rep.error("coverage-native-incomplete", str(coverage_path),
-                          f"{cid} 在阶段 6 的 native='todo'；交付前原生项必须实现（done），"
-                          "或标 not-applicable，或整体如实给 PARTIAL")
+                          f"{cid} 在阶段 6 的 native='todo'；阶段 6 是交付完成门，原生项必须实现（done）"
+                          "才能通过；没做就如实保持 todo、把整体交付标 PARTIAL 并写明未实现范围，"
+                          "不要改标 not-applicable（它只表示产品本身没有该页/状态）")
             elif native == "done":
                 states = [v for v in device.values() if v]
                 if not states:
